@@ -1,0 +1,16 @@
+C:/Users/Henry/source/libs/glfw/vsbuild/CMakeFiles/uninstall.dir
+C:/Users/Henry/source/libs/glfw/vsbuild/CMakeFiles/INSTALL.dir
+C:/Users/Henry/source/libs/glfw/vsbuild/CMakeFiles/ALL_BUILD.dir
+C:/Users/Henry/source/libs/glfw/vsbuild/CMakeFiles/ZERO_CHECK.dir
+C:/Users/Henry/source/libs/glfw/vsbuild/src/CMakeFiles/glfw.dir
+C:/Users/Henry/source/libs/glfw/vsbuild/src/CMakeFiles/INSTALL.dir
+C:/Users/Henry/source/libs/glfw/vsbuild/examples/CMakeFiles/boing.dir
+C:/Users/Henry/source/libs/glfw/vsbuild/examples/CMakeFiles/simple.dir
+C:/Users/Henry/source/libs/glfw/vsbuild/examples/CMakeFiles/gears.dir
+C:/Users/Henry/source/libs/glfw/vsbuild/examples/CMakeFiles/particles.dir
+C:/Users/Henry/source/libs/glfw/vsbuild/examples/CMakeFiles/heightmap.dir
+C:/Users/Henry/source/libs/glfw/vsbuild/examples/CMakeFiles/splitview.dir
+C:/Users/Henry/source/libs/glfw/vsbuild/examples/CMakeFiles/offscreen.dir
+C:/Users/Henry/source/libs/glfw/vsbuild/examples/CMakeFiles/sharing.dir
+C:/Users/Henry/source/libs/glfw/vsbuild/examples/CMakeFiles/wave.dir
+C:/Users/Henry/source/libs/glfw/vsbuild/examples/CMakeFiles/INSTALL.dir

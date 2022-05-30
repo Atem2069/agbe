@@ -1,0 +1,17 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="16.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\Henry\source\libs\glfw\vsbuild\CMakeFiles\ae94fa7b72c77375300b9b81fc6e8d1a\uninstall.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="C:\Users\Henry\source\libs\glfw\CMakeLists.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="C:\Users\Henry\source\libs\glfw\vsbuild\CMakeFiles\uninstall" />
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="CMake Rules">
+      <UniqueIdentifier>{716EC2E2-F7AC-318F-8CD1-FA9AFD04C604}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>
