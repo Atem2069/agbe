@@ -102,6 +102,42 @@ void Bus::write8(uint32_t address, uint8_t value)
 uint16_t Bus::read16(uint32_t address)
 {
 	address &= 0xFFFFFFFE;
+	uint8_t page = (address >> 24) & 0xF;
+
+	switch (page)
+	{
+	case 0: case 1:
+		if (address > 0x3FFF)
+		{
+			Logger::getInstance()->msg(LoggerSeverity::Error, "Out of bounds BIOS read");
+			return 0;
+		}
+		return getValue16(m_mem->BIOS, address & 0x3FFF);
+	case 2:
+		return getValue16(m_mem->externalWRAM, address & 0x3FFFF);
+	case 3:
+		return getValue16(m_mem->internalWRAM, address & 0x7FFF);
+	case 4:
+		return readIO16(address);
+	case 5:
+		return getValue16(m_mem->paletteRAM, address & 0x3FF);
+	case 6:
+		if (address >= 0x06018000)
+		{
+			Logger::getInstance()->msg(LoggerSeverity::Error, "Unhandled OOB VRAM read");
+			return 0;
+		}
+		return getValue16(m_mem->VRAM, address % (96 * 1024));	//aaaa
+	case 7:
+		return getValue16(m_mem->OAM, address & 0x3FF);
+	case 8: case 9: case 0xA: case 0xB: case 0xC: case 0xD:
+		return getValue16(m_mem->ROM, address & 0x01FFFFFF);
+	case 0xE:
+		Logger::getInstance()->msg(LoggerSeverity::Error, "Invalid 16-bit SRAM read");
+		return 0;
+	}
+
+	Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Out of bounds/invalid read addr={0}", address));
 	return 0;
 }
 
