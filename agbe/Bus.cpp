@@ -53,7 +53,7 @@ uint8_t Bus::read8(uint32_t address)
 			Logger::getInstance()->msg(LoggerSeverity::Error, "Unhandled OOB VRAM read");
 			return 0;
 		}
-		return m_mem->VRAM[address%(96*1024)];
+		return m_mem->VRAM[address%(96*1024)];	//lmao. i think the additional 32k range is mirrored instead or something?
 	case 7:
 		return m_mem->OAM[address & 0x3FF];
 	case 8: case 9: case 0xA: case 0xB: case 0xC: case 0xD:	//need to do this better (different waitstates will have different timings)
@@ -69,7 +69,34 @@ uint8_t Bus::read8(uint32_t address)
 
 void Bus::write8(uint32_t address, uint8_t value)
 {
-
+	uint8_t page = (address >> 24) & 0xF;
+	switch (page)
+	{
+	case 0: case 1:
+		Logger::getInstance()->msg(LoggerSeverity::Error, "Tried to write to BIOS region");
+		break;
+	case 2:
+		m_mem->externalWRAM[address & 0x3FFFF] = value;
+		break;
+	case 3:
+		m_mem->internalWRAM[address & 0x7FFF] = value;
+		break;
+	case 4:
+		writeIO8(address, value);
+		break;
+	case 5: case 6: case 7:
+		Logger::getInstance()->msg(LoggerSeverity::Error, "Tried 8-bit write to VRAM - ignoring");
+		break;
+	case 8: case 9: case 0xA: case 0xB: case 0xC: case 0xD:
+		Logger::getInstance()->msg(LoggerSeverity::Error, "Tried writing to ROM - ignoring");
+		break;
+	case 0xE:
+		Logger::getInstance()->msg(LoggerSeverity::Error, "Unimplemented SRAM write");
+		break;
+	default:
+		Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Out of bounds/invalid write addr={0}", address));
+		break;
+	}
 }
 
 uint16_t Bus::read16(uint32_t address)
