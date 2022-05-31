@@ -1,0 +1,155 @@
+#include"Bus.h"
+
+Bus::Bus(std::vector<uint8_t> BIOS, std::vector<uint8_t> cartData)
+{
+	m_mem = std::make_shared<GBAMem>();
+	if (BIOS.size() != 16384)
+	{
+		Logger::getInstance()->msg(LoggerSeverity::Error, "Invalid BIOS ROM size!!");
+		return;
+	}
+	if (cartData.size() > (32 * 1024 * 1024))
+	{
+		Logger::getInstance()->msg(LoggerSeverity::Error, "ROM file is too big!!");
+		return;
+	}
+	memcpy(m_mem->BIOS, &BIOS[0], BIOS.size());
+	memcpy(m_mem->ROM, &cartData[0], cartData.size());	//ROM seems to be mirrored if size <= 16mb. should add later (classic nes might rely on it?)
+}
+
+Bus::~Bus()
+{
+
+}
+
+void Bus::tick()
+{
+	//todo: tick other components
+}
+
+uint8_t Bus::read8(uint32_t address)
+{
+	uint8_t page = (address >> 24) & 0xF;
+	switch (page)
+	{
+	case 0: case 1:
+		if (address >= 0x4000)
+		{
+			Logger::getInstance()->msg(LoggerSeverity::Error, "Open bus BIOS read");
+			return 0;
+		}
+		return m_mem->BIOS[address & 0x3FFF];
+	case 2:
+		return m_mem->externalWRAM[address & 0x3FFFF];
+	case 3:
+		return m_mem->internalWRAM[address & 0x7FFF];
+	case 4:
+		return readIO8(address);
+	case 5:
+		return m_mem->paletteRAM[address & 0x3FF];
+	case 6:
+		if (address >= 0x06018000)
+		{
+			Logger::getInstance()->msg(LoggerSeverity::Error, "Unhandled OOB VRAM read");
+			return 0;
+		}
+		return m_mem->VRAM[address%(96*1024)];
+	case 7:
+		return m_mem->OAM[address & 0x3FF];
+	case 8: case 9: case 0xA: case 0xB: case 0xC: case 0xD:	//need to do this better (different waitstates will have different timings)
+		return m_mem->ROM[address & 0x01FFFFFF];
+	case 0xE:
+		Logger::getInstance()->msg(LoggerSeverity::Error, "SRAM not implemented");
+		return 0;
+	}
+
+	Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Out of bounds/invalid read addr={0}", address));
+	return 0;
+}
+
+void Bus::write8(uint32_t address, uint8_t value)
+{
+
+}
+
+uint16_t Bus::read16(uint32_t address)
+{
+	address &= 0xFFFFFFFE;
+	return 0;
+}
+
+void Bus::write16(uint32_t address, uint16_t value)
+{
+	address &= 0xFFFFFFFE;
+}
+
+uint32_t Bus::read32(uint32_t address)
+{
+	address &= 0xFFFFFFFC;
+	return 0;
+}
+
+void Bus::write32(uint32_t address, uint32_t value)
+{
+	address &= 0xFFFFFFFC;
+}
+
+
+//Probably handle reading a single IO byte in 'readIO8'
+//And then sort out 16/32 bit r/w using the above
+uint8_t Bus::readIO8(uint32_t address)
+{
+	return 0;
+}
+
+void Bus::writeIO8(uint32_t address, uint8_t value)
+{
+
+}
+
+uint16_t Bus::readIO16(uint32_t address)
+{
+	return 0;
+}
+
+void Bus::writeIO16(uint32_t address, uint16_t value)
+{
+
+}
+
+uint32_t Bus::readIO32(uint32_t address)
+{
+	return 0;
+}
+
+void Bus::writeIO32(uint32_t address, uint32_t value)
+{
+
+}
+
+
+//Handles reading/writing larger than byte sized values (the addresses should already be aligned so no issues there)
+//This is SOLELY for memory - IO is handled differently bc it's not treated as a flat mem space
+uint16_t Bus::getValue16(uint8_t* arr, int base)
+{
+	return (uint16_t)arr[base] | ((arr[base + 1]) << 8);
+}
+
+void Bus::setValue16(uint8_t* arr, int base, uint16_t val)
+{
+	arr[base] = val & 0xFF;
+	arr[base + 1] = ((val >> 8) & 0xFF);
+}
+
+uint32_t Bus::getValue32(uint8_t* arr, int base)
+{
+	return (uint32_t)arr[base] | ((arr[base + 1]) << 8) | ((arr[base + 2]) << 16) | ((arr[base + 3]) << 24);
+}
+
+void Bus::setValue32(uint8_t* arr, int base, uint32_t val)
+{
+	arr[base] = val & 0xFF;
+	arr[base + 1] = ((val >> 8) & 0xFF);
+	arr[base + 2] = ((val >> 16) & 0xFF);
+	arr[base + 3] = ((val >> 24) & 0xFF);
+}
