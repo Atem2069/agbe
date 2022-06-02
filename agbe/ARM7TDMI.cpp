@@ -28,7 +28,14 @@ void ARM7TDMI::step()
 	if (m_shouldFlush)
 		flushPipeline();
 	else												//essentially only advance pipeline stage if the last operation didn't cause a pipeline flush
+	{
+		bool thumb = (CPSR >> 5) & 0b1;	//increment pc only if pipeline not flushed
+		if (thumb)
+			R[15] += 2;
+		else
+			R[15] += 4;
 		m_pipelinePtr = ((m_pipelinePtr + 1) % 3);
+	}
 }
 
 void ARM7TDMI::fetch()
@@ -37,15 +44,9 @@ void ARM7TDMI::fetch()
 	int curPipelinePtr = m_pipelinePtr;
 	m_pipeline[curPipelinePtr].state = PipelineState::FILLED;
 	if (thumb)
-	{
 		m_pipeline[curPipelinePtr].opcode = m_bus->read16(R[15]);
-		R[15] += 2;
-	}
 	else
-	{
 		m_pipeline[curPipelinePtr].opcode = m_bus->read32(R[15]);
-		R[15] += 4;
-	}
 }
 
 void ARM7TDMI::execute()
@@ -66,21 +67,21 @@ void ARM7TDMI::execute()
 	if (!checkConditions())
 		return;
 
-	Logger::getInstance()->msg(LoggerSeverity::Info, std::format("Execute opcode (ARM) {:#x}. PC={:#x}", m_currentOpcode, R[15]-12));
+	Logger::getInstance()->msg(LoggerSeverity::Info, std::format("Execute opcode (ARM) {:#x}. PC={:#x}", m_currentOpcode, R[15]-8));
 
 	//decode instruction here
 	if ((m_currentOpcode & 0b0000'1110'0000'0000'0000'0000'0000'0000) == 0b0000'1010'0000'0000'0000'0000'0000'0000)
 		ARM_Branch();
 	else
 	{
-		Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Unimplemented opcode (ARM) {:#x}. PC+12={:#x}", m_currentOpcode, R[15]));
+		Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Unimplemented opcode (ARM) {:#x}. PC+8={:#x}", m_currentOpcode, R[15]));
 		throw std::runtime_error("Invalid opcode");
 	}
 }
 
 void ARM7TDMI::executeThumb()
 {
-	Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Unimplemented opcode (Thumb) {:#x}. PC+12={:#x}", m_currentOpcode, R[15]));
+	Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Unimplemented opcode (Thumb) {:#x}. PC+8={:#x}", m_currentOpcode, R[15]));
 	throw std::runtime_error("Invalid opcode");
 }
 
@@ -309,11 +310,10 @@ void ARM7TDMI::ARM_Branch()
 	offset <<= 2;	//now 26 bits
 	if ((offset >> 25) & 0b1)	//if sign (bit 25) set, then must sign extend
 		offset |= 0xFC000000;
-	offset -= 4;	//accommodate for PC being +12
 	
 	//set R15
 	setReg(15, getReg(15) + offset);
 	if (link)
-		setReg(14, getReg(15) - 8);	//to accommodate for pipeline - the effective value saved in LR is 4 bytes ahead of the opcode
+		setReg(14, getReg(15) - 4);	//to accommodate for pipeline - the effective value saved in LR is 4 bytes ahead of the opcode
 
 }
