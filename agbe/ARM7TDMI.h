@@ -64,4 +64,10 @@ private:
 	void m_setCarryFlag(bool value);
 	void m_setOverflowFlag(bool value);
 
+	//get/set registers
+	uint32_t getReg(uint8_t reg);
+	void setReg(uint8_t reg, uint32_t value);
+
+	void ARM_Branch();
+
 };

@@ -27,7 +27,7 @@ void ARM7TDMI::step()
 
 	if (m_shouldFlush)
 		flushPipeline();
-	else
+	else												//essentially only advance pipeline stage if the last operation didn't cause a pipeline flush
 		m_pipelinePtr = ((m_pipelinePtr + 1) % 3);
 }
 
@@ -66,10 +66,16 @@ void ARM7TDMI::execute()
 	if (!checkConditions())
 		return;
 
-	//decode instruction here
+	Logger::getInstance()->msg(LoggerSeverity::Info, std::format("Execute opcode (ARM) {:#x}. PC={:#x}", m_currentOpcode, R[15]-12));
 
-	Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Unimplemented opcode (ARM) {:#x}. PC+12={:#x}", m_currentOpcode, R[15]));
-	throw std::runtime_error("Invalid opcode");
+	//decode instruction here
+	if ((m_currentOpcode & 0b0000'1110'0000'0000'0000'0000'0000'0000) == 0b0000'1010'0000'0000'0000'0000'0000'0000)
+		ARM_Branch();
+	else
+	{
+		Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Unimplemented opcode (ARM) {:#x}. PC+12={:#x}", m_currentOpcode, R[15]));
+		throw std::runtime_error("Invalid opcode");
+	}
 }
 
 void ARM7TDMI::executeThumb()
@@ -83,6 +89,7 @@ void ARM7TDMI::flushPipeline()
 	for (int i = 0; i < 3; i++)
 		m_pipeline[i].state = PipelineState::UNFILLED;
 	m_pipelinePtr = 0;
+	m_shouldFlush = false;
 }
 
 bool ARM7TDMI::checkConditions()
@@ -102,8 +109,8 @@ bool ARM7TDMI::checkConditions()
 	case 9: return (!m_getCarryFlag() || m_getZeroFlag());
 	case 10: return ((m_getNegativeFlag() && m_getOverflowFlag()) || (!m_getNegativeFlag() && !m_getOverflowFlag()));
 	case 11: return (m_getNegativeFlag() != m_getOverflowFlag());
-	case 12: return !m_getZeroFlag && (m_getNegativeFlag() == m_getOverflowFlag());
-	case 13: return m_getZeroFlag || (m_getNegativeFlag() != m_getOverflowFlag());
+	case 12: return !m_getZeroFlag() && (m_getNegativeFlag() == m_getOverflowFlag());
+	case 13: return m_getZeroFlag() || (m_getNegativeFlag() != m_getOverflowFlag());
 	case 14: return true;
 	case 15: Logger::getInstance()->msg(LoggerSeverity::Error, "Invalid condition code 1111 !!!!"); break;
 	}
@@ -165,4 +172,148 @@ void ARM7TDMI::m_setOverflowFlag(bool value)
 		CPSR |= mask;
 	else
 		CPSR &= (~mask);
+}
+
+uint32_t ARM7TDMI::getReg(uint8_t reg)
+{
+	uint8_t mode = CPSR & 0x1F;
+	if (reg < 8)		//R0-R7 not banked so this is gucci
+		return R[reg];
+	switch (reg)
+	{
+	case 8:
+		if (mode == 0b10001)
+			return R8_fiq;
+		return R[8];
+	case 9:
+		if (mode == 0b10001)
+			return R9_fiq;
+		return R[9];
+	case 10:
+		if (mode == 0b10001)
+			return R10_fiq;
+		return R[10];
+	case 11:
+		if (mode == 0b10001)
+			return R11_fiq;
+		return R[11];
+	case 12:
+		if (mode == 0b10001)
+			return R12_fiq;
+		return R[12];
+	case 13:
+		if (mode == 0b10001)
+			return R13_fiq;
+		if (mode == 0b10011)
+			return R13_svc;
+		if (mode == 0b10111)
+			return R13_abt;
+		if (mode == 0b10010)
+			return R13_irq;
+		if (mode == 0b11011)
+			return R13_und;
+		return R[13];
+	case 14:
+		if (mode == 0b10001)
+			return R14_fiq;
+		if (mode == 0b10011)
+			return R14_svc;
+		if (mode == 0b10111)
+			return R14_abt;
+		if (mode == 0b10010)
+			return R14_irq;
+		if (mode == 0b11011)
+			return R14_und;
+		return R[14];
+	case 15:
+		return R[15];
+	}
+}
+
+void ARM7TDMI::setReg(uint8_t reg, uint32_t value)
+{
+	uint8_t mode = CPSR & 0x1F;
+	if (reg < 8)		//R0-R7 not banked so this is gucci
+		R[reg] = value;
+	switch (reg)
+	{
+	case 8:
+		if (mode == 0b10001)
+			R8_fiq = value;
+		else
+			R[8] = value;
+		break;
+	case 9:
+		if (mode == 0b10001)
+			R9_fiq = value;
+		else
+			R[9] = value;
+		break;
+	case 10:
+		if (mode == 0b10001)
+			R10_fiq = value;
+		else
+			R[10] = value;
+		break;
+	case 11:
+		if (mode == 0b10001)
+			R11_fiq = value;
+		else
+			R[11] = value;
+		break;
+	case 12:
+		if (mode == 0b10001)
+			R12_fiq = value;
+		else
+			R[12] = value;
+		break;
+	case 13:
+		if (mode == 0b10001)
+			R13_fiq = value;
+		else if (mode == 0b10011)
+			R13_svc = value;
+		else if (mode == 0b10111)
+			R13_abt = value;
+		else if (mode == 0b10010)
+			R13_irq = value;
+		else if (mode == 0b11011)
+			R13_und = value;
+		else
+			R[13] = value;
+		break;
+	case 14:
+		if (mode == 0b10001)
+			R14_fiq = value;
+		else if (mode == 0b10011)
+			R14_svc = value;
+		else if (mode == 0b10111)
+			R14_abt = value;
+		else if (mode == 0b10010)
+			R14_irq = value;
+		else if (mode == 0b11011)
+			R14_und = value;
+		else
+			R[14] = value;
+		break;
+	case 15:
+		m_shouldFlush = true;	//modifying PC always causes flush
+		R[15] = value;
+		break;
+	}
+}
+
+void ARM7TDMI::ARM_Branch()
+{
+	bool link = ((m_currentOpcode >> 24) & 0b1);
+	int32_t offset = m_currentOpcode & 0x00FFFFFF;
+	offset <<= 2;	//now 26 bits
+	if ((offset >> 25) & 0b1)	//if sign (bit 25) set, then must sign extend
+		offset |= 0xFC000000;
+	offset -= 4;	//accommodate for PC being +12
+	
+	//set R15
+	setReg(15, getReg(15) + offset);
+	if (link)
+		setReg(14, getReg(15) - 8);	//to accommodate for pipeline - the effective value saved in LR is 4 bytes ahead of the opcode
+
 }
