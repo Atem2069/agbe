@@ -28,8 +28,10 @@ void Bus::tick()
 	//todo: tick other components
 }
 
-uint8_t Bus::read8(uint32_t address)
+uint8_t Bus::read8(uint32_t address, bool doTick)
 {
+	if (doTick)
+		tick();
 	uint8_t page = (address >> 24) & 0xF;
 	switch (page)
 	{
@@ -68,8 +70,10 @@ uint8_t Bus::read8(uint32_t address)
 	return 0;
 }
 
-void Bus::write8(uint32_t address, uint8_t value)
+void Bus::write8(uint32_t address, uint8_t value, bool doTick)
 {
+	if (doTick)
+		tick();
 	uint8_t page = (address >> 24) & 0xF;
 	switch (page)
 	{
@@ -100,8 +104,10 @@ void Bus::write8(uint32_t address, uint8_t value)
 	}
 }
 
-uint16_t Bus::read16(uint32_t address)
+uint16_t Bus::read16(uint32_t address, bool doTick)
 {
+	if (doTick)
+		tick();
 	address &= 0xFFFFFFFE;
 	uint8_t page = (address >> 24) & 0xF;
 
@@ -142,8 +148,10 @@ uint16_t Bus::read16(uint32_t address)
 	return 0;
 }
 
-void Bus::write16(uint32_t address, uint16_t value)
+void Bus::write16(uint32_t address, uint16_t value, bool doTick)
 {
+	if (doTick)
+		tick();
 	address &= 0xFFFFFFFE;
 	uint8_t page = (address >> 24) & 0xF;
 	switch (page)
@@ -183,8 +191,10 @@ void Bus::write16(uint32_t address, uint16_t value)
 	}
 }
 
-uint32_t Bus::read32(uint32_t address)
+uint32_t Bus::read32(uint32_t address, bool doTick)
 {
+	if (doTick)
+		tick();
 	address &= 0xFFFFFFFC;
 	uint8_t page = (address >> 24) & 0xF;
 
@@ -225,8 +235,10 @@ uint32_t Bus::read32(uint32_t address)
 	return 0;
 }
 
-void Bus::write32(uint32_t address, uint32_t value)
+void Bus::write32(uint32_t address, uint32_t value, bool doTick)
 {
+	if (doTick)
+		tick();
 	address &= 0xFFFFFFFC;
 	uint8_t page = (address >> 24) & 0xF;
 	switch (page)

@@ -13,14 +13,14 @@ public:
 
 	void tick();	//inaccurate but tick 1 cycle per memory access
 
-	uint8_t read8(uint32_t address);
-	void write8(uint32_t address, uint8_t value);
+	uint8_t read8(uint32_t address, bool doTick=true);
+	void write8(uint32_t address, uint8_t value, bool doTick=true);
 
-	uint16_t read16(uint32_t address);
-	void write16(uint32_t address, uint16_t value);
+	uint16_t read16(uint32_t address, bool doTick=true);
+	void write16(uint32_t address, uint16_t value, bool doTick=true);
 
-	uint32_t read32(uint32_t address);
-	void write32(uint32_t address, uint32_t value);
+	uint32_t read32(uint32_t address, bool doTick=true);
+	void write32(uint32_t address, uint32_t value, bool doTick=true);
 
 //handle IO separately
 
