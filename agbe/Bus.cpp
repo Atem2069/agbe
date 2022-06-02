@@ -63,7 +63,7 @@ uint8_t Bus::read8(uint32_t address)
 		return 0;
 	}
 
-	Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Out of bounds/invalid read addr={0}", address));
+	Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Out of bounds/invalid read addr={:#x}", address));
 	return 0;
 }
 
@@ -94,7 +94,7 @@ void Bus::write8(uint32_t address, uint8_t value)
 		Logger::getInstance()->msg(LoggerSeverity::Error, "Unimplemented SRAM write");
 		break;
 	default:
-		Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Out of bounds/invalid write addr={0}", address));
+		Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Out of bounds/invalid write addr={:#x}", address));
 		break;
 	}
 }
@@ -137,24 +137,132 @@ uint16_t Bus::read16(uint32_t address)
 		return 0;
 	}
 
-	Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Out of bounds/invalid read addr={0}", address));
+	Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Out of bounds/invalid read addr={:#x}", address));
 	return 0;
 }
 
 void Bus::write16(uint32_t address, uint16_t value)
 {
 	address &= 0xFFFFFFFE;
+	uint8_t page = (address >> 24) & 0xF;
+	switch (page)
+	{
+	case 0: case 1:
+		Logger::getInstance()->msg(LoggerSeverity::Error, "Tried to write to BIOS!!");
+		break;
+	case 2:
+		setValue16(m_mem->externalWRAM, address & 0x3FFFF, value);
+		break;
+	case 3:
+		setValue16(m_mem->internalWRAM, address & 0x7FFF, value);
+		break;
+	case 4:
+		writeIO16(address, value);
+		break;
+	case 5:
+		setValue16(m_mem->paletteRAM, address & 0x3FF, value);
+		break;
+	case 6:
+		if (address > 0x06017FFF)
+		{
+			Logger::getInstance()->msg(LoggerSeverity::Error, "Improperly handled OOB VRAM write");
+			break;
+		}
+		setValue16(m_mem->VRAM, address % (96 * 1024), value);
+		break;
+	case 7:
+		setValue16(m_mem->OAM, address & 0x3FF, value);
+		break;
+	case 8: case 9: case 0xA: case 0xB: case 0xC: case 0xD: case 0xE:
+		Logger::getInstance()->msg(LoggerSeverity::Error, "Tried to write to cartridge space!!!");
+		break;
+	default:
+		Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Out of bounds/invalid write addr={:#x}", address));
+		break;
+	}
 }
 
 uint32_t Bus::read32(uint32_t address)
 {
 	address &= 0xFFFFFFFC;
+	uint8_t page = (address >> 24) & 0xF;
+
+	switch (page)
+	{
+	case 0: case 1:
+		if (address > 0x3FFF)
+		{
+			Logger::getInstance()->msg(LoggerSeverity::Error, "Out of bounds BIOS read");
+			return 0;
+		}
+		return getValue32(m_mem->BIOS, address & 0x3FFF);
+	case 2:
+		return getValue32(m_mem->externalWRAM, address & 0x3FFFF);
+	case 3:
+		return getValue32(m_mem->internalWRAM, address & 0x7FFF);
+	case 4:
+		return readIO32(address);
+	case 5:
+		return getValue32(m_mem->paletteRAM, address & 0x3FF);
+	case 6:
+		if (address >= 0x06018000)
+		{
+			Logger::getInstance()->msg(LoggerSeverity::Error, "Unhandled OOB VRAM read");
+			return 0;
+		}
+		return getValue32(m_mem->VRAM, address % (96 * 1024));	//aaaa
+	case 7:
+		return getValue32(m_mem->OAM, address & 0x3FF);
+	case 8: case 9: case 0xA: case 0xB: case 0xC: case 0xD:
+		return getValue32(m_mem->ROM, address & 0x01FFFFFF);
+	case 0xE:
+		Logger::getInstance()->msg(LoggerSeverity::Error, "Invalid 32-bit SRAM read");
+		return 0;
+	}
+
+	Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Out of bounds/invalid read addr={:#x}", address));
 	return 0;
 }
 
 void Bus::write32(uint32_t address, uint32_t value)
 {
 	address &= 0xFFFFFFFC;
+	uint8_t page = (address >> 24) & 0xF;
+	switch (page)
+	{
+	case 0: case 1:
+		Logger::getInstance()->msg(LoggerSeverity::Error, "Tried to write to BIOS!!");
+		break;
+	case 2:
+		setValue32(m_mem->externalWRAM, address & 0x3FFFF, value);
+		break;
+	case 3:
+		setValue32(m_mem->internalWRAM, address & 0x7FFF, value);
+		break;
+	case 4:
+		writeIO32(address, value);
+		break;
+	case 5:
+		setValue32(m_mem->paletteRAM, address & 0x3FF, value);
+		break;
+	case 6:
+		if (address > 0x06017FFF)
+		{
+			Logger::getInstance()->msg(LoggerSeverity::Error, "Improperly handled OOB VRAM write");
+			break;
+		}
+		setValue32(m_mem->VRAM, address % (96 * 1024), value);
+		break;
+	case 7:
+		setValue32(m_mem->OAM, address & 0x3FF, value);
+		break;
+	case 8: case 9: case 0xA: case 0xB: case 0xC: case 0xD: case 0xE:
+		Logger::getInstance()->msg(LoggerSeverity::Error, "Tried to write to cartridge space!!!");
+		break;
+	default:
+		Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Out of bounds/invalid write addr={:#x}", address));
+		break;
+	}
 }
 
 
@@ -162,32 +270,40 @@ void Bus::write32(uint32_t address, uint32_t value)
 //And then sort out 16/32 bit r/w using the above
 uint8_t Bus::readIO8(uint32_t address)
 {
+	Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Unimplemented IO read addr={:#x}", address));
 	return 0;
 }
 
 void Bus::writeIO8(uint32_t address, uint8_t value)
 {
-
+	Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Unimplemented IO write addr={:#x}", address));
 }
 
 uint16_t Bus::readIO16(uint32_t address)
 {
-	return 0;
+	uint8_t lower = readIO8(address);
+	uint8_t upper = readIO8(address + 1);
+	return (uint16_t)(upper << 8) | lower;
 }
 
 void Bus::writeIO16(uint32_t address, uint16_t value)
 {
-
+	writeIO8(address, value & 0xFF);
+	writeIO8(address + 1, ((value >> 8) & 0xFF));
 }
 
 uint32_t Bus::readIO32(uint32_t address)
 {
+	uint16_t lower = readIO16(address);		//nicer than readIO8 4 times
+	uint16_t upper = readIO16(address + 2);
+	return (uint32_t)(upper << 16) | lower;
 	return 0;
 }
 
 void Bus::writeIO32(uint32_t address, uint32_t value)
 {
-
+	writeIO16(address, value & 0xFFFF);
+	writeIO16(address + 2, ((value >> 16) & 0xFFFF));
 }
 
 
