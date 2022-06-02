@@ -10,6 +10,8 @@ ARM7TDMI::ARM7TDMI(std::shared_ptr<Bus> bus)
 	R13_irq = 0x03007FA0;
 	R13_svc = 0x03007FE0;
 	R[15] = 0x08000000;	//start of cartridge
+	flushPipeline();
+	m_shouldFlush = 0;
 }
 
 ARM7TDMI::~ARM7TDMI()
@@ -54,7 +56,8 @@ void ARM7TDMI::execute()
 	//NOTE: PC is 12 bytes ahead of opcode being executed
 
 	uint32_t curOpcode = m_pipeline[curPipelinePtr].opcode;
-	Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Unimplemented opcode {:#x}. Is this THUMB? - {}", curOpcode, (CPSR >> 6)&0b1));
+	Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Unimplemented opcode {:#x}. PC+12={:#x} Is this THUMB? - {}", curOpcode, R[15], (CPSR >> 6) & 0b1));
+	throw std::runtime_error("Invalid opcode");
 }
 
 void ARM7TDMI::flushPipeline()

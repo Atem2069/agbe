@@ -1,5 +1,6 @@
 #include"Logger.h"
 #include"Display.h"
+#include"GBA.h"
 
 #include<iostream>
 #include<thread>
@@ -30,8 +31,9 @@ int main()
 void emuWorkerThread()
 {
 	Logger::getInstance()->msg(LoggerSeverity::Info, "Entered worker thread!!");
-	int abcd = 0;
-	for (abcd = 0; abcd < 100; abcd++)
-		(void)0;
+	
+	GBA m_gba;
+	m_gba.run();
+
 	Logger::getInstance()->msg(LoggerSeverity::Info, "Exited worker thread!!");
 }
