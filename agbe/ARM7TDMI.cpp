@@ -33,7 +33,7 @@ void ARM7TDMI::step()
 
 void ARM7TDMI::fetch()
 {
-	bool thumb = (CPSR >> 6) & 0b1;
+	bool thumb = (CPSR >> 5) & 0b1;
 	int curPipelinePtr = m_pipelinePtr;
 	m_pipeline[curPipelinePtr].state = PipelineState::FILLED;
 	if (thumb)
@@ -55,8 +55,26 @@ void ARM7TDMI::execute()
 		return;
 	//NOTE: PC is 12 bytes ahead of opcode being executed
 
-	uint32_t curOpcode = m_pipeline[curPipelinePtr].opcode;
-	Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Unimplemented opcode {:#x}. PC+12={:#x} Is this THUMB? - {}", curOpcode, R[15], (CPSR >> 6) & 0b1));
+	m_currentOpcode = m_pipeline[curPipelinePtr].opcode;
+	if ((CPSR >> 5) & 0b1)	//thumb mode? pass over to different function to decode
+	{
+		executeThumb();
+		return;
+	}
+
+	//check conditions before executing
+	if (!checkConditions())
+		return;
+
+	//decode instruction here
+
+	Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Unimplemented opcode (ARM) {:#x}. PC+12={:#x}", m_currentOpcode, R[15]));
+	throw std::runtime_error("Invalid opcode");
+}
+
+void ARM7TDMI::executeThumb()
+{
+	Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Unimplemented opcode (Thumb) {:#x}. PC+12={:#x}", m_currentOpcode, R[15]));
 	throw std::runtime_error("Invalid opcode");
 }
 
@@ -65,4 +83,86 @@ void ARM7TDMI::flushPipeline()
 	for (int i = 0; i < 3; i++)
 		m_pipeline[i].state = PipelineState::UNFILLED;
 	m_pipelinePtr = 0;
+}
+
+bool ARM7TDMI::checkConditions()
+{
+	uint8_t opFlags = (m_currentOpcode >> 28) & 0xF;
+	switch (opFlags)
+	{
+	case 0: return m_getZeroFlag();
+	case 1: return !m_getZeroFlag();
+	case 2: return m_getCarryFlag();
+	case 3: return !m_getCarryFlag();
+	case 4: return m_getNegativeFlag();
+	case 5: return !m_getNegativeFlag();
+	case 6: return m_getOverflowFlag();
+	case 7: return !m_getOverflowFlag();
+	case 8: return (m_getCarryFlag() && !m_getZeroFlag());
+	case 9: return (!m_getCarryFlag() || m_getZeroFlag());
+	case 10: return ((m_getNegativeFlag() && m_getOverflowFlag()) || (!m_getNegativeFlag() && !m_getOverflowFlag()));
+	case 11: return (m_getNegativeFlag() != m_getOverflowFlag());
+	case 12: return !m_getZeroFlag && (m_getNegativeFlag() == m_getOverflowFlag());
+	case 13: return m_getZeroFlag || (m_getNegativeFlag() != m_getOverflowFlag());
+	case 14: return true;
+	case 15: Logger::getInstance()->msg(LoggerSeverity::Error, "Invalid condition code 1111 !!!!"); break;
+	}
+	return false;
+}
+
+//misc flag stuff
+bool ARM7TDMI::m_getNegativeFlag()
+{
+	return (CPSR >> 31) & 0b1;
+}
+
+bool ARM7TDMI::m_getZeroFlag()
+{
+	return (CPSR >> 30) & 0b1;
+}
+
+bool ARM7TDMI::m_getCarryFlag()
+{
+	return (CPSR >> 29) & 0b1;
+}
+
+bool ARM7TDMI::m_getOverflowFlag()
+{
+	return (CPSR >> 28) & 0b1;
+}
+
+void ARM7TDMI::m_setNegativeFlag(bool value)
+{
+	uint32_t mask = (1 << 31);
+	if (value)
+		CPSR |= mask;
+	else
+		CPSR &= (~mask);
+}
+
+void ARM7TDMI::m_setZeroFlag(bool value)
+{
+	uint32_t mask = (1 << 30);
+	if (value)
+		CPSR |= mask;
+	else
+		CPSR &= (~mask);
+}
+
+void ARM7TDMI::m_setCarryFlag(bool value)
+{
+	uint32_t mask = (1 << 29);
+	if (value)
+		CPSR |= mask;
+	else
+		CPSR &= (~mask);
+}
+
+void ARM7TDMI::m_setOverflowFlag(bool value)
+{
+	uint32_t mask = (1 << 28);
+	if (value)
+		CPSR |= mask;
+	else
+		CPSR &= (~mask);
 }

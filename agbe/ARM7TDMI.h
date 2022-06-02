@@ -46,4 +46,22 @@ private:
 	void execute();
 	void flushPipeline();
 
+	void executeThumb();
+
+	uint32_t m_currentOpcode = 0;
+
+	//checking conditions for ARM opcodes
+	bool checkConditions();
+
+	//misc flag stuff
+	bool m_getNegativeFlag();
+	bool m_getZeroFlag();
+	bool m_getCarryFlag();
+	bool m_getOverflowFlag();
+
+	void m_setNegativeFlag(bool value);
+	void m_setZeroFlag(bool value);
+	void m_setCarryFlag(bool value);
+	void m_setOverflowFlag(bool value);
+
 };
