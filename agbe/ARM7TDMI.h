@@ -22,12 +22,12 @@ public:
 	~ARM7TDMI();
 
 	void step();
-
 private:
 	std::shared_ptr<Bus> m_bus;
 
 	Pipeline m_pipeline[3];
 	uint8_t m_pipelinePtr = 0;
+	bool m_shouldFlush = false;
 
 	uint32_t R[16];	//general registers - and default registers in usermode
 	uint32_t R8_fiq, R9_fiq, R10_fiq, R11_fiq, R12_fiq, R13_fiq, R14_fiq;	//additional banked registers in FIQ mode
@@ -38,5 +38,9 @@ private:
 
 	uint32_t CPSR;
 	uint32_t SPSR_fiq, SPSR_svc, SPSR_abt, SPSR_irq, SPSR_und;
+
+	void fetch();
+	void execute();
+	void flushPipeline();
 
 };
