@@ -112,7 +112,11 @@ void ARM7TDMI::executeThumb()
 
 	Logger::getInstance()->msg(LoggerSeverity::Info, std::format("Execute opcode (Thumb) {:#x}. PC={:#x}", m_currentOpcode, R[15] - 4));
 
-	if ((m_currentOpcode & 0b1111'1000'0000'0000) == 0b0100'1000'0000'0000)
+	if ((m_currentOpcode & 0b1111'1000'0000'0000) == 0b0001'1000'0000'0000)
+		Thumb_AddSubtract();
+	else if ((m_currentOpcode & 0b1110'0000'0000'0000) == 0b0000'0000'0000'0000)
+		Thumb_MoveShiftedRegister();
+	else if ((m_currentOpcode & 0b1111'1000'0000'0000) == 0b0100'1000'0000'0000)
 		Thumb_PCRelativeLoad();
 	else
 	{

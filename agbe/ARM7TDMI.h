@@ -92,7 +92,23 @@ private:
 	//Thumb instruction set
 	void Thumb_MoveShiftedRegister();
 	void Thumb_AddSubtract();
+	void Thumb_MoveCompareAddSubtractImm();
+	void Thumb_ALUOperations();
+	void Thumb_HiRegisterOperations();
 	void Thumb_PCRelativeLoad();
+	void Thumb_LoadStoreRegisterOffset();
+	void Thumb_LoadStoreSignExtended();
+	void Thumb_LoadStoreImmediateOffset();
+	void Thumb_LoadStoreHalfword();
+	void Thumb_SPRelativeLoadStore();
+	void Thumb_LoadAddress();
+	void Thumb_AddOffsetToStackPointer();
+	void Thumb_PushPopRegisters();
+	void Thumb_MultipleLoadStore();
+	void Thumb_ConditionalBranch();
+	void Thumb_SoftwareInterrupt();
+	void Thumb_UnconditionalBranch();
+	void Thumb_LongBranchWithLink();
 
 	//Barrel shifter ops
 	uint32_t LSL(uint32_t val, int shiftAmount, int& carry);
