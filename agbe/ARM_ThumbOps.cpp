@@ -316,8 +316,52 @@ void ARM7TDMI::Thumb_AddOffsetToStackPointer()
 
 void ARM7TDMI::Thumb_PushPopRegisters()
 {
-	Logger::getInstance()->msg(LoggerSeverity::Error, "Unimplemented");
-	throw std::runtime_error("unimplemented");
+	bool loadStore = ((m_currentOpcode >> 11) & 0b1);
+	bool R = ((m_currentOpcode >> 8) & 0b1);	//couldnt think of good abbreviation :/
+	uint32_t regs = m_currentOpcode & 0xFF;
+
+	uint32_t SP = getReg(13);
+
+	if (loadStore) //Load - i.e. pop from stack
+	{
+		for (int i = 0; i < 8; i++)
+		{
+			if (((regs >> i) & 0b1))
+			{
+				uint32_t popVal = m_bus->read32(SP);
+				setReg(i, popVal);
+				SP += 4;
+			}
+		}
+
+		if (R)
+		{
+			uint32_t newPC = m_bus->read32(SP);
+			setReg(15, newPC & ~0b1);
+			SP += 4;
+		}
+
+	}
+	else          //Store - i.e. push to stack
+	{
+
+		if (R)
+		{
+			SP -= 4;
+			m_bus->write32(SP, getReg(14));
+		}
+
+		for (int i = 7; i >= 0; i--)
+		{
+			if (((regs >> i) & 0b1))
+			{
+				SP -= 4;
+				m_bus->write32(SP, getReg(i));
+			}
+		}
+	}
+
+	setReg(13, SP);
 }
 
 void ARM7TDMI::Thumb_MultipleLoadStore()
@@ -367,7 +411,7 @@ void ARM7TDMI::Thumb_MultipleLoadStore()
 
 	setReg(baseRegIdx, base);
 	//TODO: writeback with rb in rlist has different behaviour that's unimplemented (see gbatek)
-
+	
 }
 
 void ARM7TDMI::Thumb_ConditionalBranch()
@@ -405,6 +449,7 @@ void ARM7TDMI::Thumb_LongBranchWithLink()
 	if (!highLow)	//H=0: leftshift offset by 12 and add to PC, then store in LR
 	{
 		offset <<= 12;
+		if (offset & 0x400000) { offset |= 0xFF800000; }
 		uint32_t res = getReg(15) + offset;
 		setReg(14, res);
 	}
