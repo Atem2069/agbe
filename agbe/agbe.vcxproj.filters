@@ -13,6 +13,9 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
+    <Filter Include="Source Files\ARM">
+      <UniqueIdentifier>{dcfecf65-593a-4a6a-ab43-ddafd2bd3875}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
@@ -27,17 +30,23 @@
     <ClCompile Include="Bus.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="ARM7TDMI.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="GBA.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="ARM_ARMOps.cpp">
+      <Filter>Source Files\ARM</Filter>
+    </ClCompile>
     <ClCompile Include="ARM_BarrelShifter.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\ARM</Filter>
     </ClCompile>
     <ClCompile Include="ARM_Flags.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\ARM</Filter>
+    </ClCompile>
+    <ClCompile Include="ARM_ThumbOps.cpp">
+      <Filter>Source Files\ARM</Filter>
+    </ClCompile>
+    <ClCompile Include="ARM7TDMI.cpp">
+      <Filter>Source Files\ARM</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

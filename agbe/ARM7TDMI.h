@@ -71,6 +71,7 @@ private:
 	uint32_t getSPSR();
 	void setSPSR(uint32_t value);
 
+	//ARM instruction set
 	void ARM_Branch();
 	void ARM_DataProcessing();
 	void ARM_PSRTransfer();
@@ -87,6 +88,11 @@ private:
 	void ARM_CoprocessorDataOperation();
 	void ARM_CoprocessorRegisterTransfer();
 	void ARM_SoftwareInterrupt();
+
+	//Thumb instruction set
+	void Thumb_MoveShiftedRegister();
+	void Thumb_AddSubtract();
+	void Thumb_PCRelativeLoad();
 
 	//Barrel shifter ops
 	uint32_t LSL(uint32_t val, int shiftAmount, int& carry);
