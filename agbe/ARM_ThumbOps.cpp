@@ -182,8 +182,7 @@ void ARM7TDMI::Thumb_LongBranchWithLink()
 		offset <<= 1;
 		uint32_t LR = getReg(14);
 		LR += offset;
-		setReg(14, getReg(15) - 2);	//set LR to point to instruction after this one
+		setReg(14, ((getReg(15) - 2) | 0b1));	//set LR to point to instruction after this one
 		setReg(15, LR);				//set PC to old LR contents (plus the offset)
-		std::cout << "jump" << '\n';
 	}
 }
