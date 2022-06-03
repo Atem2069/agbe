@@ -25,8 +25,37 @@ void ARM7TDMI::Thumb_MoveShiftedRegister()
 
 void ARM7TDMI::Thumb_AddSubtract()
 {
-	Logger::getInstance()->msg(LoggerSeverity::Error, "Unimplemented");
-	throw std::runtime_error("unimplemented");
+	uint8_t destRegIndex = m_currentOpcode & 0b111;
+	uint8_t srcRegIndex = ((m_currentOpcode >> 3) & 0b111);
+	uint8_t op = ((m_currentOpcode >> 9) & 0b1);
+	bool immediate = ((m_currentOpcode >> 10) & 0b1);
+
+	uint32_t operand1 = getReg(srcRegIndex);
+	uint32_t operand2 = 0;
+	uint32_t result = 0;
+
+	if (immediate)
+		operand2 = ((m_currentOpcode >> 6) & 0b111);
+	else
+	{
+		uint8_t tmp = ((m_currentOpcode >> 6) & 0b111);
+		operand2 = getReg(tmp);
+	}
+
+	switch (op)
+	{
+	case 0:
+		result = operand1 + operand2;
+		setReg(destRegIndex, result);
+		setArithmeticFlags(operand1, operand2, result, true);
+		break;
+	case 1:
+		result = operand1 - operand2;
+		setReg(destRegIndex, result);
+		setArithmeticFlags(operand1, operand2, result, false);
+		break;
+	}
+
 }
 
 void ARM7TDMI::Thumb_MoveCompareAddSubtractImm()
@@ -64,8 +93,97 @@ void ARM7TDMI::Thumb_MoveCompareAddSubtractImm()
 
 void ARM7TDMI::Thumb_ALUOperations()
 {
-	Logger::getInstance()->msg(LoggerSeverity::Error, "Unimplemented");
-	throw std::runtime_error("unimplemented");
+	uint8_t srcDestRegIdx = m_currentOpcode & 0b111;
+	uint8_t op2RegIdx = ((m_currentOpcode >> 3) & 0b111);
+	uint8_t operation = ((m_currentOpcode >> 6) & 0xF);
+
+	uint32_t operand1 = getReg(srcDestRegIdx);
+	uint32_t operand2 = getReg(op2RegIdx);
+	uint32_t result = 0;
+
+	int tempCarry = -1;
+	uint32_t carryIn = m_getCarryFlag() & 0b1;
+
+	switch (operation)
+	{
+	case 0:	//AND
+		result = operand1 & operand2;
+		setReg(srcDestRegIdx, result);
+		setLogicalFlags(result, -1);
+		break;
+	case 1:	//EOR
+		result = operand1 ^ operand2;
+		setReg(srcDestRegIdx, result);
+		setLogicalFlags(result, -1);
+		break;
+	case 2:	//LSL
+		result = LSL(operand1, operand2, tempCarry);
+		setReg(srcDestRegIdx, result);
+		setLogicalFlags(result, tempCarry);
+		break;
+	case 3:	//LSR
+		result = LSR(operand1, operand2, tempCarry);
+		setReg(srcDestRegIdx, result);
+		setLogicalFlags(result, tempCarry);
+		break;
+	case 4:	//ASR
+		result = ASR(operand1, operand2, tempCarry);
+		setReg(srcDestRegIdx, result);
+		setLogicalFlags(result, tempCarry);
+		break;
+	case 5:	//ADC
+		result = operand1 + operand2 + carryIn;
+		setReg(srcDestRegIdx, result);
+		setArithmeticFlags(operand1, operand2, result, true);
+		break;
+	case 6:	//SBC
+		result = operand1 - operand2 - (!carryIn);
+		setReg(srcDestRegIdx, result);
+		setArithmeticFlags(operand1, operand2 + (!carryIn), result, false);
+		break;
+	case 7:	//ROR
+		result = ROR(operand1, operand2, tempCarry);
+		setReg(srcDestRegIdx, result);
+		setLogicalFlags(result, tempCarry);
+		break;
+	case 8:	//TST
+		result = operand1 & operand2;
+		setLogicalFlags(result, -1);
+		break;
+	case 9:	//NEG
+		result = (~operand2) + 1;
+		setReg(srcDestRegIdx, result);
+		setArithmeticFlags(0, operand2, result, false);	//not sure about this
+		break;
+	case 10: //CMP
+		result = operand1 - operand2;
+		setArithmeticFlags(operand1, operand2, result, false);
+		break;
+	case 11: //CMN
+		result = operand1 + operand2;
+		setArithmeticFlags(operand1, operand2, result, true);
+		break;
+	case 12: //ORR
+		result = operand1 | operand2;
+		setReg(srcDestRegIdx, result);
+		setLogicalFlags(result, -1);
+		break;
+	case 13: //MUL
+		result = operand1 * operand2;
+		setReg(srcDestRegIdx, result);
+		setLogicalFlags(result, -1);	//hmm...
+		break;
+	case 14: //BIC
+		result = operand1 & (~operand2);
+		setReg(srcDestRegIdx, result);
+		setLogicalFlags(result, -1);
+		break;
+	case 15: //MVN
+		result = (~operand2);
+		setReg(srcDestRegIdx, result);
+		setLogicalFlags(result, -1);
+		break;
+	}
 }
 
 void ARM7TDMI::Thumb_HiRegisterOperations()
