@@ -109,7 +109,7 @@ void ARM7TDMI::execute()
 
 void ARM7TDMI::executeThumb()
 {
-	Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Unimplemented opcode (Thumb) {:#x}. PC+8={:#x}", m_currentOpcode, R[15]));
+	Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Unimplemented opcode (Thumb) {:#x}. PC+4={:#x}", m_currentOpcode, R[15]));
 	throw std::runtime_error("Invalid opcode");
 }
 
@@ -609,8 +609,18 @@ void ARM7TDMI::ARM_SingleDataSwap()
 
 void ARM7TDMI::ARM_BranchExchange()
 {
-	Logger::getInstance()->msg(LoggerSeverity::Error, "Unimplemented");
-	throw std::runtime_error("unimplemented");
+	uint8_t regIdx = m_currentOpcode & 0xF;
+	uint32_t newAddr = getReg(regIdx);
+	if (newAddr & 0b1)	//start executing THUMB instrs
+	{
+		CPSR |= 0b100000;	//set T bit in CPSR
+		setReg(15, newAddr & ~0b1);
+	}
+	else				//keep going as ARM (but pipeline will be flushed)
+	{
+		setReg(15, newAddr & ~0b11);
+	}
+	//(setReg will cause a pipeline flush automatically if R15 written to, so no need here)
 }
 
 void ARM7TDMI::ARM_HalfwordTransferRegisterOffset()
