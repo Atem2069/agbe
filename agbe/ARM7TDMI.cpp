@@ -54,7 +54,7 @@ void ARM7TDMI::execute()
 	int curPipelinePtr = (m_pipelinePtr + 1) % 3;	//+1 so when it wraps it's actually 2 behind the current fetch. e.g. cur fetch = 2, then cur execute = 0 (2 behind)
 	if (m_pipeline[curPipelinePtr].state == PipelineState::UNFILLED)	//return if we haven't put an opcode up to this point in the pipeline
 		return;
-	//NOTE: PC is 12 bytes ahead of opcode being executed
+	//NOTE: PC is 8 bytes ahead of opcode being executed
 
 	m_currentOpcode = m_pipeline[curPipelinePtr].opcode;
 	if ((CPSR >> 5) & 0b1)	//thumb mode? pass over to different function to decode
