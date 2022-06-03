@@ -68,6 +68,9 @@ private:
 	uint32_t getReg(uint8_t reg);
 	void setReg(uint8_t reg, uint32_t value);
 
+	uint32_t getSPSR();
+	void setSPSR(uint32_t value);
+
 	void ARM_Branch();
 	void ARM_DataProcessing();
 	void ARM_PSRTransfer();

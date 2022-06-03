@@ -331,6 +331,36 @@ void ARM7TDMI::setReg(uint8_t reg, uint32_t value)
 	}
 }
 
+uint32_t ARM7TDMI::getSPSR()
+{
+	uint8_t mode = CPSR & 0x1F;
+	switch (mode)
+	{
+	case 0b10001: return SPSR_fiq;
+	case 0b10011: return SPSR_svc;
+	case 0b10111: return SPSR_abt;
+	case 0b10010: return SPSR_irq;
+	case 0b11011: return SPSR_und;
+	}
+	Logger::getInstance()->msg(LoggerSeverity::Error, "Tried to get SPSR in incorrect mode!!");
+}
+
+void ARM7TDMI::setSPSR(uint32_t value)
+{
+	uint8_t mode = CPSR & 0x1F;
+	switch (mode)
+	{
+	case 0b10001: SPSR_fiq = value; break;
+	case 0b10011: SPSR_svc = value; break;
+	case 0b10111: SPSR_abt = value; break;
+	case 0b10010: SPSR_irq = value; break;
+	case 0b11011: SPSR_und = value; break;
+	default:
+		Logger::getInstance()->msg(LoggerSeverity::Error, "Tried to set SPSR in incorrect mode!!");
+		break;
+	}
+}
+
 void ARM7TDMI::ARM_Branch()
 {
 	bool link = ((m_currentOpcode >> 24) & 0b1);
@@ -350,11 +380,20 @@ void ARM7TDMI::ARM_DataProcessing()
 {
 	//check if psr transfer instead (this is dumb but can probs be refactored completely)
 	if ((m_currentOpcode & 0b0000'1111'1011'1111'0000'1111'1111'1111) == 0b0000'0001'0000'1111'0000'0000'0000'0000)
+	{
 		ARM_PSRTransfer();
+		return;
+	}
 	if ((m_currentOpcode & 0b0000'1111'1011'1111'1111'1111'1111'0000) == 0b0000'0001'0010'1001'1111'0000'0000'0000)
+	{
 		ARM_PSRTransfer();
+		return;
+	}
 	if ((m_currentOpcode & 0b0000'1101'1011'1111'1111'0000'0000'0000) == 0b0000'0001'0010'1000'1111'0000'0000'0000)
+	{
 		ARM_PSRTransfer();
+		return;
+	}
 
 	bool immediate = ((m_currentOpcode >> 25) & 0b1);
 	uint8_t operation = ((m_currentOpcode >> 21) & 0xF);
@@ -522,8 +561,32 @@ void ARM7TDMI::ARM_DataProcessing()
 
 void ARM7TDMI::ARM_PSRTransfer()
 {
-	Logger::getInstance()->msg(LoggerSeverity::Error, "Unimplemented");
-	throw std::runtime_error("unimplemented");
+
+	uint32_t opBits = ((m_currentOpcode >> 12) & 0x3FF);	//extract 10 bits identifying opcode
+
+	if (opBits == 0b1010011111)
+	{
+		bool modifySPSR = ((m_currentOpcode >> 22) & 0b1);
+		uint8_t srcRegIdx = m_currentOpcode & 0xF;
+		uint32_t newPSRData = getReg(srcRegIdx);
+		if (modifySPSR)
+			setSPSR(newPSRData);
+		else
+		{
+			//todo: check if unprivileged mode
+			CPSR = newPSRData;
+		}
+	}
+	else if (opBits == 0b1010001111)
+	{
+		Logger::getInstance()->msg(LoggerSeverity::Info, "MSR (flags only)");
+		throw std::runtime_error("unimplemented");
+	}
+	else
+	{
+		Logger::getInstance()->msg(LoggerSeverity::Info, "MRS");
+		throw std::runtime_error("unimplemented");
+	}
 }
 
 void ARM7TDMI::ARM_Multiply()
