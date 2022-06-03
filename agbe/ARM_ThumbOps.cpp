@@ -188,8 +188,50 @@ void ARM7TDMI::Thumb_ALUOperations()
 
 void ARM7TDMI::Thumb_HiRegisterOperations()
 {
-	Logger::getInstance()->msg(LoggerSeverity::Error, "Unimplemented");
-	throw std::runtime_error("unimplemented");
+	uint8_t srcRegIdx = ((m_currentOpcode >> 3) & 0b111);
+	uint8_t dstRegIdx = m_currentOpcode & 0b111;
+	uint8_t operation = ((m_currentOpcode >> 8) & 0b11);
+
+	if ((m_currentOpcode >> 7) & 0b1)	//set them as 'high' registers
+		dstRegIdx += 8;
+	if ((m_currentOpcode >> 6) & 0b1)
+		srcRegIdx += 8;
+
+	uint32_t operand1 = getReg(dstRegIdx);	//check this? arm docs kinda confusing to read
+	uint32_t operand2 = getReg(srcRegIdx);
+	uint32_t result = 0;
+
+	switch (operation)
+	{
+	case 0:
+		result = operand1 + operand2;
+		setReg(dstRegIdx, result);
+		break;
+	case 1:
+		result = operand1 - operand2;
+		setArithmeticFlags(operand1, operand2, result, false);
+		break;
+	case 2:
+		result = operand2;
+		setReg(dstRegIdx, result);
+		break;
+	case 3:
+		if (!(operand2 & 0b1))
+		{
+			//enter arm
+			CPSR &= 0xFFFFFFDF;	//unset T bit
+			operand2 &= ~0b11;
+			setReg(15, operand2);
+		}
+		else
+		{
+			//stay in thumb
+			operand2 &= ~0b1;
+			setReg(15, operand2);
+		}
+		break;
+	}
+
 }
 
 void ARM7TDMI::Thumb_PCRelativeLoad()
@@ -253,8 +295,52 @@ void ARM7TDMI::Thumb_PushPopRegisters()
 
 void ARM7TDMI::Thumb_MultipleLoadStore()
 {
-	Logger::getInstance()->msg(LoggerSeverity::Error, "Unimplemented");
-	throw std::runtime_error("unimplemented");
+	bool loadStore = ((m_currentOpcode >> 11) & 0b1);
+	uint8_t baseRegIdx = ((m_currentOpcode >> 8) & 0b111);
+	uint8_t regList = m_currentOpcode & 0xFF;
+	uint8_t regListOriginal = regList;
+
+	uint32_t base = getReg(baseRegIdx);
+
+	if (loadStore)	//LDMIA
+	{
+		for (int i = 0; i < 8; i++)
+		{
+			if (regList & 0b1)
+			{
+				uint32_t cur = m_bus->read32(base);
+				setReg(i, cur);
+				base += 4;	//base always increments with this opcode
+			}
+			regList >>= 1;	//shift one to the right to check next register
+		}
+	}
+	else			//STMIA
+	{
+		for (int i = 0; i < 8; i++)
+		{
+			if (regList & 0b1)
+			{
+				uint32_t cur = getReg(i);
+				m_bus->write32(base, cur);
+				base += 4;
+			}
+			regList >>= 1;
+		}
+	}
+
+	if (regListOriginal == 0)
+	{
+		if (loadStore)
+			setReg(15, m_bus->read32(base));
+		else
+			m_bus->write32(base, getReg(15));
+		base += 0x40;
+	}
+
+	setReg(baseRegIdx, base);
+	//TODO: writeback with rb in rlist has different behaviour that's unimplemented (see gbatek)
+
 }
 
 void ARM7TDMI::Thumb_ConditionalBranch()
