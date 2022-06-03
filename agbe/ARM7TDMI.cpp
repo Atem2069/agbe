@@ -356,6 +356,59 @@ void ARM7TDMI::ARM_DataProcessing()
 	if ((m_currentOpcode & 0b0000'1101'1011'1111'1111'0000'0000'0000) == 0b0000'0001'0010'1000'1111'0000'0000'0000)
 		ARM_PSRTransfer();
 
+	bool immediate = ((m_currentOpcode >> 25) & 0b1);
+	uint8_t operation = ((m_currentOpcode >> 21) & 0xF);
+	bool setConditionCodes = ((m_currentOpcode >> 20) & 0b1);
+	uint8_t op1Idx = ((m_currentOpcode >> 16) & 0xF);
+	uint8_t destRegIdx = ((m_currentOpcode >> 12) & 0xF);
+
+
+	uint32_t operand1 = getReg(op1Idx);
+	uint32_t operand2 = 0;
+	int shiftCarryOut = -1;	
+
+	//resolve operand 2
+	if (immediate) //operand 2 is immediate
+	{
+		operand2 = m_currentOpcode & 0xFF;
+		int shiftAmount = ((m_currentOpcode >> 8) & 0xF) * 2;
+		if (shiftAmount > 0)
+			operand2 = std::rotr(operand2, shiftAmount);	//afaik immediate shifts don't affect flags
+	}
+
+	else		//operand 2 is a register
+	{
+		uint8_t op2Idx = m_currentOpcode & 0xF;
+		operand2 = getReg(op2Idx);
+		bool shiftIsRegister = ((m_currentOpcode >> 4) & 0b1);	//bit 4 specifies whether the amount to shift is a register or immediate
+		int shiftAmount = 0;
+		if (shiftIsRegister)
+		{
+			uint8_t shiftRegIdx = (m_currentOpcode >> 8) & 0xF;
+			shiftAmount = getReg(shiftRegIdx) & 0xFF;	//only bottom byte used
+			shiftCarryOut = m_getCarryFlag();			//just in case we don't shift (if register contains 0)
+		}
+		else
+			shiftAmount = ((m_currentOpcode >> 7) & 0x1F);	//5 bit value (bits 7-11)
+
+		uint8_t shiftType = ((m_currentOpcode >> 5) & 0b11);
+
+		//(register specified shift) - If this byte is zero, the unchanged contents of Rm will be used - and the old value of the CPSR C flag will be passed on
+		//(instruction specified shift) - Probs alright to just do a shift by 0, see what happens
+		if ((shiftIsRegister && shiftAmount > 0) || (!shiftIsRegister))	//if imm shift, just go for it. if register shift, then only if shift amount > 0
+		{
+			switch (shiftType)
+			{
+			case 0: operand2 = LSL(operand2, shiftAmount, shiftCarryOut); break;
+			case 1: operand2 = LSR(operand2, shiftAmount, shiftCarryOut); break;
+			case 2: operand2 = ASR(operand2, shiftAmount, shiftCarryOut); break;
+			case 3: operand2 = ROR(operand2, shiftAmount, shiftCarryOut); break;
+			}
+		}
+	}
+
+	//now - implement the rest of the instruction..
+
 	Logger::getInstance()->msg(LoggerSeverity::Info, "Entered data processing handler (so should be correct!!)");
 	throw std::runtime_error("unimplemented");
 }
