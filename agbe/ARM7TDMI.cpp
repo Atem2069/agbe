@@ -116,8 +116,40 @@ void ARM7TDMI::executeThumb()
 		Thumb_AddSubtract();
 	else if ((m_currentOpcode & 0b1110'0000'0000'0000) == 0b0000'0000'0000'0000)
 		Thumb_MoveShiftedRegister();
+	else if ((m_currentOpcode & 0b1110'0000'0000'0000) == 0b0010'0000'0000'0000)
+		Thumb_MoveCompareAddSubtractImm();
+	else if ((m_currentOpcode & 0b1111'1100'0000'0000) == 0b0100'0000'0000'0000)
+		Thumb_ALUOperations();
+	else if ((m_currentOpcode & 0b1111'1100'0000'0000) == 0b0100'0100'0000'0000)
+		Thumb_HiRegisterOperations();
 	else if ((m_currentOpcode & 0b1111'1000'0000'0000) == 0b0100'1000'0000'0000)
 		Thumb_PCRelativeLoad();
+	else if ((m_currentOpcode & 0b1111'0010'0000'0000) == 0b0101'0000'0000'0000)
+		Thumb_LoadStoreRegisterOffset();
+	else if ((m_currentOpcode & 0b1111'0010'0000'0000) == 0b0101'0010'0000'0000)
+		Thumb_LoadStoreSignExtended();
+	else if ((m_currentOpcode & 0b1110'0000'0000'0000) == 0b0110'0000'0000'0000)
+		Thumb_LoadStoreImmediateOffset();
+	else if ((m_currentOpcode & 0b1111'0000'0000'0000) == 0b1000'0000'0000'0000)
+		Thumb_LoadStoreHalfword();
+	else if ((m_currentOpcode & 0b1111'0000'0000'0000) == 0b1001'0000'0000'0000)
+		Thumb_SPRelativeLoadStore();
+	else if ((m_currentOpcode & 0b1111'0000'0000'0000) == 0b1010'0000'0000'0000)
+		Thumb_LoadAddress();
+	else if ((m_currentOpcode & 0b1111'1111'0000'0000) == 0b1011'0000'0000'0000)
+		Thumb_AddOffsetToStackPointer();
+	else if ((m_currentOpcode & 0b1111'0110'0000'0000) == 0b1011'0100'0000'0000)
+		Thumb_PushPopRegisters();
+	else if ((m_currentOpcode & 0b1111'0000'0000'0000) == 0b1100'0000'0000'0000)
+		Thumb_MultipleLoadStore();
+	else if ((m_currentOpcode & 0b1111'1111'0000'0000) == 0b1101'1111'0000'0000)
+		Thumb_SoftwareInterrupt();
+	else if ((m_currentOpcode & 0b1111'0000'0000'0000) == 0b1101'0000'0000'0000)
+		Thumb_ConditionalBranch();
+	else if ((m_currentOpcode & 0b1111'1000'0000'0000) == 0b1110'0000'0000'0000)
+		Thumb_UnconditionalBranch();
+	else if ((m_currentOpcode & 0b1111'0000'0000'0000) == 0b1111'0000'0000'0000)
+		Thumb_LongBranchWithLink();
 	else
 	{
 		Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Unimplemented opcode (Thumb) {:#x}. PC+4={:#x}", m_currentOpcode, R[15]));
