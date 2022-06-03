@@ -270,8 +270,86 @@ void ARM7TDMI::ARM_HalfwordTransferRegisterOffset()
 
 void ARM7TDMI::ARM_HalfwordTransferImmediateOffset()
 {
-	Logger::getInstance()->msg(LoggerSeverity::Error, "Unimplemented");
-	throw std::runtime_error("unimplemented");
+	bool prePost = ((m_currentOpcode >> 24) & 0b1);
+	bool upDown = ((m_currentOpcode >> 23) & 0b1);
+	bool writeback = ((m_currentOpcode >> 21) & 0b1);
+	bool loadStore = ((m_currentOpcode >> 20) & 0b1);
+	bool baseRegIdx = ((m_currentOpcode >> 16) & 0xF);
+	bool srcDestRegIdx = ((m_currentOpcode >> 12) & 0xF);
+	uint8_t offsHigh = ((m_currentOpcode >> 8) & 0xF);
+	uint8_t op = ((m_currentOpcode >> 5) & 0b11);
+	uint8_t offsLow = m_currentOpcode & 0xF;
+
+	uint8_t offset = ((offsHigh << 4) | offsLow);
+
+	uint32_t base = getReg(baseRegIdx);
+
+	if (prePost)				//sort out pre-indexing
+	{
+		if (!upDown)
+			base -= offset;
+		else
+			base += offset;
+	}
+
+	if (loadStore)				//load
+	{
+		uint32_t data = 0;
+		switch (op)
+		{
+		case 0:
+			Logger::getInstance()->msg(LoggerSeverity::Error, "Invalid halfword operation encoding");
+			break;
+		case 1:
+			data = m_bus->read16(base);
+			setReg(srcDestRegIdx, data);
+			break;
+		case 2:
+			data = m_bus->read8(base);
+			if (((data >> 7) & 0b1))	//sign extend byte if bit 7 set
+				data |= 0xFFFFFF00;
+			setReg(srcDestRegIdx, data);
+			break;
+		case 3:
+			data = m_bus->read16(base);
+			if (((data >> 15) & 0b1))
+				data |= 0xFFFF0000;
+			setReg(srcDestRegIdx, data);
+			break;
+		}
+	}
+	else						//store
+	{
+		uint32_t data = getReg(srcDestRegIdx);
+		if ((op == 1 || op == 3) && srcDestRegIdx == 15)	//PC+12 when specified as src and halfword transfer taking place
+			data += 4;
+		switch (op)
+		{
+		case 0:
+			Logger::getInstance()->msg(LoggerSeverity::Error, "Invalid halfword operation encoding");
+			break;
+		case 1:
+			m_bus->write16(base, data & 0xFFFF);
+			break;
+		case 2:
+			m_bus->write8(base, data & 0xFF);
+			break;
+		case 3:
+			m_bus->write16(base, data & 0xFFFF);
+			break;
+		}
+	}
+
+	if (!prePost)
+	{
+		if (!upDown)
+			base -= offset;
+		else
+			base += offset;
+	}
+
+	if (writeback || !prePost)
+		setReg(baseRegIdx, base);
 }
 
 void ARM7TDMI::ARM_SingleDataTransfer()
