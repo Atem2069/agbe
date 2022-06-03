@@ -2,6 +2,14 @@
 
 uint32_t ARM7TDMI::LSL(uint32_t val, int shiftAmount, int& carry)
 {
+	if (shiftAmount >= 32)
+	{
+		if (shiftAmount == 32)
+			carry = (val & 0b1);
+		else
+			carry = 0;
+		return 0;
+	}
 	if (shiftAmount == 0)
 	{
 		carry = m_getCarryFlag();
@@ -15,6 +23,14 @@ uint32_t ARM7TDMI::LSL(uint32_t val, int shiftAmount, int& carry)
 
 uint32_t ARM7TDMI::LSR(uint32_t val, int shiftAmount, int& carry)
 {
+	if (shiftAmount >= 32)
+	{
+		if (shiftAmount == 32)
+			carry = ((val >> 31) & 0b1);
+		else
+			carry = 0;
+		return 0;
+	}
 	if (shiftAmount == 0)
 	{
 		carry = ((val >> 31) & 0b1);
@@ -28,8 +44,9 @@ uint32_t ARM7TDMI::LSR(uint32_t val, int shiftAmount, int& carry)
 
 uint32_t ARM7TDMI::ASR(uint32_t val, int shiftAmount, int& carry)
 {
+	shiftAmount %= 33;				//32? 33? no idea .....
 	int32_t temp = (int32_t)val;	//use int32_t to ensure >> is arithmetic shift anyway
-	if (shiftAmount == 0)
+	if (shiftAmount == 0 || shiftAmount >= 32)
 	{
 		carry = ((val >> 31) & 0b1);
 		return (temp >> 32);	//will be all 1's/0's according to the sign bit
