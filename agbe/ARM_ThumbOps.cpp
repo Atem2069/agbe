@@ -259,8 +259,35 @@ void ARM7TDMI::Thumb_LoadStoreSignExtended()
 
 void ARM7TDMI::Thumb_LoadStoreImmediateOffset()
 {
-	Logger::getInstance()->msg(LoggerSeverity::Error, "Unimplemented");
-	throw std::runtime_error("unimplemented");
+	bool byteWord = ((m_currentOpcode >> 12) & 0b1);
+	bool loadStore = ((m_currentOpcode >> 11) & 0b1);
+	uint32_t offset = ((m_currentOpcode >> 6) & 0b11111);
+	uint8_t baseRegIdx = ((m_currentOpcode >> 3) & 0b111);
+	uint8_t srcDestRegIdx = m_currentOpcode & 0b111;
+
+	uint32_t baseAddr = getReg(baseRegIdx);
+	if (!byteWord)		//if word, then it's a 7 bit address and word aligned so shl by 2
+		offset <<= 2;
+	baseAddr += offset;
+
+	if (loadStore)	//Load value from memory
+	{
+		uint32_t val = 0;
+		if (byteWord)
+			val = m_bus->read8(baseAddr);
+		else
+			val = m_bus->read32(baseAddr);
+		setReg(srcDestRegIdx, val);
+	}
+	else			//Store value to memory
+	{
+		uint32_t val = getReg(srcDestRegIdx);
+		if (byteWord)
+			m_bus->write8(baseAddr, val & 0xFF);
+		else
+			m_bus->write32(baseAddr, val);
+	}
+
 }
 
 void ARM7TDMI::Thumb_LoadStoreHalfword()
