@@ -362,6 +362,13 @@ void ARM7TDMI::ARM_DataProcessing()
 	uint8_t op1Idx = ((m_currentOpcode >> 16) & 0xF);
 	uint8_t destRegIdx = ((m_currentOpcode >> 12) & 0xF);
 
+	bool setCPSR = false;
+	if (destRegIdx == 15 && setConditionCodes)	//S=1,Rd=15 - copy SPSR over to CPSR
+	{
+		setCPSR = true;
+		setConditionCodes = false;
+	}
+
 
 	uint32_t operand1 = getReg(op1Idx);
 	uint32_t operand2 = 0;
@@ -384,6 +391,8 @@ void ARM7TDMI::ARM_DataProcessing()
 		int shiftAmount = 0;
 		if (shiftIsRegister)
 		{
+			if (op2Idx == 15)	//account for R15 being 12 bytes ahead if register-specified shift amount
+				operand2 += 4;
 			uint8_t shiftRegIdx = (m_currentOpcode >> 8) & 0xF;
 			shiftAmount = getReg(shiftRegIdx) & 0xFF;	//only bottom byte used
 			shiftCarryOut = m_getCarryFlag();			//just in case we don't shift (if register contains 0)
