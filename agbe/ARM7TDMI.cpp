@@ -564,8 +564,90 @@ void ARM7TDMI::ARM_HalfwordTransferImmediateOffset()
 
 void ARM7TDMI::ARM_SingleDataTransfer()
 {
-	Logger::getInstance()->msg(LoggerSeverity::Error, "Unimplemented");
-	throw std::runtime_error("unimplemented");
+	bool immediate = ((m_currentOpcode >> 25) & 0b1);
+	bool preIndex = ((m_currentOpcode >> 24) & 0b1);
+	bool upDown = ((m_currentOpcode >> 23) & 0b1);	//1=up,0=down
+	bool byteWord = ((m_currentOpcode >> 22) & 0b1);//1=byte,0=word
+	bool writeback = ((m_currentOpcode >> 21) & 0b1);
+	bool loadStore = ((m_currentOpcode >> 20) & 0b1);
+
+	uint8_t baseRegIdx = ((m_currentOpcode >> 16) & 0xF);
+	uint8_t destRegIdx = ((m_currentOpcode >> 12) & 0xF);
+
+	uint32_t base = getReg(baseRegIdx);
+
+	int32_t offset = 0;
+	//resolve offset
+	if (!immediate)	//I=0 means immediate!!
+	{
+		offset = m_currentOpcode & 0xFFF;	//extract 12-bit imm offset
+	}
+	else
+	{
+		uint8_t offsetRegIdx = m_currentOpcode & 0xF;
+		offset = getReg(offsetRegIdx);
+
+
+		//register specified shifts not available
+		uint8_t shiftAmount = ((m_currentOpcode >> 7) & 0x1F);	//5 bit shift amount
+		uint8_t shiftType = ((m_currentOpcode >> 5) & 0b11);
+		if (((m_currentOpcode >> 4) & 0b1) == 1)
+			Logger::getInstance()->msg(LoggerSeverity::Error, "Opcode encoding is not valid! bit 4 shouldn't be set!!");
+
+		int garbageCarry = 0;
+		switch (shiftType)
+		{
+		case 0: offset = LSL(offset, shiftAmount, garbageCarry); break;
+		case 1: offset = LSR(offset, shiftAmount, garbageCarry); break;
+		case 2: offset = ASR(offset, shiftAmount, garbageCarry); break;
+		case 3: offset = ROR(offset, shiftAmount, garbageCarry); break;
+		}
+
+	}
+
+	//offset now resolved
+	if (!upDown)	//offset subtracted if up/down bit is 0
+		offset = -offset;
+
+	if (preIndex)
+		base += offset;
+
+	if (loadStore) //load value
+	{
+		uint32_t val = 0;
+		if (byteWord)
+		{
+			val = m_bus->read8(base);
+		}
+		else
+		{
+			//todo: account for unaligned reads
+			val = m_bus->read32(base);
+		}
+		setReg(destRegIdx, val);
+	}
+	else //store value
+	{
+		uint32_t val = getReg(destRegIdx);
+		if (destRegIdx == 15)	//R15 12 bytes ahead (instead of 8) if used for store
+			val += 4;
+		if (byteWord)
+		{
+			m_bus->write8(base,val & 0xFF);
+		}
+		else
+		{
+			m_bus->write32(base, val);
+		}
+	}
+
+	if (!preIndex)
+		base += offset;
+
+	if (writeback || !preIndex)	//post index implies writeback
+	{
+		setReg(baseRegIdx, base);
+	}
 }
 
 void ARM7TDMI::ARM_Undefined()
