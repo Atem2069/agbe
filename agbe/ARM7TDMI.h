@@ -69,5 +69,18 @@ private:
 	void setReg(uint8_t reg, uint32_t value);
 
 	void ARM_Branch();
-
+	void ARM_DataProcessing();
+	void ARM_Multiply();
+	void ARM_MultiplyLong();
+	void ARM_SingleDataSwap();
+	void ARM_BranchExchange();
+	void ARM_HalfwordTransferRegisterOffset();
+	void ARM_HalfwordTransferImmediateOffset();
+	void ARM_SingleDataTransfer();
+	void ARM_Undefined();
+	void ARM_BlockDataTransfer();
+	void ARM_CoprocessorDataTransfer();
+	void ARM_CoprocessorDataOperation();
+	void ARM_CoprocessorRegisterTransfer();
+	void ARM_SoftwareInterrupt();
 };

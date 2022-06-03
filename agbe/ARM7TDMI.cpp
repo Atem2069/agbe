@@ -69,9 +69,37 @@ void ARM7TDMI::execute()
 
 	Logger::getInstance()->msg(LoggerSeverity::Info, std::format("Execute opcode (ARM) {:#x}. PC={:#x}", m_currentOpcode, R[15]-8));
 
-	//decode instruction here
+	//decode instruction here	(we'll clean up binary masks when this works probs)
 	if ((m_currentOpcode & 0b0000'1110'0000'0000'0000'0000'0000'0000) == 0b0000'1010'0000'0000'0000'0000'0000'0000)
 		ARM_Branch();
+	else if ((m_currentOpcode & 0b0000'1111'1100'0000'0000'0000'1111'0000) == 0b0000'0000'0000'0000'0000'0000'1001'0000)
+		ARM_Multiply();
+	else if ((m_currentOpcode & 0b0000'1111'1000'0000'0000'0000'1111'0000) == 0b0000'0000'1000'0000'0000'0000'1001'0000)
+		ARM_MultiplyLong();
+	else if ((m_currentOpcode & 0b0000'1111'1011'0000'0000'1111'1111'0000) == 0b0000'0001'0000'0000'0000'0000'1001'0000)
+		ARM_SingleDataSwap();
+	else if ((m_currentOpcode & 0b0000'1111'1111'1111'1111'1111'1111'0000) == 0b0000'0001'0010'1111'1111'1111'0001'0000)
+		ARM_BranchExchange();
+	else if ((m_currentOpcode & 0b0000'1110'0100'0000'0000'1111'1001'0000) == 0b0000'0000'0000'0000'0000'0000'1001'0000)
+		ARM_HalfwordTransferRegisterOffset();
+	else if ((m_currentOpcode & 0b0000'1110'0100'0000'0000'0000'1001'0000) == 0b0000'0000'0100'0000'0000'0000'1001'0000)
+		ARM_HalfwordTransferImmediateOffset();
+	else if ((m_currentOpcode & 0b0000'1100'0000'0000'0000'0000'0000'0000) == 0b0000'0000'0000'0000'0000'0000'0000'0000)
+		ARM_DataProcessing();
+	else if ((m_currentOpcode & 0b0000'1110'0000'0000'0000'0000'0001'0000) == 0b0000'0110'0000'0000'0000'0000'0001'0000)
+		ARM_Undefined();
+	else if ((m_currentOpcode & 0b0000'1100'0000'0000'0000'0000'0000'0000) == 0b0000'0100'0000'0000'0000'0000'0000'0000)
+		ARM_SingleDataTransfer();
+	else if ((m_currentOpcode & 0b0000'1110'0000'0000'0000'0000'0000'0000) == 0b0000'1000'0000'0000'0000'0000'0000'0000)
+		ARM_BlockDataTransfer();
+	else if ((m_currentOpcode & 0b0000'1110'0000'0000'0000'0000'0000'0000) == 0b0000'1100'0000'0000'0000'0000'0000'0000)
+		ARM_CoprocessorDataTransfer();
+	else if ((m_currentOpcode & 0b0000'1111'0000'0000'0000'0000'0001'0000) == 0b0000'1110'0000'0000'0000'0000'0000'0000)
+		ARM_CoprocessorDataOperation();
+	else if ((m_currentOpcode & 0b0000'1111'0000'0000'0000'0000'0001'0000) == 0b0000'1110'0000'0000'0000'0000'0001'0000)
+		ARM_CoprocessorDataTransfer();
+	else if ((m_currentOpcode & 0b0000'1111'0000'0000'0000'0000'0000'0000) == 0b0000'1111'0000'0000'0000'0000'0000'0000)
+		ARM_SoftwareInterrupt();
 	else
 	{
 		Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Unimplemented opcode (ARM) {:#x}. PC+8={:#x}", m_currentOpcode, R[15]));
@@ -316,4 +344,88 @@ void ARM7TDMI::ARM_Branch()
 	if (link)
 		setReg(14, getReg(15) - 4);	//to accommodate for pipeline - the effective value saved in LR is 4 bytes ahead of the opcode
 
+}
+
+void ARM7TDMI::ARM_DataProcessing()
+{
+	Logger::getInstance()->msg(LoggerSeverity::Info, "Entered data processing handler (so should be correct!!)");
+	throw std::runtime_error("unimplemented");
+}
+
+void ARM7TDMI::ARM_Multiply()
+{
+	Logger::getInstance()->msg(LoggerSeverity::Error, "Unimplemented");
+	throw std::runtime_error("unimplemented");
+}
+
+void ARM7TDMI::ARM_MultiplyLong()
+{
+	Logger::getInstance()->msg(LoggerSeverity::Error, "Unimplemented");
+	throw std::runtime_error("unimplemented");
+}
+
+void ARM7TDMI::ARM_SingleDataSwap()
+{
+	Logger::getInstance()->msg(LoggerSeverity::Error, "Unimplemented");
+	throw std::runtime_error("unimplemented");
+}
+
+void ARM7TDMI::ARM_BranchExchange()
+{
+	Logger::getInstance()->msg(LoggerSeverity::Error, "Unimplemented");
+	throw std::runtime_error("unimplemented");
+}
+
+void ARM7TDMI::ARM_HalfwordTransferRegisterOffset()
+{
+	Logger::getInstance()->msg(LoggerSeverity::Error, "Unimplemented");
+	throw std::runtime_error("unimplemented");
+}
+
+void ARM7TDMI::ARM_HalfwordTransferImmediateOffset()
+{
+	Logger::getInstance()->msg(LoggerSeverity::Error, "Unimplemented");
+	throw std::runtime_error("unimplemented");
+}
+
+void ARM7TDMI::ARM_SingleDataTransfer()
+{
+	Logger::getInstance()->msg(LoggerSeverity::Error, "Unimplemented");
+	throw std::runtime_error("unimplemented");
+}
+
+void ARM7TDMI::ARM_Undefined()
+{
+	Logger::getInstance()->msg(LoggerSeverity::Error, "Unimplemented");
+	throw std::runtime_error("unimplemented");
+}
+
+void ARM7TDMI::ARM_BlockDataTransfer()
+{
+	Logger::getInstance()->msg(LoggerSeverity::Error, "Unimplemented");
+	throw std::runtime_error("unimplemented");
+}
+
+void ARM7TDMI::ARM_CoprocessorDataTransfer()
+{
+	Logger::getInstance()->msg(LoggerSeverity::Error, "Unimplemented");
+	throw std::runtime_error("unimplemented");
+}
+
+void ARM7TDMI::ARM_CoprocessorDataOperation()
+{
+	Logger::getInstance()->msg(LoggerSeverity::Error, "Unimplemented");
+	throw std::runtime_error("unimplemented");
+}
+
+void ARM7TDMI::ARM_CoprocessorRegisterTransfer()
+{
+	Logger::getInstance()->msg(LoggerSeverity::Error, "Unimplemented");
+	throw std::runtime_error("unimplemented");
+}
+
+void ARM7TDMI::ARM_SoftwareInterrupt()
+{
+	Logger::getInstance()->msg(LoggerSeverity::Error, "Unimplemented");
+	throw std::runtime_error("unimplemented");
 }
