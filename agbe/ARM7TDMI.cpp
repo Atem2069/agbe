@@ -348,7 +348,21 @@ void ARM7TDMI::ARM_Branch()
 
 void ARM7TDMI::ARM_DataProcessing()
 {
+	//check if psr transfer instead (this is dumb but can probs be refactored completely)
+	if ((m_currentOpcode & 0b0000'1111'1011'1111'0000'1111'1111'1111) == 0b0000'0001'0000'1111'0000'0000'0000'0000)
+		ARM_PSRTransfer();
+	if ((m_currentOpcode & 0b0000'1111'1011'1111'1111'1111'1111'0000) == 0b0000'0001'0010'1001'1111'0000'0000'0000)
+		ARM_PSRTransfer();
+	if ((m_currentOpcode & 0b0000'1101'1011'1111'1111'0000'0000'0000) == 0b0000'0001'0010'1000'1111'0000'0000'0000)
+		ARM_PSRTransfer();
+
 	Logger::getInstance()->msg(LoggerSeverity::Info, "Entered data processing handler (so should be correct!!)");
+	throw std::runtime_error("unimplemented");
+}
+
+void ARM7TDMI::ARM_PSRTransfer()
+{
+	Logger::getInstance()->msg(LoggerSeverity::Error, "Unimplemented");
 	throw std::runtime_error("unimplemented");
 }
 

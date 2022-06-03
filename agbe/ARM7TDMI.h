@@ -70,6 +70,7 @@ private:
 
 	void ARM_Branch();
 	void ARM_DataProcessing();
+	void ARM_PSRTransfer();
 	void ARM_Multiply();
 	void ARM_MultiplyLong();
 	void ARM_SingleDataSwap();
@@ -83,4 +84,10 @@ private:
 	void ARM_CoprocessorDataOperation();
 	void ARM_CoprocessorRegisterTransfer();
 	void ARM_SoftwareInterrupt();
+
+	//Barrel shifter ops
+	uint32_t LSL(uint32_t val, int shiftAmount, int& carry);
+	uint32_t LSR(uint32_t val, int shiftAmount, int& carry);
+	uint32_t ASR(uint32_t val, int shiftAmount, int& carry);
+	uint32_t ROR(uint32_t val, int shiftAmount, int& carry);
 };

@@ -145,6 +145,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="ARM7TDMI.cpp" />
+    <ClCompile Include="ARM_BarrelShifter.cpp" />
     <ClCompile Include="Bus.cpp" />
     <ClCompile Include="Display.cpp" />
     <ClCompile Include="GBA.cpp" />
