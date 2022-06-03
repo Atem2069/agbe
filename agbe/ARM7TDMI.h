@@ -51,7 +51,7 @@ private:
 	uint32_t m_currentOpcode = 0;
 
 	//checking conditions for ARM opcodes
-	bool checkConditions();
+	bool checkConditions(uint8_t code);
 
 	//misc flag stuff
 	bool m_getNegativeFlag();

@@ -64,7 +64,8 @@ void ARM7TDMI::execute()
 	}
 
 	//check conditions before executing
-	if (!checkConditions())
+	uint8_t conditionCode = ((m_currentOpcode >> 28) & 0xF);
+	if (!checkConditions(conditionCode))
 		return;
 
 	Logger::getInstance()->msg(LoggerSeverity::Info, std::format("Execute opcode (ARM) {:#x}. PC={:#x}", m_currentOpcode, R[15]-8));
@@ -165,9 +166,9 @@ void ARM7TDMI::flushPipeline()
 	m_shouldFlush = false;
 }
 
-bool ARM7TDMI::checkConditions()
+bool ARM7TDMI::checkConditions(uint8_t code)
 {
-	uint8_t opFlags = (m_currentOpcode >> 28) & 0xF;
+	uint8_t opFlags = code; 
 	switch (opFlags)
 	{
 	case 0: return m_getZeroFlag();

@@ -114,8 +114,18 @@ void ARM7TDMI::Thumb_MultipleLoadStore()
 
 void ARM7TDMI::Thumb_ConditionalBranch()
 {
-	Logger::getInstance()->msg(LoggerSeverity::Error, "Unimplemented");
-	throw std::runtime_error("unimplemented");
+	uint32_t offset = m_currentOpcode & 0xFF;
+	offset <<= 1;
+	if (((offset >> 8) & 0b1))	//sign extend (FFFFFF00 shouldn't matter bc bit 8 should be a 1 anyway)
+		offset |= 0xFFFFFF00;
+
+	uint8_t condition = ((m_currentOpcode >> 8) & 0xF);
+	if (condition == 14 || condition == 15)
+		Logger::getInstance()->msg(LoggerSeverity::Error, "Invalid condition code - opcode decoding is likely wrong!!");
+	if (!checkConditions(condition))
+		return;
+
+	setReg(15, getReg(15) + offset);
 }
 
 void ARM7TDMI::Thumb_SoftwareInterrupt()
