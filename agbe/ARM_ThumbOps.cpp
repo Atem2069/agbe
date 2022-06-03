@@ -31,8 +31,35 @@ void ARM7TDMI::Thumb_AddSubtract()
 
 void ARM7TDMI::Thumb_MoveCompareAddSubtractImm()
 {
-	Logger::getInstance()->msg(LoggerSeverity::Error, "Unimplemented");
-	throw std::runtime_error("unimplemented");
+	uint32_t offset = m_currentOpcode & 0xFF;
+	uint8_t srcDestRegIdx = ((m_currentOpcode >> 8) & 0b111);
+	uint8_t operation = ((m_currentOpcode >> 11) & 0b11);
+
+	uint32_t operand1 = getReg(srcDestRegIdx);
+	uint32_t result = 0;
+
+	switch (operation)
+	{
+	case 0:
+		result = offset;
+		setReg(srcDestRegIdx, result);
+		setLogicalFlags(result, -1);
+		break;
+	case 1:
+		result = operand1 - offset;
+		setArithmeticFlags(operand1, offset, result, false);
+		break;
+	case 2:
+		result = operand1 + offset;
+		setReg(srcDestRegIdx, result);
+		setArithmeticFlags(operand1, offset, result, true);
+		break;
+	case 3:
+		result = operand1 - offset;
+		setReg(srcDestRegIdx, result);
+		setArithmeticFlags(operand1, offset, result, false);
+		break;
+	}
 }
 
 void ARM7TDMI::Thumb_ALUOperations()
@@ -142,6 +169,21 @@ void ARM7TDMI::Thumb_UnconditionalBranch()
 
 void ARM7TDMI::Thumb_LongBranchWithLink()
 {
-	Logger::getInstance()->msg(LoggerSeverity::Error, "Unimplemented");
-	throw std::runtime_error("unimplemented");
+	bool highLow = ((m_currentOpcode >> 11) & 0b1);
+	uint32_t offset = m_currentOpcode & 0b11111111111;
+	if (!highLow)	//H=0: leftshift offset by 12 and add to PC, then store in LR
+	{
+		offset <<= 12;
+		uint32_t res = getReg(15) + offset;
+		setReg(14, res);
+	}
+	else			//H=1: leftshift by 1 and add to LR - then copy LR to PC. copy old PC (-2) to LR and set bit 0
+	{
+		offset <<= 1;
+		uint32_t LR = getReg(14);
+		LR += offset;
+		setReg(14, getReg(15) - 2);	//set LR to point to instruction after this one
+		setReg(15, LR);				//set PC to old LR contents (plus the offset)
+		std::cout << "jump" << '\n';
+	}
 }
