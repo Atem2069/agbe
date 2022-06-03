@@ -416,10 +416,108 @@ void ARM7TDMI::ARM_DataProcessing()
 		}
 	}
 
-	//now - implement the rest of the instruction..
+	uint32_t result = 0;
+	uint32_t carryIn = m_getCarryFlag() & 0b1;
+	bool shouldFlush = true;	//for setting ARM/THUMB state if R15 is affected (seems only CMP can unset)
+	switch (operation)
+	{
+	case 0:	//AND
+		result = operand1 & operand2;
+		setReg(destRegIdx, result);
+		if (setConditionCodes) { setLogicalFlags(result, shiftCarryOut); }
+		break;
+	case 1:	//EOR
+		result = operand1 ^ operand2;
+		setReg(destRegIdx, result);
+		if (setConditionCodes) { setLogicalFlags(result, shiftCarryOut); }
+		break;
+	case 2:	//SUB
+		result = operand1 - operand2;
+		setReg(destRegIdx, result);
+		if (setConditionCodes) { setArithmeticFlags(operand1, operand2, result, false); }
+		break;
+	case 3:	//RSB
+		result = operand2 - operand1;
+		setReg(destRegIdx, result);
+		if (setConditionCodes) { setArithmeticFlags(operand2, operand1, result, false); }
+		break;
+	case 4:	//ADD
+		result = operand1 + operand2;
+		setReg(destRegIdx, result);
+		if (setConditionCodes) { setArithmeticFlags(operand1, operand2, result, true); }
+		break;
+	case 5:	//ADC
+		result = operand1 + operand2 + carryIn;
+		setReg(destRegIdx, result);
+		if (setConditionCodes) { setArithmeticFlags(operand1, operand2 + carryIn, result, true); }
+		break;
+	case 6:	//SBC
+		result = operand1 - operand2 + carryIn - 1;
+		setReg(destRegIdx, result);
+		if (setConditionCodes) { setArithmeticFlags(operand1, operand2 + carryIn + 1, result, false); }
+		break;
+	case 7:	//RSC
+		result = operand2 - operand1 + carryIn - 1;
+		setReg(destRegIdx, result);
+		if (setConditionCodes) { setArithmeticFlags(operand2, operand1 + carryIn + 1, result, false); }
+		break;
+	case 8:	//TST
+		result = operand1 & operand2;
+		setLogicalFlags(result, shiftCarryOut);
+		break;
+	case 9:	//TEQ
+		result = operand1 ^ operand2;
+		setLogicalFlags(result, shiftCarryOut);
+		break;
+	case 10: //CMP
+		result = operand1 - operand2;
+		setArithmeticFlags(operand1, operand2, result, false);
+		shouldFlush = false;
+		break;
+	case 11: //CMN
+		result = operand1 + operand2;
+		setArithmeticFlags(operand1, operand2, result, true);
+		break;
+	case 12: //ORR
+		result = operand1 | operand2;
+		setReg(destRegIdx, result);
+		if (setConditionCodes) { setLogicalFlags(result, shiftCarryOut); }
+		break;
+	case 13: //MOV
+		result = operand2;
+		setReg(destRegIdx, result);
+		if (setConditionCodes) { setLogicalFlags(result, shiftCarryOut); }
+		break;
+	case 14:	//BIC
+		result = operand1 & (~operand2);
+		setReg(destRegIdx, result);
+		if (setConditionCodes) { setLogicalFlags(result, shiftCarryOut); }
+		break;
+	case 15:	//MVN
+		result = ~operand2;
+		setReg(destRegIdx, result);
+		if (setConditionCodes) { setLogicalFlags(result, shiftCarryOut); }
+		break;
+	}
 
-	Logger::getInstance()->msg(LoggerSeverity::Info, "Entered data processing handler (so should be correct!!)");
-	throw std::runtime_error("unimplemented");
+	if (destRegIdx == 15)
+	{
+		Logger::getInstance()->msg(LoggerSeverity::Info, "Dest reg was 15!!");
+		if (setCPSR)
+		{
+			Logger::getInstance()->msg(LoggerSeverity::Error, "Unimplemented CPSR set (Rd=15)");
+		}
+		if (shouldFlush == true)
+		{
+			if ((R[15] & 0b1) || ((CPSR >> 5) & 0b1))	//enter thumb
+			{
+				CPSR |= 0x20;	//set THUMB bit
+				setReg(15, getReg(15) & ~0b1);	//clear bit 0
+			}
+			else
+				setReg(15, getReg(15) & ~0b11);	//clear bits 0,1
+		}
+	}
 }
 
 void ARM7TDMI::ARM_PSRTransfer()

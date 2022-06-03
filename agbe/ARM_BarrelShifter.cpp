@@ -49,7 +49,10 @@ uint32_t ARM7TDMI::ASR(uint32_t val, int shiftAmount, int& carry)
 	if (shiftAmount == 0 || shiftAmount >= 32)
 	{
 		carry = ((val >> 31) & 0b1);
-		return (temp >> 32);	//will be all 1's/0's according to the sign bit
+		if (carry)
+			return 0xFFFFFFFF;
+		return 0;
+		//return (temp >> 32);	//will be all 1's/0's according to the sign bit
 	}
 	int carryBit = shiftAmount - 1;
 	temp >>= shiftAmount;
