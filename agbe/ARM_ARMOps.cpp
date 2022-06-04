@@ -184,7 +184,8 @@ void ARM7TDMI::ARM_DataProcessing()
 		//Logger::getInstance()->msg(LoggerSeverity::Info, "Dest reg was 15!!");
 		if (setCPSR)
 		{
-			Logger::getInstance()->msg(LoggerSeverity::Error, "Unimplemented CPSR set (Rd=15)");
+			uint32_t newPSR = getSPSR();
+			CPSR = newPSR;
 		}
 		if (shouldFlush == true)
 		{
