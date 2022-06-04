@@ -204,7 +204,7 @@ void ARM7TDMI::ARM_PSRTransfer()
 
 	uint32_t opBits = ((m_currentOpcode >> 12) & 0x3FF);	//extract 10 bits identifying opcode
 
-	if (opBits == 0b1010011111)
+	if (opBits == 0b1010011111)		//MSR
 	{
 		bool modifySPSR = ((m_currentOpcode >> 22) & 0b1);
 		uint8_t srcRegIdx = m_currentOpcode & 0xF;
@@ -217,7 +217,7 @@ void ARM7TDMI::ARM_PSRTransfer()
 			CPSR = newPSRData;
 		}
 	}
-	else if (opBits == 0b1010001111)
+	else if (opBits == 0b1010001111)	//MSR
 	{
 		bool isImmediate = ((m_currentOpcode >> 25) & 0b1);
 		bool modifySPSR = ((m_currentOpcode >> 22) & 0b1);
@@ -227,12 +227,26 @@ void ARM7TDMI::ARM_PSRTransfer()
 			modifyVal = m_currentOpcode & 0xFF;
 			int meaningless = 0;
 			int shiftAmount = ((m_currentOpcode >> 8) & 0xF);
-			RORSpecial(modifyVal, shiftAmount, meaningless);	//TODO: doublecheck if this should be used here (as it multiplies the shift amount by 2)
+			modifyVal = RORSpecial(modifyVal, shiftAmount, meaningless);	//TODO: doublecheck if this should be used here (as it multiplies the shift amount by 2)
 		}
 		else
 			modifyVal = getReg((m_currentOpcode & 0xF));
+
+		modifyVal &= 0xF0000000;
+		if (modifySPSR)
+		{
+			uint32_t curSPSR = getSPSR();
+			curSPSR &= 0x0FFFFFFF;
+			curSPSR |= modifyVal;
+			setSPSR(curSPSR);
+		}
+		else
+		{
+			CPSR &= 0x0FFFFFFF;
+			CPSR |= modifyVal;
+		}
 	}
-	else
+	else	//MRS
 	{
 		bool fetchSPSR = ((m_currentOpcode >> 22) & 0b1);
 		uint8_t destRegIdx = ((m_currentOpcode >> 12) & 0xF);
@@ -291,9 +305,9 @@ void ARM7TDMI::ARM_MultiplyLong()
 	if (isSigned)
 	{
 		if (((src1 >> 31) & 0b1))
-			src1 &= 0xFFFFFFFF00000000;
+			src1 |= 0xFFFFFFFF00000000;
 		if (((src2 >> 31) & 0b1))
-			src2 &= 0xFFFFFFFF00000000;
+			src2 |= 0xFFFFFFFF00000000;
 		//prob dont have to sign extend accum bc its inherent if its sign extended
 	}
 
@@ -779,7 +793,7 @@ void ARM7TDMI::ARM_SoftwareInterrupt()
 	CPSR &= 0xFFFFFFE0;	//clear mode bits (0-4)
 	CPSR |= 0b10011;	//set svc bits
 
-	setSPSR(oldCPSR);
-	setReg(14, oldPC);
-	setReg(15, 0x00000008);
+	setSPSR(oldCPSR);			//set SPSR_svc
+	setReg(14, oldPC);			//Save old R15
+	setReg(15, 0x00000008);		//SWI entry point is 0x08
 }
