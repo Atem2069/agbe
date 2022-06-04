@@ -471,7 +471,6 @@ void ARM7TDMI::ARM_Undefined()
 
 void ARM7TDMI::ARM_BlockDataTransfer()
 {
-	//std::cout << "oh no" << '\n';
 	bool prePost = ((m_currentOpcode >> 24) & 0b1);
 	bool upDown = ((m_currentOpcode >> 23) & 0b1);
 	bool forceUser = ((m_currentOpcode >> 22) & 0b1);
@@ -483,6 +482,21 @@ void ARM7TDMI::ARM_BlockDataTransfer()
 
 	uint32_t base = getReg(baseRegIdx);
 	uint32_t originalBase = base;	//save for some weird edge case we need to implement
+
+	//figure out if base reg is first one 
+	int firstReg = 0;
+	for (int i = 0; i < 16; i++)
+	{
+		if (((originalBase >> i) & 0b1))
+		{
+			firstReg = i;
+			i = 999;
+			break;
+		}
+	}
+
+	if (firstReg == baseRegIdx)
+		Logger::getInstance()->msg(LoggerSeverity::Warn, "First reg in rlist is base reg!! unimplemented behaviour");
 
 	if (upDown)
 	{
@@ -502,7 +516,7 @@ void ARM7TDMI::ARM_BlockDataTransfer()
 					if (prePost)
 						base += 4;
 					uint32_t val = m_bus->read32(base);
-					setReg(i, base,forceUser);
+					setReg(i, val,forceUser);
 					if (!prePost)
 						base += 4;
 
