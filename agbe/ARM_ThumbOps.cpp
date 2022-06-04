@@ -398,15 +398,13 @@ void ARM7TDMI::Thumb_LoadAddress()
 	{
 		uint32_t SP = getReg(13);
 		SP += offset;
-		uint32_t val = m_bus->read32(SP);
-		setReg(destRegIdx, val);
+		setReg(destRegIdx, SP);
 	}
 	else		//PC used as base
 	{
-		uint32_t PC = getReg(15);
+		uint32_t PC = getReg(15) & ~0b11;
 		PC += offset;
-		uint32_t val = m_bus->read32(PC);
-		setReg(destRegIdx, val);
+		setReg(destRegIdx, PC);
 	}
 }
 
