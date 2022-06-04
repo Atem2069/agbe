@@ -247,8 +247,41 @@ void ARM7TDMI::Thumb_PCRelativeLoad()
 
 void ARM7TDMI::Thumb_LoadStoreRegisterOffset()
 {
-	Logger::getInstance()->msg(LoggerSeverity::Error, "Unimplemented");
-	throw std::runtime_error("unimplemented");
+	bool loadStore = ((m_currentOpcode >> 11) & 0b1);
+	bool byteWord = ((m_currentOpcode >> 10) & 0b1);
+	uint8_t offsetRegIdx = ((m_currentOpcode >> 6) & 0b111);
+	uint8_t baseRegIdx = ((m_currentOpcode >> 3) & 0b111);
+	uint8_t srcDestRegIdx = m_currentOpcode & 0b111;
+
+	uint32_t base = getReg(baseRegIdx);
+	base += getReg(offsetRegIdx);
+
+	if (loadStore)	//load
+	{
+		if (byteWord)
+		{
+			uint32_t val = m_bus->read8(base);
+			setReg(srcDestRegIdx, val);
+		}
+		else
+		{
+			uint32_t val = m_bus->read32(base);
+			setReg(srcDestRegIdx, val);
+		}
+	}
+	else			//store
+	{
+		if (byteWord)
+		{
+			uint8_t val = getReg(srcDestRegIdx) & 0xFF;
+			m_bus->write8(base, val);
+		}
+		else
+		{
+			uint32_t val = getReg(srcDestRegIdx);
+			m_bus->write32(base, val);
+		}
+	}
 }
 
 void ARM7TDMI::Thumb_LoadStoreSignExtended()
@@ -292,8 +325,26 @@ void ARM7TDMI::Thumb_LoadStoreImmediateOffset()
 
 void ARM7TDMI::Thumb_LoadStoreHalfword()
 {
-	Logger::getInstance()->msg(LoggerSeverity::Error, "Unimplemented");
-	throw std::runtime_error("unimplemented");
+	bool loadStore = ((m_currentOpcode >> 11) & 0b1);
+	uint32_t offset = ((m_currentOpcode >> 6) & 0x1F);
+	uint8_t baseRegIdx = ((m_currentOpcode >> 3) & 0b111);
+	uint8_t srcDestRegIdx = ((m_currentOpcode) & 0b111);
+
+	offset <<= 1;	//6 bit address, might be sign extended? probs not
+
+	uint32_t base = getReg(baseRegIdx);
+	base += offset;
+
+	if (loadStore)
+	{
+		uint32_t val = m_bus->read16(base);
+		setReg(srcDestRegIdx, val);
+	}
+	else
+	{
+		uint16_t val = getReg(srcDestRegIdx) & 0xFFFF;
+		m_bus->write16(base, val);
+	}
 }
 
 void ARM7TDMI::Thumb_SPRelativeLoadStore()
@@ -304,8 +355,26 @@ void ARM7TDMI::Thumb_SPRelativeLoadStore()
 
 void ARM7TDMI::Thumb_LoadAddress()
 {
-	Logger::getInstance()->msg(LoggerSeverity::Error, "Unimplemented");
-	throw std::runtime_error("unimplemented");
+	uint32_t offset = m_currentOpcode & 0xFF;
+	offset <<= 2;	//probs dont have to sign extend?
+
+	uint8_t destRegIdx = ((m_currentOpcode >> 8) & 0b111);
+	bool useSP = ((m_currentOpcode >> 11) & 0b1);
+
+	if (useSP)	//SP used as base
+	{
+		uint32_t SP = getReg(13);
+		SP += offset;
+		uint32_t val = m_bus->read32(SP);
+		setReg(destRegIdx, val);
+	}
+	else		//PC used as base
+	{
+		uint32_t PC = getReg(15);
+		PC += offset;
+		uint32_t val = m_bus->read32(PC);
+		setReg(destRegIdx, val);
+	}
 }
 
 void ARM7TDMI::Thumb_AddOffsetToStackPointer()
@@ -438,8 +507,12 @@ void ARM7TDMI::Thumb_SoftwareInterrupt()
 
 void ARM7TDMI::Thumb_UnconditionalBranch()
 {
-	Logger::getInstance()->msg(LoggerSeverity::Error, "Unimplemented");
-	throw std::runtime_error("unimplemented");
+	uint32_t offset = m_currentOpcode & 0x7FF;
+	offset <<= 1;
+	if (((offset >> 11) & 0b1))	//offset is two's complement so sign extend if necessary
+		offset |= 0xFFFFF000;
+
+	setReg(15, getReg(15) + offset);
 }
 
 void ARM7TDMI::Thumb_LongBranchWithLink()
