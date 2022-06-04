@@ -219,13 +219,27 @@ void ARM7TDMI::ARM_PSRTransfer()
 	}
 	else if (opBits == 0b1010001111)
 	{
-		Logger::getInstance()->msg(LoggerSeverity::Info, "MSR (flags only)");
-		throw std::runtime_error("unimplemented");
+		bool isImmediate = ((m_currentOpcode >> 25) & 0b1);
+		bool modifySPSR = ((m_currentOpcode >> 22) & 0b1);
+		uint32_t modifyVal = 0;
+		if (isImmediate)
+		{
+			modifyVal = m_currentOpcode & 0xFF;
+			int meaningless = 0;
+			int shiftAmount = ((m_currentOpcode >> 8) & 0xF);
+			RORSpecial(modifyVal, shiftAmount, meaningless);	//TODO: doublecheck if this should be used here (as it multiplies the shift amount by 2)
+		}
+		else
+			modifyVal = getReg((m_currentOpcode & 0xF));
 	}
 	else
 	{
-		Logger::getInstance()->msg(LoggerSeverity::Info, "MRS");
-		throw std::runtime_error("unimplemented");
+		bool fetchSPSR = ((m_currentOpcode >> 22) & 0b1);
+		uint8_t destRegIdx = ((m_currentOpcode >> 12) & 0xF);
+		if (fetchSPSR)
+			setReg(destRegIdx, getSPSR());
+		else
+			setReg(destRegIdx, CPSR);
 	}
 }
 
@@ -301,9 +315,30 @@ void ARM7TDMI::ARM_MultiplyLong()
 
 void ARM7TDMI::ARM_SingleDataSwap()
 {
-	Logger::getInstance()->msg(LoggerSeverity::Error, "Unimplemented");
-	throw std::runtime_error("unimplemented");
+	bool byteWord = ((m_currentOpcode >> 22) & 0b1);
+	uint8_t baseRegIdx = ((m_currentOpcode >> 16) & 0xF);
+	uint8_t destRegIdx = ((m_currentOpcode >> 12) & 0xF);
+	uint8_t srcRegIdx = ((m_currentOpcode) & 0xF);
+
+	uint32_t swapAddress = getReg(baseRegIdx);
+	uint32_t srcData = getReg(srcRegIdx);
+
+	if (byteWord)		//swap byte
+	{
+		uint8_t swapVal = m_bus->read8(swapAddress);
+		m_bus->write8(swapAddress, srcData & 0xFF);
+		setReg(destRegIdx, swapVal);
+		
+	}
+
+	else				//swap word
+	{
+		uint32_t swapVal = m_bus->read32(swapAddress);
+		m_bus->write32(swapAddress, srcData);
+		setReg(destRegIdx, swapVal);
+	}
 }
+
 
 void ARM7TDMI::ARM_BranchExchange()
 {
