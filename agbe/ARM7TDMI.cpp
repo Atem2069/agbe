@@ -68,7 +68,7 @@ void ARM7TDMI::execute()
 	if (!checkConditions(conditionCode))
 		return;
 
-	Logger::getInstance()->msg(LoggerSeverity::Info, std::format("Execute opcode (ARM) {:#x}. PC={:#x}", m_currentOpcode, R[15]-8));
+	//Logger::getInstance()->msg(LoggerSeverity::Info, std::format("Execute opcode (ARM) {:#x}. PC={:#x}", m_currentOpcode, R[15]-8));
 
 	//decode instruction here	(we'll clean up binary masks when this works probs)
 	if ((m_currentOpcode & 0b0000'1110'0000'0000'0000'0000'0000'0000) == 0b0000'1010'0000'0000'0000'0000'0000'0000)

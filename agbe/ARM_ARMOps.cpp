@@ -448,8 +448,124 @@ void ARM7TDMI::ARM_Undefined()
 
 void ARM7TDMI::ARM_BlockDataTransfer()
 {
-	Logger::getInstance()->msg(LoggerSeverity::Error, "Unimplemented");
-	throw std::runtime_error("unimplemented");
+	bool prePost = ((m_currentOpcode >> 24) & 0b1);
+	bool upDown = ((m_currentOpcode >> 23) & 0b1);
+	bool forceUser = ((m_currentOpcode >> 22) & 0b1);
+	bool transferPSR = false;
+	bool writeBack = ((m_currentOpcode >> 21) & 0b1);
+	bool loadStore = ((m_currentOpcode >> 20) & 0b1);
+	uint8_t baseRegIdx = ((m_currentOpcode >> 16) & 0xF);
+	uint16_t regList = m_currentOpcode & 0xFFFF;
+
+	uint32_t base = getReg(baseRegIdx);
+	uint32_t originalBase = base;	//save for some weird edge case we need to implement
+
+	if (upDown)
+	{
+		if (loadStore)	//LDMI(A)(B)
+		{
+
+			if (((regList >> 15) & 0b1) && forceUser)
+			{
+				forceUser = false;
+				transferPSR = true;
+			}
+
+			for (int i = 0; i < 16; i++)
+			{
+				if (((regList >> i) & 0b1))
+				{
+					if (prePost)
+						base += 4;
+					uint32_t val = m_bus->read32(base);
+					setReg(i, base,forceUser);
+					if (!prePost)
+						base += 4;
+
+					//change CPSR if R15
+					if (i == 15 && transferPSR)
+					{
+						uint32_t newpsr = getSPSR();
+						CPSR = newpsr;
+					}
+
+				}
+			}
+		}
+
+		else            //STMI(A)(B)
+		{
+			for (int i = 0; i < 16; i++)
+			{
+				if (((regList >> i) & 0b1))
+				{
+					if (prePost)
+						base += 4;
+
+					uint32_t val = getReg(i,forceUser);
+					m_bus->write32(base, val);
+
+					if (!prePost)
+						base += 4;
+				}
+			}
+		}
+	}
+
+	else		//FWIW this implementation is wrong. the correct behaviour is to write increasing addresses (classic nes series will break if we write descending..!)
+	{
+		if (loadStore)	//LDMD(A)(B)
+		{
+			if (((regList >> 15) & 0b1) && forceUser)
+			{
+				forceUser = false;
+				transferPSR = true;
+			}
+
+			for (int i = 15; i >= 0; i--)
+			{
+				if (((regList >> i) & 0b1))
+				{
+					if (prePost)
+						base -= 4;
+
+					uint32_t val = m_bus->read32(base);
+					setReg(i, val, forceUser);
+
+					if (!prePost)
+						base -= 4;
+				}
+			}
+
+			if (((regList >> 15) & 0b1) && transferPSR)
+			{
+				uint32_t newpsr = getSPSR();
+				CPSR = newpsr;
+			}
+		}
+
+		else			//STMD(A)(B)
+		{
+			for (int i = 15; i >= 0; i--)
+			{
+				if (((regList >> i) & 0b1))
+				{
+					if (prePost)
+						base -= 4;
+
+					uint32_t val = getReg(i, forceUser);
+					m_bus->write32(base, val);
+
+					if (!prePost)
+						base -= 4;
+				}
+			}
+		}
+	}
+
+	if (writeBack)
+		setReg(baseRegIdx, base);
+
 }
 
 void ARM7TDMI::ARM_CoprocessorDataTransfer()
