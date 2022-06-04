@@ -2,11 +2,12 @@
 
 #include"Logger.h"
 #include"GBAMem.h"
+#include"InterruptManager.h"
 
 class PPU
 {
 public:
-	PPU();
+	PPU(std::shared_ptr<InterruptManager> interruptManager);
 	~PPU();
 
 	void registerMemory(std::shared_ptr<GBAMem> mem);
@@ -21,6 +22,7 @@ public:
 private:
 	bool registered = false;
 	std::shared_ptr<GBAMem> m_mem;
+	std::shared_ptr<InterruptManager> m_interruptManager;
 	uint32_t m_renderBuffer[240 * 160];	//currently being rendered
 	uint32_t m_displayBuffer[240 * 160]; //buffer the display gets
 

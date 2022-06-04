@@ -1,8 +1,9 @@
 #include"ARM7TDMI.h"
 
-ARM7TDMI::ARM7TDMI(std::shared_ptr<Bus> bus)
+ARM7TDMI::ARM7TDMI(std::shared_ptr<Bus> bus, std::shared_ptr<InterruptManager> interruptManager)
 {
 	m_bus = bus;
+	m_interruptManager = interruptManager;
 	CPSR = 0x1F;	//system starts in system mode
 	for (int i = 0; i < 16; i++)
 		R[i] = 0;
@@ -24,6 +25,8 @@ void ARM7TDMI::step()
 	
 	fetch();
 	execute();	//no decode stage because it's inherent to 'execute' - we accommodate for the decode stage's effect anyway
+
+	dispatchInterrupt();
 
 	if (m_shouldFlush)
 		flushPipeline();
@@ -156,6 +159,34 @@ void ARM7TDMI::executeThumb()
 		Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Unimplemented opcode (Thumb) {:#x}. PC+4={:#x}", m_currentOpcode, R[15]));
 		throw std::runtime_error("Invalid opcode");
 	}
+}
+
+void ARM7TDMI::dispatchInterrupt()
+{
+	if (m_pipeline[0].state == PipelineState::UNFILLED || m_pipeline[1].state == PipelineState::UNFILLED || m_pipeline[2].state == PipelineState::UNFILLED)
+		return;	//only dispatch if pipeline full (or not about to flush)
+	bool irqDisabled = ((CPSR >> 7) & 0b1);
+	if (irqDisabled)
+		return;
+	
+	if (!m_interruptManager->getInterrupt())	//final check: if interrupt actually requested
+		return;
+
+	//irq bits: 10010
+	uint32_t oldCPSR = CPSR;
+
+	CPSR &= ~(0b100000);	//clear T bit if applicable
+	CPSR |= 0x80;	//set IRQ bit (disable irqs)
+	CPSR &= ~0x1F;
+	CPSR |= 0b10010;	//set irq mode
+
+	bool wasThumb = ((oldCPSR >> 5) & 0b1);
+	setSPSR(oldCPSR);
+	if (wasThumb)
+		setReg(14, getReg(15) - 2);
+	else
+		setReg(14, getReg(15) - 4);
+	setReg(15, 0x00000018);
 }
 
 void ARM7TDMI::flushPipeline()
@@ -387,7 +418,7 @@ uint32_t ARM7TDMI::getSPSR()
 	case 0b10010: return SPSR_irq;
 	case 0b11011: return SPSR_und;
 	}
-	Logger::getInstance()->msg(LoggerSeverity::Error, "Tried to get SPSR in incorrect mode!!");
+	return CPSR;	//afaik if you try this in the wrong mode it gives you the CPSR
 }
 
 void ARM7TDMI::setSPSR(uint32_t value)

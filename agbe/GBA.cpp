@@ -37,7 +37,7 @@ void GBA::registerInput(std::shared_ptr<InputState> inp)
 void GBA::m_initialise()
 {
 	Logger::getInstance()->msg(LoggerSeverity::Info, "Initializing new GBA instance");
-	std::string romName = "rom\\armwrestler-gba-fixed.gba";
+	std::string romName = "rom\\irqDemo.gba";
 	Logger::getInstance()->msg(LoggerSeverity::Info, "ROM Path: " + romName);
 
 	std::vector<uint8_t> romData;
@@ -69,10 +69,11 @@ void GBA::m_initialise()
 	}
 	biosReadHandle.close();
 
-	m_ppu = std::make_shared<PPU>();
+	m_interruptManager = std::make_shared<InterruptManager>();
+	m_ppu = std::make_shared<PPU>(m_interruptManager);
 	m_input = std::make_shared<Input>();
-	m_bus = std::make_shared<Bus>(biosData, romData,m_ppu,m_input);
-	m_cpu = std::make_shared<ARM7TDMI>(m_bus);
+	m_bus = std::make_shared<Bus>(biosData, romData, m_interruptManager, m_ppu,m_input);
+	m_cpu = std::make_shared<ARM7TDMI>(m_bus,m_interruptManager);
 
 	Logger::getInstance()->msg(LoggerSeverity::Info, "Inited GBA instance!");
 }

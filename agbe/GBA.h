@@ -5,6 +5,7 @@
 #include"ARM7TDMI.h"
 #include"PPU.h"
 #include"Input.h"
+#include"InterruptManager.h"
 
 class GBA
 {
@@ -19,6 +20,7 @@ public:
 	void registerInput(std::shared_ptr<InputState> inp);
 private:
 	std::shared_ptr<Bus> m_bus;
+	std::shared_ptr<InterruptManager> m_interruptManager;
 	std::shared_ptr<ARM7TDMI> m_cpu;
 	std::shared_ptr<PPU> m_ppu;
 	std::shared_ptr<Input> m_input;

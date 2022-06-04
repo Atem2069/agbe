@@ -153,6 +153,7 @@
     <ClCompile Include="Display.cpp" />
     <ClCompile Include="GBA.cpp" />
     <ClCompile Include="Input.cpp" />
+    <ClCompile Include="InterruptManager.cpp" />
     <ClCompile Include="Logger.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="PPU.cpp" />
@@ -164,6 +165,7 @@
     <ClInclude Include="GBA.h" />
     <ClInclude Include="GBAMem.h" />
     <ClInclude Include="Input.h" />
+    <ClInclude Include="InterruptManager.h" />
     <ClInclude Include="Logger.h" />
     <ClInclude Include="PPU.h" />
     <ClInclude Include="Shaders\fragment.h" />

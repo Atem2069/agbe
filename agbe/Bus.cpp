@@ -1,7 +1,8 @@
 #include"Bus.h"
 
-Bus::Bus(std::vector<uint8_t> BIOS, std::vector<uint8_t> cartData, std::shared_ptr<PPU> ppu, std::shared_ptr<Input> input)
+Bus::Bus(std::vector<uint8_t> BIOS, std::vector<uint8_t> cartData, std::shared_ptr<InterruptManager> interruptManager, std::shared_ptr<PPU> ppu, std::shared_ptr<Input> input)
 {
+	m_interruptManager = interruptManager;
 	m_ppu = ppu;
 	m_input = input;
 
@@ -268,12 +269,16 @@ void Bus::write32(uint32_t address, uint32_t value, bool doTick)
 		setValue32(m_mem->paletteRAM, address & 0x3FF, value);
 		break;
 	case 6:
-		if (address > 0x06017FFF)
+		/*if (address > 0x06017FFF)
 		{
 			Logger::getInstance()->msg(LoggerSeverity::Error, "Improperly handled OOB VRAM write");
 			break;
 		}
-		setValue32(m_mem->VRAM, address % (96 * 1024), value);
+		setValue32(m_mem->VRAM, address % (96 * 1024), value);*/
+		address = address & 0x1FFFF;
+		if (address >= 0x18000)
+			address -= 32768;
+		setValue32(m_mem->VRAM, address, value);
 		break;
 	case 7:
 		setValue32(m_mem->OAM, address & 0x3FF, value);
@@ -296,6 +301,11 @@ uint8_t Bus::readIO8(uint32_t address)
 		return m_ppu->readIO(address);
 	if (address >= 0x04000130 && address <= 0x04000133)
 		return m_input->readIORegister(address);
+	switch (address)
+	{
+	case 0x04000200:case 0x04000201: case 0x04000202:  case 0x04000203: case 0x04000208: case 0x04000209: case 0x0400020A: case 0x0400020B:
+		return m_interruptManager->readIO(address);
+	}
 	Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Unimplemented IO read addr={:#x}", address));
 	return 0;
 }
@@ -310,6 +320,12 @@ void Bus::writeIO8(uint32_t address, uint8_t value)
 	if (address >= 0x04000130 && address <= 0x04000133)
 	{
 		m_input->writeIORegister(address, value);
+		return;
+	}
+	switch (address)
+	{
+	case 0x04000200:case 0x04000201: case 0x04000202:  case 0x04000203: case 0x04000208: case 0x04000209: case 0x0400020A: case 0x0400020B:
+		m_interruptManager->writeIO(address,value);
 		return;
 	}
 	Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Unimplemented IO write addr={:#x}", address));

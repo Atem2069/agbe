@@ -1,7 +1,8 @@
 #include"PPU.h"
 
-PPU::PPU()
+PPU::PPU(std::shared_ptr<InterruptManager> interruptManager)
 {
+	m_interruptManager = interruptManager;
 	VCOUNT = 0;
 	inVBlank = false;
 	//simple test
@@ -49,7 +50,7 @@ void PPU::HDraw()
 		{
 		case 0: case 1: case 2: case 5:
 			//Logger::getInstance()->msg(LoggerSeverity::Error, "Tried to draw with unimplemented video mode");
-			std::cout << (int)mode << '\n';
+			//std::cout << (int)mode << '\n';
 			break;
 		case 3:
 			renderMode3();
@@ -63,6 +64,11 @@ void PPU::HDraw()
 
 void PPU::HBlank()
 {
+	if (m_lineCycles == 961)
+	{
+		if (((DISPSTAT >> 4) & 0b1))
+			m_interruptManager->requestInterrupt(InterruptType::HBlank);
+	}
 	//todo: check timing of when exactly hblank flag/interrupt set
 	setHBlankFlag(true);
 
@@ -77,6 +83,9 @@ void PPU::HBlank()
 		{
 			setVBlankFlag(true);
 			inVBlank = true;
+
+			if (((DISPSTAT >> 3) & 0b1))
+				m_interruptManager->requestInterrupt(InterruptType::VBlank);
 
 			//copy display buf over
 			memcpy(m_displayBuffer, m_renderBuffer, 240 * 160 * sizeof(uint32_t));

@@ -2,6 +2,7 @@
 
 #include"Logger.h"
 #include"Bus.h"
+#include"InterruptManager.h"
 
 #include<iostream>
 #include<stdexcept>
@@ -21,12 +22,13 @@ struct Pipeline
 class ARM7TDMI
 {
 public:
-	ARM7TDMI(std::shared_ptr<Bus> bus);
+	ARM7TDMI(std::shared_ptr<Bus> bus, std::shared_ptr<InterruptManager> interruptManager);
 	~ARM7TDMI();
 
 	void step();
 private:
 	std::shared_ptr<Bus> m_bus;
+	std::shared_ptr<InterruptManager> m_interruptManager;
 
 	Pipeline m_pipeline[3];
 	uint8_t m_pipelinePtr = 0;
@@ -47,6 +49,8 @@ private:
 	void flushPipeline();
 
 	void executeThumb();
+
+	void dispatchInterrupt();
 
 	uint32_t m_currentOpcode = 0;
 
