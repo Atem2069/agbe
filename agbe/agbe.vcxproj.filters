@@ -51,6 +51,9 @@
     <ClCompile Include="ARM7TDMI.cpp">
       <Filter>Source Files\ARM</Filter>
     </ClCompile>
+    <ClCompile Include="PPU.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Logger.h">
@@ -76,6 +79,9 @@
     </ClInclude>
     <ClInclude Include="Shaders\fragment.h">
       <Filter>Shaders</Filter>
+    </ClInclude>
+    <ClInclude Include="PPU.h">
+      <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

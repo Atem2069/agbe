@@ -18,6 +18,11 @@ void GBA::run()
 	}
 }
 
+void* GBA::getPPUData()
+{
+	return m_ppu->getDisplayBuffer();
+}
+
 void GBA::m_initialise()
 {
 	Logger::getInstance()->msg(LoggerSeverity::Info, "Initializing new GBA instance");
@@ -53,7 +58,8 @@ void GBA::m_initialise()
 	}
 	biosReadHandle.close();
 
-	m_bus = std::make_shared<Bus>(biosData, romData);
+	m_ppu = std::make_shared<PPU>();
+	m_bus = std::make_shared<Bus>(biosData, romData,m_ppu);
 	m_cpu = std::make_shared<ARM7TDMI>(m_bus);
 
 	Logger::getInstance()->msg(LoggerSeverity::Info, "Inited GBA instance!");

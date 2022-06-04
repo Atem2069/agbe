@@ -1,7 +1,8 @@
 #include"Bus.h"
 
-Bus::Bus(std::vector<uint8_t> BIOS, std::vector<uint8_t> cartData)
+Bus::Bus(std::vector<uint8_t> BIOS, std::vector<uint8_t> cartData, std::shared_ptr<PPU> ppu)
 {
+	m_ppu = ppu;
 	m_mem = std::make_shared<GBAMem>();
 	if (BIOS.size() != 16385)
 	{
@@ -26,6 +27,7 @@ Bus::~Bus()
 void Bus::tick()
 {
 	//todo: tick other components
+	m_ppu->step();
 }
 
 uint8_t Bus::read8(uint32_t address, bool doTick)

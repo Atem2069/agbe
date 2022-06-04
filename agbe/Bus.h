@@ -2,13 +2,14 @@
 
 #include "Logger.h"
 #include "GBAMem.h"
+#include "PPU.h"
 
 #include<iostream>
 
 class Bus
 {
 public:
-	Bus(std::vector<uint8_t> BIOS, std::vector<uint8_t> cartData);
+	Bus(std::vector<uint8_t> BIOS, std::vector<uint8_t> cartData, std::shared_ptr<PPU> ppu);
 	~Bus();
 
 	void tick();	//inaccurate but tick 1 cycle per memory access
@@ -35,6 +36,7 @@ public:
 
 private:
 	std::shared_ptr<GBAMem> m_mem;
+	std::shared_ptr<PPU> m_ppu;
 
 	uint16_t getValue16(uint8_t* arr, int base);
 	void setValue16(uint8_t* arr, int base, uint16_t val);
