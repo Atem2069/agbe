@@ -1,2 +1,4 @@
 # agbe
-runs panda.gba and not much else . .
+Highly WIP Game Boy Advance Emulator.
+
+Current progress - starts armwrestler and shows menu screen.
