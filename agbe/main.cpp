@@ -41,6 +41,8 @@ int main()
 
 	}
 
+	m_gba->notifyDetach();	//tell gba instance to stop
+
 	m_workerThread.join();
 
 	return 0;

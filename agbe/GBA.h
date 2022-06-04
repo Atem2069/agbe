@@ -13,6 +13,7 @@ public:
 	~GBA();
 
 	void run();
+	void notifyDetach();
 
 	void* getPPUData();
 	void registerInput(std::shared_ptr<InputState> inp);
@@ -23,6 +24,8 @@ private:
 	std::shared_ptr<Input> m_input;
 
 	std::shared_ptr<InputState> m_inp;
+
+	bool m_shouldStop = false;
 
 	void m_initialise();
 };

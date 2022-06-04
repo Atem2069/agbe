@@ -12,11 +12,16 @@ GBA::~GBA()
 
 void GBA::run()
 {
-	while (true)
+	while (!m_shouldStop)
 	{
 		m_cpu->step();
 		m_input->update(*m_inp);
 	}
+}
+
+void GBA::notifyDetach()
+{
+	m_shouldStop = true;	//stops the instance (bc otherwise this thread will go on forever when main thread ends)
 }
 
 void* GBA::getPPUData()
