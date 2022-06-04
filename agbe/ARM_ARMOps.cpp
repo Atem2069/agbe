@@ -772,6 +772,14 @@ void ARM7TDMI::ARM_CoprocessorRegisterTransfer()
 
 void ARM7TDMI::ARM_SoftwareInterrupt()
 {
-	Logger::getInstance()->msg(LoggerSeverity::Error, "Unimplemented");
-	throw std::runtime_error("unimplemented");
+	//svc mode bits are 10011
+	uint32_t oldCPSR = CPSR;
+	uint32_t oldPC = R[15] - 4;	//-4 because it points to next instruction
+
+	CPSR &= 0xFFFFFFE0;	//clear mode bits (0-4)
+	CPSR |= 0b10011;	//set svc bits
+
+	setSPSR(oldCPSR);
+	setReg(14, oldPC);
+	setReg(15, 0x00000008);
 }
