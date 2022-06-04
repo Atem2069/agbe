@@ -142,8 +142,11 @@ void ARM7TDMI::Thumb_ALUOperations()
 		setArithmeticFlags(operand1, operand2 + (!carryIn), result, false);
 		break;
 	case 7:	//ROR
+		operand2 &= 0xFF;
 		result = ROR(operand1, operand2, tempCarry);
 		setReg(srcDestRegIdx, result);
+		if (!result)
+			tempCarry = -1;
 		setLogicalFlags(result, tempCarry);
 		break;
 	case 8:	//TST
@@ -286,8 +289,38 @@ void ARM7TDMI::Thumb_LoadStoreRegisterOffset()
 
 void ARM7TDMI::Thumb_LoadStoreSignExtended()
 {
-	Logger::getInstance()->msg(LoggerSeverity::Error, "Unimplemented");
-	throw std::runtime_error("unimplemented");
+	uint8_t op = ((m_currentOpcode >> 10) & 0b11);
+	uint8_t offsetRegIdx = ((m_currentOpcode >> 6) & 0b111);
+	uint8_t baseRegIdx = ((m_currentOpcode >> 3) & 0b111);
+	uint8_t srcDestRegIdx = m_currentOpcode & 0b111;
+
+	uint32_t addr = getReg(baseRegIdx) + getReg(offsetRegIdx);
+
+
+	if (op == 0)
+	{
+		uint16_t val = getReg(srcDestRegIdx) & 0xFFFF;
+		m_bus->write16(addr, val);
+	}
+	else if (op == 2)	//load halfword
+	{
+		uint32_t val = m_bus->read16(addr) & 0xFFFF;
+		setReg(srcDestRegIdx, val);
+	}
+	else if (op == 1)	//load sign extended byte
+	{
+		uint32_t val = m_bus->read8(addr);
+		if (((val >> 7) & 0b1))
+			val |= 0xFFFFFF00;
+		setReg(srcDestRegIdx, val);
+	}
+	else if (op == 3)   //load sign extended halfword
+	{
+		uint32_t val = m_bus->read16(addr);
+		if (((val >> 15) & 0b1))
+			val |= 0xFFFF0000;
+		setReg(srcDestRegIdx, val);
+	}
 }
 
 void ARM7TDMI::Thumb_LoadStoreImmediateOffset()

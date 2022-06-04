@@ -44,10 +44,10 @@ uint8_t Input::readIORegister(uint32_t address)
 	if (address == 0x04000131)
 		return ((keyInput >> 8) & 0xFF);
 
-	Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Invalid/unmapped IO given - {:#x}", address));
+	//Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Invalid/unmapped IO given - {:#x}", address));
 }
 
 void Input::writeIORegister(uint32_t address, uint8_t value)
 {
-	Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Unimplemented joypad write {:#x}", address));
+	//Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Unimplemented joypad write {:#x}", address));
 }
