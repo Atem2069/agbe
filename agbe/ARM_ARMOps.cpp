@@ -259,8 +259,44 @@ void ARM7TDMI::ARM_Multiply()
 
 void ARM7TDMI::ARM_MultiplyLong()
 {
-	Logger::getInstance()->msg(LoggerSeverity::Error, "Unimplemented");
-	throw std::runtime_error("unimplemented");
+	bool isSigned = ((m_currentOpcode >> 22) & 0b1);
+	bool accumulate = ((m_currentOpcode >> 21) & 0b1);
+	bool setFlags = ((m_currentOpcode >> 20) & 0b1);
+	uint8_t destRegHiIdx = ((m_currentOpcode >> 16) & 0xF);
+	uint8_t destRegLoIdx = ((m_currentOpcode >> 12) & 0xF);
+	uint8_t src2RegIdx = ((m_currentOpcode >> 8) & 0xF);
+	uint8_t src1RegIdx = ((m_currentOpcode) & 0xF);
+
+	uint64_t src1 = getReg(src1RegIdx);
+	uint64_t src2 = getReg(src2RegIdx);
+
+	uint64_t accumLow = getReg(destRegLoIdx);
+	uint64_t accumHi = getReg(destRegHiIdx);
+	uint64_t accum = ((accumHi << 32) | accumLow);
+
+	if (isSigned)
+	{
+		if (((src1 >> 31) & 0b1))
+			src1 &= 0xFFFFFFFF00000000;
+		if (((src2 >> 31) & 0b1))
+			src2 &= 0xFFFFFFFF00000000;
+		//prob dont have to sign extend accum bc its inherent if its sign extended
+	}
+
+	uint64_t result = 0;
+	if (accumulate)
+		result = src1 * src2 + accum;
+	else
+		result = src1 * src2;
+
+	if (setFlags)
+	{
+		m_setZeroFlag(result == 0);
+		m_setNegativeFlag(((result >> 63) & 0b1));
+	}
+
+	setReg(destRegLoIdx, result & 0xFFFFFFFF);
+	setReg(destRegHiIdx, ((result >> 32) & 0xFFFFFFFF));
 }
 
 void ARM7TDMI::ARM_SingleDataSwap()
