@@ -115,6 +115,7 @@ private:
 	uint32_t LSR(uint32_t val, int shiftAmount, int& carry);
 	uint32_t ASR(uint32_t val, int shiftAmount, int& carry);
 	uint32_t ROR(uint32_t val, int shiftAmount, int& carry);
+	uint32_t RORSpecial(uint32_t val, int shiftAmount, int& carry);
 
 	//Flag setting
 	void setLogicalFlags(uint32_t result, int carry);

@@ -26,7 +26,7 @@ void* GBA::getPPUData()
 void GBA::m_initialise()
 {
 	Logger::getInstance()->msg(LoggerSeverity::Info, "Initializing new GBA instance");
-	std::string romName = "rom\\panda.gba";
+	std::string romName = "rom\\armwrestler.gba";
 	Logger::getInstance()->msg(LoggerSeverity::Info, "ROM Path: " + romName);
 
 	std::vector<uint8_t> romData;

@@ -9,9 +9,10 @@ void ARM7TDMI::ARM_Branch()
 		offset |= 0xFC000000;
 
 	//set R15
+	uint32_t oldR15 = getReg(15);
 	setReg(15, getReg(15) + offset);
 	if (link)
-		setReg(14, getReg(15) - 4);	//to accommodate for pipeline - the effective value saved in LR is 4 bytes ahead of the opcode
+		setReg(14, oldR15 - 4);	
 
 }
 
@@ -56,9 +57,9 @@ void ARM7TDMI::ARM_DataProcessing()
 	if (immediate) //operand 2 is immediate
 	{
 		operand2 = m_currentOpcode & 0xFF;
-		int shiftAmount = ((m_currentOpcode >> 8) & 0xF) * 2;
+		int shiftAmount = ((m_currentOpcode >> 8) & 0xF);
 		if (shiftAmount > 0)
-			operand2 = std::rotr(operand2, shiftAmount);	//afaik immediate shifts don't affect flags
+			operand2 = RORSpecial(operand2, shiftAmount, shiftCarryOut);
 	}
 
 	else		//operand 2 is a register
@@ -448,6 +449,7 @@ void ARM7TDMI::ARM_Undefined()
 
 void ARM7TDMI::ARM_BlockDataTransfer()
 {
+	//std::cout << "oh no" << '\n';
 	bool prePost = ((m_currentOpcode >> 24) & 0b1);
 	bool upDown = ((m_currentOpcode >> 23) & 0b1);
 	bool forceUser = ((m_currentOpcode >> 22) & 0b1);
@@ -565,7 +567,6 @@ void ARM7TDMI::ARM_BlockDataTransfer()
 
 	if (writeBack)
 		setReg(baseRegIdx, base);
-
 }
 
 void ARM7TDMI::ARM_CoprocessorDataTransfer()
