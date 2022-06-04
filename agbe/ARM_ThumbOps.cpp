@@ -117,17 +117,26 @@ void ARM7TDMI::Thumb_ALUOperations()
 		setLogicalFlags(result, -1);
 		break;
 	case 2:	//LSL
-		result = LSL(operand1, operand2, tempCarry);
+		if (operand2)
+			result = LSL(operand1, operand2, tempCarry);
+		else
+			result = operand1;
 		setReg(srcDestRegIdx, result);
 		setLogicalFlags(result, tempCarry);
 		break;
 	case 3:	//LSR
-		result = LSR(operand1, operand2, tempCarry);
+		if (operand2)
+			result = LSR(operand1, operand2, tempCarry);
+		else
+			result = operand1;
 		setReg(srcDestRegIdx, result);
 		setLogicalFlags(result, tempCarry);
 		break;
 	case 4:	//ASR
-		result = ASR(operand1, operand2, tempCarry);
+		if (operand2)
+			result = ASR(operand1, operand2, tempCarry);
+		else
+			result = operand1;
 		setReg(srcDestRegIdx, result);
 		setLogicalFlags(result, tempCarry);
 		break;
