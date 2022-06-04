@@ -323,8 +323,84 @@ void ARM7TDMI::ARM_BranchExchange()
 
 void ARM7TDMI::ARM_HalfwordTransferRegisterOffset()
 {
-	Logger::getInstance()->msg(LoggerSeverity::Error, "Unimplemented");
-	throw std::runtime_error("unimplemented");
+	bool prePost = ((m_currentOpcode >> 24) & 0b1);
+	bool upDown = ((m_currentOpcode >> 23) & 0b1);
+	bool writeback = ((m_currentOpcode >> 21) & 0b1);
+	bool loadStore = ((m_currentOpcode >> 20) & 0b1);
+	uint8_t baseRegIdx = ((m_currentOpcode >> 16) & 0xF);
+	uint8_t srcDestRegIdx = ((m_currentOpcode >> 12) & 0xF);
+	uint8_t operation = ((m_currentOpcode >> 5) & 0b11);
+	uint8_t offsetRegIdx = m_currentOpcode & 0xF;
+
+	uint32_t base = getReg(baseRegIdx);
+	uint32_t offset = getReg(offsetRegIdx);
+
+	if (prePost)
+	{
+		if (upDown)
+			base += offset;
+		else
+			base -= offset;
+	}
+
+	if (loadStore)
+	{
+		uint32_t val = 0;
+		switch (operation)
+		{
+		case 0:
+			Logger::getInstance()->msg(LoggerSeverity::Error, "SWP called from halfword transfer - opcode decoding is invalid!!!");
+			break;
+		case 1:
+			val = m_bus->read16(base);
+			setReg(srcDestRegIdx, val);
+			break;
+		case 2:
+			val = m_bus->read8(base);
+			if (((val >> 7) & 0b1))
+				val |= 0xFFFFFF00;
+			setReg(srcDestRegIdx, val);
+			break;
+		case 3:
+			val = m_bus->read16(base);
+			if (((val >> 15) & 0b1))
+				val |= 0xFFFF0000;
+			setReg(srcDestRegIdx, val);
+			break;
+		}
+	}
+	else						//store
+	{
+		uint32_t data = getReg(srcDestRegIdx);
+		if ((operation == 1 || operation == 3) && srcDestRegIdx == 15)	//PC+12 when specified as src and halfword transfer taking place
+			data += 4;
+		switch (operation)
+		{
+		case 0:
+			Logger::getInstance()->msg(LoggerSeverity::Error, "Invalid halfword operation encoding");
+			break;
+		case 1:
+			m_bus->write16(base, data & 0xFFFF);
+			break;
+		case 2:
+			m_bus->write8(base, data & 0xFF);
+			break;
+		case 3:
+			m_bus->write16(base, data & 0xFFFF);
+			break;
+		}
+	}
+
+	if (!prePost)
+	{
+		if (!upDown)
+			base -= offset;
+		else
+			base += offset;
+	}
+
+	if (writeback || !prePost)
+		setReg(baseRegIdx, base);
 }
 
 void ARM7TDMI::ARM_HalfwordTransferImmediateOffset()
