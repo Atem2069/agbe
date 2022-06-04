@@ -175,12 +175,16 @@ void Bus::write16(uint32_t address, uint16_t value, bool doTick)
 		setValue16(m_mem->paletteRAM, address & 0x3FF, value);
 		break;
 	case 6:
-		if (address > 0x06017FFF)
+		/*if (address > 0x06017FFF)
 		{
 			Logger::getInstance()->msg(LoggerSeverity::Error, "Improperly handled OOB VRAM write");
 			break;
 		}
-		setValue16(m_mem->VRAM, address % (96 * 1024), value);
+		setValue16(m_mem->VRAM, address % (96 * 1024), value);*/
+		address = address & 0x1FFFF;
+		if (address >= 0x18000)
+			address -= 32768;
+		setValue16(m_mem->VRAM, address, value);
 		break;
 	case 7:
 		setValue16(m_mem->OAM, address & 0x3FF, value);
