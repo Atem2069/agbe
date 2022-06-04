@@ -72,6 +72,8 @@ void ARM7TDMI::ARM_DataProcessing()
 		{
 			if (op2Idx == 15)	//account for R15 being 12 bytes ahead if register-specified shift amount
 				operand2 += 4;
+			if (op1Idx == 15)
+				operand1 += 4;
 			uint8_t shiftRegIdx = (m_currentOpcode >> 8) & 0xF;
 			shiftAmount = getReg(shiftRegIdx) & 0xFF;	//only bottom byte used
 			shiftCarryOut = m_getCarryFlag();			//just in case we don't shift (if register contains 0)
