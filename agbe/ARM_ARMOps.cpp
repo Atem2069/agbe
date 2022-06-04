@@ -349,6 +349,8 @@ void ARM7TDMI::ARM_SingleDataSwap()
 	else				//swap word
 	{
 		uint32_t swapVal = m_bus->read32(swapAddress);
+		if (swapAddress & 3)
+			swapVal = std::rotr(swapVal, (swapAddress & 3) * 8);
 		m_bus->write32(swapAddress, srcData);
 		setReg(destRegIdx, swapVal);
 	}
@@ -598,6 +600,8 @@ void ARM7TDMI::ARM_SingleDataTransfer()
 		{
 			//todo: account for unaligned reads
 			val = m_bus->read32(base);
+			if(base&3)
+				val = std::rotr(val, (base & 3) * 8);
 		}
 		setReg(destRegIdx, val);
 	}

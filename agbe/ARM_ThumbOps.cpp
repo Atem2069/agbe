@@ -271,6 +271,8 @@ void ARM7TDMI::Thumb_LoadStoreRegisterOffset()
 		else
 		{
 			uint32_t val = m_bus->read32(base);
+			if (base & 3)
+				val = std::rotr(val, (base & 3) * 8);
 			setReg(srcDestRegIdx, val);
 		}
 	}
@@ -344,7 +346,11 @@ void ARM7TDMI::Thumb_LoadStoreImmediateOffset()
 		if (byteWord)
 			val = m_bus->read8(baseAddr);
 		else
+		{
 			val = m_bus->read32(baseAddr);
+			if (baseAddr & 3)
+				val = std::rotr(val, (baseAddr & 3) * 8);
+		}
 		setReg(srcDestRegIdx, val);
 	}
 	else			//Store value to memory
