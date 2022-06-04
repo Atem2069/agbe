@@ -65,8 +65,8 @@ private:
 	void m_setOverflowFlag(bool value);
 
 	//get/set registers
-	uint32_t getReg(uint8_t reg);
-	void setReg(uint8_t reg, uint32_t value);
+	uint32_t getReg(uint8_t reg, bool forceUser=false);
+	void setReg(uint8_t reg, uint32_t value, bool forceUser=false);
 
 	uint32_t getSPSR();
 	void setSPSR(uint32_t value);

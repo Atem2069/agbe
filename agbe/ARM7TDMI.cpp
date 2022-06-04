@@ -248,10 +248,10 @@ void ARM7TDMI::m_setOverflowFlag(bool value)
 		CPSR &= (~mask);
 }
 
-uint32_t ARM7TDMI::getReg(uint8_t reg)
+uint32_t ARM7TDMI::getReg(uint8_t reg, bool forceUser)
 {
 	uint8_t mode = CPSR & 0x1F;
-	if (reg < 8)		//R0-R7 not banked so this is gucci
+	if (reg < 8 || forceUser)		//R0-R7 not banked so this is gucci
 		return R[reg];
 	switch (reg)
 	{
@@ -304,10 +304,10 @@ uint32_t ARM7TDMI::getReg(uint8_t reg)
 	}
 }
 
-void ARM7TDMI::setReg(uint8_t reg, uint32_t value)
+void ARM7TDMI::setReg(uint8_t reg, uint32_t value, bool forceUser)
 {
 	uint8_t mode = CPSR & 0x1F;
-	if (reg < 8)		//R0-R7 not banked so this is gucci
+	if (reg < 8 || forceUser)		//R0-R7 not banked so this is gucci
 		R[reg] = value;
 	switch (reg)
 	{
