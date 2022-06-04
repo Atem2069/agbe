@@ -1,8 +1,10 @@
 #include"Bus.h"
 
-Bus::Bus(std::vector<uint8_t> BIOS, std::vector<uint8_t> cartData, std::shared_ptr<PPU> ppu)
+Bus::Bus(std::vector<uint8_t> BIOS, std::vector<uint8_t> cartData, std::shared_ptr<PPU> ppu, std::shared_ptr<Input> input)
 {
 	m_ppu = ppu;
+	m_input = input;
+
 	m_mem = std::make_shared<GBAMem>();
 	m_ppu->registerMemory(m_mem);
 	if (BIOS.size() != 16385)
@@ -292,6 +294,8 @@ uint8_t Bus::readIO8(uint32_t address)
 {
 	if (address <= 0x04000056)
 		return m_ppu->readIO(address);
+	if (address >= 0x04000130 && address <= 0x04000133)
+		return m_input->readIORegister(address);
 	Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Unimplemented IO read addr={:#x}", address));
 	return 0;
 }
@@ -301,6 +305,11 @@ void Bus::writeIO8(uint32_t address, uint8_t value)
 	if (address <= 0x04000056)
 	{
 		m_ppu->writeIO(address,value);
+		return;
+	}
+	if (address >= 0x04000130 && address <= 0x04000133)
+	{
+		m_input->writeIORegister(address, value);
 		return;
 	}
 	Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Unimplemented IO write addr={:#x}", address));

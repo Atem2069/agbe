@@ -37,6 +37,8 @@ public:
 	bool getShouldClose();
 	void draw();
 	void update(void* newData);	//unsafe but size is known :)
+
+	bool getPressed(unsigned int key);
 private:
 	GLFWwindow* m_window;
 

@@ -125,3 +125,8 @@ void Display::update(void* data)
 	glBindTexture(GL_TEXTURE_2D, m_texHandle);
 	glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 240, 160, GL_RGBA, GL_UNSIGNED_INT_8_8_8_8, data);
 }
+
+bool Display::getPressed(unsigned int key)
+{
+	return (glfwGetKey(m_window, key)) == GLFW_PRESS;
+}

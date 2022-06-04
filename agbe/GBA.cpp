@@ -15,12 +15,18 @@ void GBA::run()
 	while (true)
 	{
 		m_cpu->step();
+		m_input->update(*m_inp);
 	}
 }
 
 void* GBA::getPPUData()
 {
 	return m_ppu->getDisplayBuffer();
+}
+
+void GBA::registerInput(std::shared_ptr<InputState> inp)
+{
+	m_inp = inp;
 }
 
 void GBA::m_initialise()
@@ -59,7 +65,8 @@ void GBA::m_initialise()
 	biosReadHandle.close();
 
 	m_ppu = std::make_shared<PPU>();
-	m_bus = std::make_shared<Bus>(biosData, romData,m_ppu);
+	m_input = std::make_shared<Input>();
+	m_bus = std::make_shared<Bus>(biosData, romData,m_ppu,m_input);
 	m_cpu = std::make_shared<ARM7TDMI>(m_bus);
 
 	Logger::getInstance()->msg(LoggerSeverity::Info, "Inited GBA instance!");
