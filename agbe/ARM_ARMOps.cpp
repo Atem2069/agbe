@@ -180,7 +180,7 @@ void ARM7TDMI::ARM_DataProcessing()
 
 	if (destRegIdx == 15)
 	{
-		Logger::getInstance()->msg(LoggerSeverity::Info, "Dest reg was 15!!");
+		//Logger::getInstance()->msg(LoggerSeverity::Info, "Dest reg was 15!!");
 		if (setCPSR)
 		{
 			Logger::getInstance()->msg(LoggerSeverity::Error, "Unimplemented CPSR set (Rd=15)");
@@ -274,8 +274,8 @@ void ARM7TDMI::ARM_HalfwordTransferImmediateOffset()
 	bool upDown = ((m_currentOpcode >> 23) & 0b1);
 	bool writeback = ((m_currentOpcode >> 21) & 0b1);
 	bool loadStore = ((m_currentOpcode >> 20) & 0b1);
-	bool baseRegIdx = ((m_currentOpcode >> 16) & 0xF);
-	bool srcDestRegIdx = ((m_currentOpcode >> 12) & 0xF);
+	uint8_t baseRegIdx = ((m_currentOpcode >> 16) & 0xF);
+	uint8_t srcDestRegIdx = ((m_currentOpcode >> 12) & 0xF);
 	uint8_t offsHigh = ((m_currentOpcode >> 8) & 0xF);
 	uint8_t op = ((m_currentOpcode >> 5) & 0b11);
 	uint8_t offsLow = m_currentOpcode & 0xF;

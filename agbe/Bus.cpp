@@ -4,6 +4,7 @@ Bus::Bus(std::vector<uint8_t> BIOS, std::vector<uint8_t> cartData, std::shared_p
 {
 	m_ppu = ppu;
 	m_mem = std::make_shared<GBAMem>();
+	m_ppu->registerMemory(m_mem);
 	if (BIOS.size() != 16385)
 	{
 		std::cout << BIOS.size() << '\n';
@@ -285,12 +286,19 @@ void Bus::write32(uint32_t address, uint32_t value, bool doTick)
 //And then sort out 16/32 bit r/w using the above
 uint8_t Bus::readIO8(uint32_t address)
 {
+	if (address <= 0x04000056)
+		return m_ppu->readIO(address);
 	Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Unimplemented IO read addr={:#x}", address));
 	return 0;
 }
 
 void Bus::writeIO8(uint32_t address, uint8_t value)
 {
+	if (address <= 0x04000056)
+	{
+		m_ppu->writeIO(address,value);
+		return;
+	}
 	Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Unimplemented IO write addr={:#x}", address));
 }
 

@@ -16,11 +16,17 @@ PPU::~PPU()
 
 void PPU::registerMemory(std::shared_ptr<GBAMem> mem)
 {
+	registered = true;
 	m_mem = mem;
 }
 
 void PPU::step()
 {
+	if (!registered)
+	{
+		Logger::getInstance()->msg(LoggerSeverity::Error, "No memory source registered! Cannot render");
+		return;
+	}
 	m_lineCycles += 1;
 	if (inVBlank)
 	{
@@ -36,7 +42,19 @@ void PPU::step()
 
 void PPU::HDraw()
 {
-	//todo
+	if (m_lineCycles == 1)
+	{
+		uint8_t mode = DISPCNT & 0b111;
+		switch (mode)
+		{
+		case 0: case 1: case 2: case 3: case 5:
+			Logger::getInstance()->msg(LoggerSeverity::Error, "Tried to draw with unimplemented video mode");
+			break;
+		case 4:
+			renderMode4();
+			break;
+		}
+	}
 }
 
 void PPU::HBlank()
@@ -55,6 +73,10 @@ void PPU::HBlank()
 		{
 			setVBlankFlag(true);
 			inVBlank = true;
+
+			//copy display buf over
+			memcpy(m_displayBuffer, m_renderBuffer, 240 * 160 * sizeof(uint32_t));
+
 		}
 	}
 }
@@ -76,6 +98,33 @@ void PPU::VBlank()
 			inVBlank = false;
 			VCOUNT = 0;
 		}
+	}
+}
+
+void PPU::renderMode4()
+{
+	for (int i = 0; i < 240; i++)
+	{
+		uint32_t address = (VCOUNT * 240) + i;
+		uint8_t curPaletteIdx = m_mem->VRAM[address];
+
+		uint16_t paletteAddress = (uint16_t)curPaletteIdx * 2;
+		uint8_t paletteLow = m_mem->paletteRAM[paletteAddress];
+		uint8_t paletteHigh = m_mem->paletteRAM[paletteAddress + 1];
+
+		uint16_t paletteData = ((paletteHigh << 8) | paletteLow);
+
+		int red = (paletteData & 0b0000000000011111);
+		red = (red << 3) | (red >> 2);
+		int green = (paletteData & 0b0000001111100000) >> 5;
+		green = (green << 3) | (green >> 2);
+		int blue = (paletteData & 0b0111110000000000) >> 10;
+		blue = (blue << 3) | (blue >> 2);
+
+		//vec3 res = { (float)red / 255.0f,(float)green / 255.0f,(float)blue / 255.0f };
+
+		uint32_t res = (red << 24) | (green << 16) | (blue << 8) | 0x000000FF;
+		m_renderBuffer[address] = res;
 	}
 }
 

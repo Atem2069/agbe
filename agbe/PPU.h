@@ -19,6 +19,7 @@ public:
 	void writeIO(uint32_t address, uint8_t value);
 
 private:
+	bool registered = false;
 	std::shared_ptr<GBAMem> m_mem;
 	uint32_t m_renderBuffer[240 * 160];	//currently being rendered
 	uint32_t m_displayBuffer[240 * 160]; //buffer the display gets
@@ -29,6 +30,8 @@ private:
 	void HDraw();
 	void HBlank();
 	void VBlank();
+
+	void renderMode4();
 
 
 	void setVBlankFlag(bool value);
