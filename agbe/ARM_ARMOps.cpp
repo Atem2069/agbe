@@ -231,8 +231,30 @@ void ARM7TDMI::ARM_PSRTransfer()
 
 void ARM7TDMI::ARM_Multiply()
 {
-	Logger::getInstance()->msg(LoggerSeverity::Error, "Unimplemented");
-	throw std::runtime_error("unimplemented");
+	bool accumulate = ((m_currentOpcode >> 21) & 0b1);
+	bool setConditions = ((m_currentOpcode >> 20) & 0b1);
+	uint8_t destRegIdx = ((m_currentOpcode >> 16) & 0xF);
+	uint8_t accumRegIdx = ((m_currentOpcode >> 12) & 0xF);
+	uint8_t op2RegIdx = ((m_currentOpcode >> 8) & 0xF);
+	uint8_t op1RegIdx = ((m_currentOpcode) & 0xF);
+
+	uint32_t operand1 = getReg(op1RegIdx);
+	uint32_t operand2 = getReg(op2RegIdx);
+	uint32_t accum = getReg(accumRegIdx);
+
+	uint32_t result = 0;
+
+	if (accumulate)
+		result = operand1 * operand2 + accum;
+	else
+		result = operand1 * operand2;
+
+	setReg(destRegIdx, result);
+	if (setConditions)
+	{
+		m_setNegativeFlag(((result >> 31) & 0b1));
+		m_setZeroFlag(result == 0);
+	}
 }
 
 void ARM7TDMI::ARM_MultiplyLong()
