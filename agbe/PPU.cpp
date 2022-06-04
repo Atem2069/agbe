@@ -42,13 +42,17 @@ void PPU::step()
 
 void PPU::HDraw()
 {
-	if (m_lineCycles == 1)
+	if (m_lineCycles == 959)
 	{
 		uint8_t mode = DISPCNT & 0b111;
 		switch (mode)
 		{
-		case 0: case 1: case 2: case 3: case 5:
-			Logger::getInstance()->msg(LoggerSeverity::Error, "Tried to draw with unimplemented video mode");
+		case 0: case 1: case 2: case 5:
+			//Logger::getInstance()->msg(LoggerSeverity::Error, "Tried to draw with unimplemented video mode");
+			std::cout << (int)mode << '\n';
+			break;
+		case 3:
+			renderMode3();
 			break;
 		case 4:
 			renderMode4();
@@ -101,13 +105,34 @@ void PPU::VBlank()
 	}
 }
 
+void PPU::renderMode3()
+{
+	for (int i = 0; i < 240; i++)
+	{
+		uint32_t address = (VCOUNT * 480) + (i*2);
+		uint8_t colLow = m_mem->VRAM[address];
+		uint8_t colHigh = m_mem->VRAM[address + 1];
+		uint16_t col = ((colHigh << 8) | colLow);
+
+		int red = (col & 0b0000000000011111);
+		red = (red << 3) | (red >> 2);
+		int green = (col & 0b0000001111100000) >> 5;
+		green = (green << 3) | (green >> 2);
+		int blue = (col & 0b0111110000000000) >> 10;
+		blue = (blue << 3) | (blue >> 2);
+
+		uint32_t res = (red << 24) | (green << 16) | (blue << 8) | 0x000000FF;
+		uint32_t plotAddr = (VCOUNT * 240) + i;
+		m_renderBuffer[plotAddr] = res;
+	}
+}
+
 void PPU::renderMode4()
 {
 	for (int i = 0; i < 240; i++)
 	{
 		uint32_t address = (VCOUNT * 240) + i;
 		uint8_t curPaletteIdx = m_mem->VRAM[address];
-
 		uint16_t paletteAddress = (uint16_t)curPaletteIdx * 2;
 		uint8_t paletteLow = m_mem->paletteRAM[paletteAddress];
 		uint8_t paletteHigh = m_mem->paletteRAM[paletteAddress + 1];
@@ -120,8 +145,6 @@ void PPU::renderMode4()
 		green = (green << 3) | (green >> 2);
 		int blue = (paletteData & 0b0111110000000000) >> 10;
 		blue = (blue << 3) | (blue >> 2);
-
-		//vec3 res = { (float)red / 255.0f,(float)green / 255.0f,(float)blue / 255.0f };
 
 		uint32_t res = (red << 24) | (green << 16) | (blue << 8) | 0x000000FF;
 		m_renderBuffer[address] = res;

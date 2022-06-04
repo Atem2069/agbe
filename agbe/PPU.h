@@ -31,6 +31,7 @@ private:
 	void HBlank();
 	void VBlank();
 
+	void renderMode3();
 	void renderMode4();
 
 
