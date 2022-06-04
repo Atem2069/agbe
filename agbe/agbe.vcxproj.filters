@@ -16,6 +16,9 @@
     <Filter Include="Source Files\ARM">
       <UniqueIdentifier>{dcfecf65-593a-4a6a-ab43-ddafd2bd3875}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Shaders">
+      <UniqueIdentifier>{f7a9c8ab-0dd0-411c-8d85-a4f54f5b6187}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
@@ -67,6 +70,12 @@
     </ClInclude>
     <ClInclude Include="GBA.h">
       <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Shaders\vertex.h">
+      <Filter>Shaders</Filter>
+    </ClInclude>
+    <ClInclude Include="Shaders\fragment.h">
+      <Filter>Shaders</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

@@ -162,6 +162,8 @@
     <ClInclude Include="GBA.h" />
     <ClInclude Include="GBAMem.h" />
     <ClInclude Include="Logger.h" />
+    <ClInclude Include="Shaders\fragment.h" />
+    <ClInclude Include="Shaders\vertex.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
