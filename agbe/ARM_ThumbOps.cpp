@@ -143,10 +143,12 @@ void ARM7TDMI::Thumb_ALUOperations()
 		break;
 	case 7:	//ROR
 		operand2 &= 0xFF;
-		result = ROR(operand1, operand2, tempCarry);
+		tempCarry = -1;
+		if (operand2)
+			result = ROR(operand1, operand2, tempCarry);
+		else
+			result = operand1;
 		setReg(srcDestRegIdx, result);
-		if (!result)
-			tempCarry = -1;
 		setLogicalFlags(result, tempCarry);
 		break;
 	case 8:	//TST
