@@ -12,7 +12,7 @@ void ARM7TDMI::ARM_Branch()
 	uint32_t oldR15 = getReg(15);
 	setReg(15, getReg(15) + offset);
 	if (link)
-		setReg(14, oldR15 - 4);	
+		setReg(14, (oldR15 - 4) & ~0b11);	
 
 }
 
@@ -104,7 +104,7 @@ void ARM7TDMI::ARM_DataProcessing()
 
 	uint32_t result = 0;
 	uint32_t carryIn = m_getCarryFlag() & 0b1;
-	bool shouldFlush = true;	//for setting ARM/THUMB state if R15 is affected (seems only CMP can unset)
+	bool realign = true;
 	switch (operation)
 	{
 	case 0:	//AND
@@ -149,19 +149,22 @@ void ARM7TDMI::ARM_DataProcessing()
 		break;
 	case 8:	//TST
 		result = operand1 & operand2;
+		realign = false;
 		setLogicalFlags(result, shiftCarryOut);
 		break;
 	case 9:	//TEQ
 		result = operand1 ^ operand2;
+		realign = false;
 		setLogicalFlags(result, shiftCarryOut);
 		break;
 	case 10: //CMP
 		result = operand1 - operand2;
+		realign = false;
 		setArithmeticFlags(operand1, operand2, result, false);
-		shouldFlush = false;
 		break;
 	case 11: //CMN
 		result = operand1 + operand2;
+		realign = false;
 		setArithmeticFlags(operand1, operand2, result, true);
 		break;
 	case 12: //ORR
@@ -186,24 +189,23 @@ void ARM7TDMI::ARM_DataProcessing()
 		break;
 	}
 
-	if (destRegIdx == 15)
+	if (destRegIdx == 15 && setCPSR)
 	{
-		//Logger::getInstance()->msg(LoggerSeverity::Info, "Dest reg was 15!!");
-		if (shouldFlush == true)
-		{
-			if ((R[15] & 0b1) || ((CPSR >> 5) & 0b1))	//enter thumb
-			{
-				CPSR |= 0x20;	//set THUMB bit
-				setReg(15, getReg(15) & ~0b1);	//clear bit 0
-			}
-			else
-				setReg(15, getReg(15) & ~0b11);	//clear bits 0,1
-		}
 		if (setCPSR)
 		{
 			uint32_t newPSR = getSPSR();
 			CPSR = newPSR;
+
+			if ((CPSR >> 5) & 0b1)
+			{
+				//std::cout << "go back to thumb!!" << '\n';
+				setReg(15, getReg(15) & ~0b1);
+			}
+			//else
+			//	std::cout << "stay in arm" << '\n';
 		}
+
+		//Logger::getInstance()->msg(LoggerSeverity::Info, "Dest reg was 15!!");
 	}
 }
 
@@ -818,7 +820,7 @@ void ARM7TDMI::ARM_CoprocessorRegisterTransfer()
 
 void ARM7TDMI::ARM_SoftwareInterrupt()
 {
-	std::cout << "arm swi" << '\n';
+	//std::cout << "arm swi" << '\n';
 	//svc mode bits are 10011
 	uint32_t oldCPSR = CPSR;
 	uint32_t oldPC = R[15] - 4;	//-4 because it points to next instruction

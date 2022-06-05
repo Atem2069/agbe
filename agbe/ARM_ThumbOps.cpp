@@ -467,12 +467,15 @@ void ARM7TDMI::Thumb_LoadAddress()
 
 void ARM7TDMI::Thumb_AddOffsetToStackPointer()
 {
-	uint32_t offset = m_currentOpcode & 0xFF;
+	uint32_t offset = m_currentOpcode & 0b1111111;
 	offset <<= 2;
+	uint32_t SP = getReg(13);
 	if (((m_currentOpcode >> 7) & 0b1))
-		offset |= 0xFFFFFFE0;
+		SP -= offset;
+	else
+		SP += offset;
 
-	setReg(13, getReg(13) + offset);
+	setReg(13, SP);
 }
 
 void ARM7TDMI::Thumb_PushPopRegisters()
@@ -626,11 +629,11 @@ void ARM7TDMI::Thumb_ConditionalBranch()
 
 void ARM7TDMI::Thumb_SoftwareInterrupt()
 {
-	std::cout << "thumb swi" << (int)(m_currentOpcode&0xFF) << '\n';
+	//std::cout << "thumb swi" << (int)(m_currentOpcode&0xFF) << '\n';
 	int swiId = m_currentOpcode & 0xFF;
 	//svc mode bits are 10011
 	uint32_t oldCPSR = CPSR;
-	uint32_t oldPC = R[15]-2;	//-2 because it points to next instruction
+	uint32_t oldPC = getReg(15) - 2;	//-2 because it points to next instruction
 
 	CPSR &= 0xFFFFFFE0;	//clear mode bits (0-4)
 	CPSR &= ~0b100000;	//clear T bit
@@ -660,7 +663,7 @@ void ARM7TDMI::Thumb_LongBranchWithLink()
 		offset <<= 12;
 		if (offset & 0x400000) { offset |= 0xFF800000; }
 		uint32_t res = getReg(15) + offset;
-		setReg(14, res);
+		setReg(14, res & ~0b1);
 	}
 	else			//H=1: leftshift by 1 and add to LR - then copy LR to PC. copy old PC (-2) to LR and set bit 0
 	{

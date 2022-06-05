@@ -39,7 +39,7 @@ uint8_t Bus::read8(uint32_t address, bool doTick)
 {
 	if (doTick)
 		tick();
-	uint8_t page = (address >> 24) & 0xF;
+	uint8_t page = (address >> 24) & 0xFF;
 	switch (page)
 	{
 	case 0: case 1:
@@ -79,7 +79,7 @@ void Bus::write8(uint32_t address, uint8_t value, bool doTick)
 {
 	if (doTick)
 		tick();
-	uint8_t page = (address >> 24) & 0xF;
+	uint8_t page = (address >> 24) & 0xFF;
 	switch (page)
 	{
 	case 0: case 1:
@@ -122,7 +122,7 @@ uint16_t Bus::read16(uint32_t address, bool doTick)
 		tick();
 	}
 	address &= 0xFFFFFFFE;
-	uint8_t page = (address >> 24) & 0xF;
+	uint8_t page = (address >> 24) & 0xFF;
 
 	switch (page)
 	{
@@ -132,24 +132,24 @@ uint16_t Bus::read16(uint32_t address, bool doTick)
 			Logger::getInstance()->msg(LoggerSeverity::Error, "Out of bounds BIOS read");
 			return 0;
 		}
-		return getValue16(m_mem->BIOS, address & 0x3FFF);
+		return getValue16(m_mem->BIOS, address & 0x3FFF, 0x3FFF);
 	case 2:
-		return getValue16(m_mem->externalWRAM, address & 0x3FFFF);
+		return getValue16(m_mem->externalWRAM, address & 0x3FFFF, 0x3FFFF);
 	case 3:
-		return getValue16(m_mem->internalWRAM, address & 0x7FFF);
+		return getValue16(m_mem->internalWRAM, address & 0x7FFF, 0x7FFF);
 	case 4:
 		return readIO16(address);
 	case 5:
-		return getValue16(m_mem->paletteRAM, address & 0x3FF);
+		return getValue16(m_mem->paletteRAM, address & 0x3FF,0x3FF);
 	case 6:
 		address = address & 0x1FFFF;
 		if (address >= 0x18000)
 			address -= 32768;
-		return getValue16(m_mem->VRAM, address);
+		return getValue16(m_mem->VRAM, address,0xFFFFFFFF);
 	case 7:
-		return getValue16(m_mem->OAM, address & 0x3FF);
+		return getValue16(m_mem->OAM, address & 0x3FF,0x3FF);
 	case 8: case 9: case 0xA: case 0xB: case 0xC: case 0xD:
-		return getValue16(m_mem->ROM, address & 0x01FFFFFF);
+		return getValue16(m_mem->ROM, address & 0x01FFFFFF,0xFFFFFFFF);
 	case 0xE:
 		Logger::getInstance()->msg(LoggerSeverity::Error, "Invalid 16-bit SRAM read");
 		return 0;
@@ -166,32 +166,32 @@ void Bus::write16(uint32_t address, uint16_t value, bool doTick)
 		tick();
 	}
 	address &= 0xFFFFFFFE;
-	uint8_t page = (address >> 24) & 0xF;
+	uint8_t page = (address >> 24) & 0xFF;
 	switch (page)
 	{
 	case 0: case 1:
 		Logger::getInstance()->msg(LoggerSeverity::Error, "Tried to write to BIOS!!");
 		break;
 	case 2:
-		setValue16(m_mem->externalWRAM, address & 0x3FFFF, value);
+		setValue16(m_mem->externalWRAM, address & 0x3FFFF, 0x3FFFF, value);
 		break;
 	case 3:
-		setValue16(m_mem->internalWRAM, address & 0x7FFF, value);
+		setValue16(m_mem->internalWRAM, address & 0x7FFF, 0x7FFF, value);
 		break;
 	case 4:
 		writeIO16(address, value);
 		break;
 	case 5:
-		setValue16(m_mem->paletteRAM, address & 0x3FF, value);
+		setValue16(m_mem->paletteRAM, address & 0x3FF, 0x3FF, value);
 		break;
 	case 6:
 		address = address & 0x1FFFF;
 		if (address >= 0x18000)
 			address -= 32768;
-		setValue16(m_mem->VRAM, address, value);
+		setValue16(m_mem->VRAM, address, 0xFFFFFFFF, value);
 		break;
 	case 7:
-		setValue16(m_mem->OAM, address & 0x3FF, value);
+		setValue16(m_mem->OAM, address & 0x3FF, 0x3FF, value);
 		break;
 	case 8: case 9: case 0xA: case 0xB: case 0xC: case 0xD: case 0xE:
 		Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Tried to write to cartridge space!!! addr={:#x}",address));
@@ -207,7 +207,7 @@ uint32_t Bus::read32(uint32_t address, bool doTick)
 	if (doTick)
 		tick();
 	address &= 0xFFFFFFFC;
-	uint8_t page = (address >> 24) & 0xF;
+	uint8_t page = (address >> 24) & 0xFF;
 
 	switch (page)
 	{
@@ -217,24 +217,24 @@ uint32_t Bus::read32(uint32_t address, bool doTick)
 			Logger::getInstance()->msg(LoggerSeverity::Error, "Out of bounds BIOS read");
 			return 0;
 		}
-		return getValue32(m_mem->BIOS, address & 0x3FFF);
+		return getValue32(m_mem->BIOS, address & 0x3FFF,0x3FFF);
 	case 2:
-		return getValue32(m_mem->externalWRAM, address & 0x3FFFF);
+		return getValue32(m_mem->externalWRAM, address & 0x3FFFF,0x3FFFF);
 	case 3:
-		return getValue32(m_mem->internalWRAM, address & 0x7FFF);
+		return getValue32(m_mem->internalWRAM, address & 0x7FFF,0x7FFF);
 	case 4:
 		return readIO32(address);
 	case 5:
-		return getValue32(m_mem->paletteRAM, address & 0x3FF);
+		return getValue32(m_mem->paletteRAM, address & 0x3FF,0x3FF);
 	case 6:
 		address = address & 0x1FFFF;
 		if (address >= 0x18000)
 			address -= 32768;
-		return getValue32(m_mem->VRAM, address);
+		return getValue32(m_mem->VRAM, address,0xFFFFFFFF);
 	case 7:
-		return getValue32(m_mem->OAM, address & 0x3FF);
+		return getValue32(m_mem->OAM, address & 0x3FF,0x3FF);
 	case 8: case 9: case 0xA: case 0xB: case 0xC: case 0xD:
-		return getValue32(m_mem->ROM, address & 0x01FFFFFF);
+		return getValue32(m_mem->ROM, address & 0x01FFFFFF,0xFFFFFFFF);
 	case 0xE:
 		Logger::getInstance()->msg(LoggerSeverity::Error, "Invalid 32-bit SRAM read");
 		return 0;
@@ -249,32 +249,32 @@ void Bus::write32(uint32_t address, uint32_t value, bool doTick)
 	if (doTick)
 		tick();
 	address &= 0xFFFFFFFC;
-	uint8_t page = (address >> 24) & 0xF;
+	uint8_t page = (address >> 24) & 0xFF;
 	switch (page)
 	{
 	case 0: case 1:
 		Logger::getInstance()->msg(LoggerSeverity::Error, "Tried to write to BIOS!!");
 		break;
 	case 2:
-		setValue32(m_mem->externalWRAM, address & 0x3FFFF, value);
+		setValue32(m_mem->externalWRAM, address & 0x3FFFF, 0x3FFFF, value);
 		break;
 	case 3:
-		setValue32(m_mem->internalWRAM, address & 0x7FFF, value);
+		setValue32(m_mem->internalWRAM, address & 0x7FFF, 0x7FFF, value);
 		break;
 	case 4:
 		writeIO32(address, value);
 		break;
 	case 5:
-		setValue32(m_mem->paletteRAM, address & 0x3FF, value);
+		setValue32(m_mem->paletteRAM, address & 0x3FF, 0x3FF, value);
 		break;
 	case 6:
 		address = address & 0x1FFFF;
 		if (address >= 0x18000)
 			address -= 32768;
-		setValue32(m_mem->VRAM, address, value);
+		setValue32(m_mem->VRAM, address, 0xFFFFFFFF, value);
 		break;
 	case 7:
-		setValue32(m_mem->OAM, address & 0x3FF, value);
+		setValue32(m_mem->OAM, address & 0x3FF, 0x3FF, value);
 		break;
 	case 8: case 9: case 0xA: case 0xB: case 0xC: case 0xD: case 0xE:
 		Logger::getInstance()->msg(LoggerSeverity::Error, "Tried to write to cartridge space!!!");
@@ -361,28 +361,28 @@ void Bus::writeIO32(uint32_t address, uint32_t value)
 
 //Handles reading/writing larger than byte sized values (the addresses should already be aligned so no issues there)
 //This is SOLELY for memory - IO is handled differently bc it's not treated as a flat mem space
-uint16_t Bus::getValue16(uint8_t* arr, int base)
+uint16_t Bus::getValue16(uint8_t* arr, int base, int mask)
 {
-	return (uint16_t)arr[base] | ((arr[base + 1]) << 8);
+	return (uint16_t)arr[base] | ((arr[(base + 1)&mask]) << 8);
 }
 
-void Bus::setValue16(uint8_t* arr, int base, uint16_t val)
+void Bus::setValue16(uint8_t* arr, int base, int mask, uint16_t val)
 {
 	arr[base] = val & 0xFF;
-	arr[base + 1] = ((val >> 8) & 0xFF);
+	arr[(base + 1)&mask] = ((val >> 8) & 0xFF);
 }
 
-uint32_t Bus::getValue32(uint8_t* arr, int base)
+uint32_t Bus::getValue32(uint8_t* arr, int base, int mask)
 {
-	return (uint32_t)arr[base] | ((arr[base + 1]) << 8) | ((arr[base + 2]) << 16) | ((arr[base + 3]) << 24);
+	return (uint32_t)arr[base] | ((arr[(base + 1)&mask]) << 8) | ((arr[(base + 2)&mask]) << 16) | ((arr[(base + 3)&mask]) << 24);
 }
 
-void Bus::setValue32(uint8_t* arr, int base, uint32_t val)
+void Bus::setValue32(uint8_t* arr, int base, int mask, uint32_t val)
 {
 	arr[base] = val & 0xFF;
-	arr[base + 1] = ((val >> 8) & 0xFF);
-	arr[base + 2] = ((val >> 16) & 0xFF);
-	arr[base + 3] = ((val >> 24) & 0xFF);
+	arr[(base + 1)&mask] = ((val >> 8) & 0xFF);
+	arr[(base + 2)&mask] = ((val >> 16) & 0xFF);
+	arr[(base + 3)&mask] = ((val >> 24) & 0xFF);
 }
 
 void Bus::setByteInWord(uint32_t* word, uint8_t byte, int pos)

@@ -119,7 +119,7 @@ void ARM7TDMI::execute()
 void ARM7TDMI::executeThumb()
 {
 	//if(R[15] > 0x080173A0)
-		//Logger::getInstance()->msg(LoggerSeverity::Info, std::format("Execute opcode (Thumb) {:#x}. PC={:#x}", m_currentOpcode, R[15] - 4));
+	//	Logger::getInstance()->msg(LoggerSeverity::Info, std::format("Execute opcode (Thumb) {:#x}. PC={:#x}", m_currentOpcode, R[15] - 4));
 
 	if ((m_currentOpcode & 0b1111'1000'0000'0000) == 0b0001'1000'0000'0000)
 		Thumb_AddSubtract();
@@ -177,7 +177,7 @@ bool ARM7TDMI::dispatchInterrupt()
 	if (!m_interruptManager->getInterrupt())	//final check: if interrupt actually requested
 		return false;
 
-	std::cout << "irq dispatch" << '\n';
+	//std::cout << "irq dispatch" << '\n';
 
 	//irq bits: 10010
 	uint32_t oldCPSR = CPSR;
@@ -190,7 +190,7 @@ bool ARM7TDMI::dispatchInterrupt()
 	bool wasThumb = ((oldCPSR >> 5) & 0b1);
 	setSPSR(oldCPSR);
 	if (wasThumb)
-		setReg(14, getReg(15)-2);		//...apparently this is correct :/
+		setReg(14, getReg(15));		//...apparently this is correct :/
 	else
 		setReg(14, getReg(15)-4);
 	setReg(15, 0x00000018);
@@ -220,7 +220,7 @@ bool ARM7TDMI::checkConditions(uint8_t code)
 	case 6: return m_getOverflowFlag();
 	case 7: return !m_getOverflowFlag();
 	case 8: return (m_getCarryFlag() && !m_getZeroFlag());
-	case 9: return (!m_getCarryFlag() || m_getZeroFlag());
+	case 9: return ((!m_getCarryFlag()) || m_getZeroFlag());
 	case 10: return ((m_getNegativeFlag() && m_getOverflowFlag()) || (!m_getNegativeFlag() && !m_getOverflowFlag()));
 	case 11: return (m_getNegativeFlag() != m_getOverflowFlag());
 	case 12: return !m_getZeroFlag() && (m_getNegativeFlag() == m_getOverflowFlag());
@@ -427,6 +427,7 @@ uint32_t ARM7TDMI::getSPSR()
 	case 0b10010: return SPSR_irq;
 	case 0b11011: return SPSR_und;
 	}
+	std::cout << "get spsr in bad mode??" << '\n';
 	return CPSR;	//afaik if you try this in the wrong mode it gives you the CPSR
 }
 
@@ -441,6 +442,7 @@ void ARM7TDMI::setSPSR(uint32_t value)
 	case 0b10010: SPSR_irq = value; break;
 	case 0b11011: SPSR_und = value; break;
 	default:
+		std::cout << "set spsr in bad mode??" << '\n';
 		CPSR = value;	//hope this is right !!
 		break;
 	}

@@ -54,11 +54,11 @@ private:
 
 	DMAChannel m_dmaChannels[4];
 
-	uint16_t getValue16(uint8_t* arr, int base);
-	void setValue16(uint8_t* arr, int base, uint16_t val);
+	uint16_t getValue16(uint8_t* arr, int base, int mask);
+	void setValue16(uint8_t* arr, int base, int mask, uint16_t val);
 
-	uint32_t getValue32(uint8_t* arr, int base);
-	void setValue32(uint8_t* arr, int base, uint32_t val);
+	uint32_t getValue32(uint8_t* arr, int base, int mask);
+	void setValue32(uint8_t* arr, int base, int mask, uint32_t val);
 
 	void setByteInWord(uint32_t* word, uint8_t byte, int pos);
 	void setByteInHalfword(uint16_t* halfword, uint8_t byte, int pos);
