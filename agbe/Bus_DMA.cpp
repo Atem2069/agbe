@@ -206,7 +206,87 @@ void Bus::checkDMAChannels()
 			if (startTiming == 0)
 			{
 				Logger::getInstance()->msg(LoggerSeverity::Info, std::format("Dma Channel{:#x} wants to start!!", i));
+				doDMATransfer(i);
 			}
 		}
 	}
+}
+
+void Bus::doDMATransfer(int channel)
+{
+	//we assume the transfer is going to take place by the time this function is called
+	DMAChannel curChannel = m_dmaChannels[channel];
+	uint32_t src = curChannel.srcAddress & 0x07FFFFFF;
+	uint32_t dest = curChannel.destAddress & 0x07FFFFFF;
+
+
+	std::cout << "DMA src = " << std::hex << src << " dst= " << std::hex << dest << '\n';
+
+	int numWords = curChannel.wordCount;
+	if (numWords == 0)
+	{
+		numWords = 0x4000;
+		if (channel == 3)
+			numWords = 0x10000;	//channel 3 has higher word count
+	}
+
+	uint8_t srcAddrCtrl = ((curChannel.control >> 7) & 0b11);
+	uint8_t dstAddrCtrl = ((curChannel.control >> 5) & 0b11);
+	bool wordTransfer = ((curChannel.control >> 10) & 0b1);
+
+	for (int i = 0; i < numWords; i++)
+	{
+		if (wordTransfer)
+		{
+			uint32_t word = read32(src, false);
+			write32(dest, word, false);
+		}
+		else
+		{
+			uint16_t halfword = read16(src, false);
+			write16(dest, halfword, false);
+		}
+
+		int incrementAmount = (wordTransfer) ? 4 : 2;
+
+		//TODO: control mode 3 (increment/reload on dest)
+		switch (srcAddrCtrl)
+		{
+		case 0:
+			src += incrementAmount;
+			break;
+		case 1:
+			src -= incrementAmount;
+			break;
+		}
+
+		switch (dstAddrCtrl)
+		{
+		case 0:
+			dest += incrementAmount;
+			break;
+		case 2:
+			dest -= incrementAmount;
+			break;
+		}
+
+	}
+
+	if (((curChannel.control >> 14) & 0b1))
+	{
+		switch (channel)
+		{
+		case 0:
+			m_interruptManager->requestInterrupt(InterruptType::DMA0); break;
+		case 1:
+			m_interruptManager->requestInterrupt(InterruptType::DMA1); break;
+		case 2:
+			m_interruptManager->requestInterrupt(InterruptType::DMA2); break;
+		case 3:
+			m_interruptManager->requestInterrupt(InterruptType::DMA3); break;
+		}
+	}
+
+	m_dmaChannels[channel].control &= 0x7FFF;	//clear DMA enable
+
 }

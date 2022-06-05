@@ -64,7 +64,6 @@ void ARM7TDMI::execute()
 		executeThumb();
 		return;
 	}
-
 	//Logger::getInstance()->msg(LoggerSeverity::Info, std::format("Execute opcode (ARM) {:#x}. PC={:#x}", m_currentOpcode, R[15] - 8));
 
 	//check conditions before executing
@@ -72,6 +71,7 @@ void ARM7TDMI::execute()
 	if (!checkConditions(conditionCode))
 		return;
 
+	//std::cout << "test " << R[12] << '\n';
 
 	//decode instruction here	(we'll clean up binary masks when this works probs)
 	if ((m_currentOpcode & 0b0000'1110'0000'0000'0000'0000'0000'0000) == 0b0000'1010'0000'0000'0000'0000'0000'0000)
@@ -113,7 +113,8 @@ void ARM7TDMI::execute()
 
 void ARM7TDMI::executeThumb()
 {
-	//Logger::getInstance()->msg(LoggerSeverity::Info, std::format("Execute opcode (Thumb) {:#x}. PC={:#x}", m_currentOpcode, R[15] - 4));
+	//if(R[15] > 0x080173A0)
+		//Logger::getInstance()->msg(LoggerSeverity::Info, std::format("Execute opcode (Thumb) {:#x}. PC={:#x}", m_currentOpcode, R[15] - 4));
 
 	if ((m_currentOpcode & 0b1111'1000'0000'0000) == 0b0001'1000'0000'0000)
 		Thumb_AddSubtract();
@@ -170,7 +171,6 @@ bool ARM7TDMI::dispatchInterrupt()
 	
 	if (!m_interruptManager->getInterrupt())	//final check: if interrupt actually requested
 		return false;
-
 	//irq bits: 10010
 	uint32_t oldCPSR = CPSR;
 

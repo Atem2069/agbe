@@ -20,6 +20,14 @@ void InterruptManager::requestInterrupt(InterruptType type)
 		IF |= 0b10; break;
 	case InterruptType::VCount:
 		IF |= 0b100; break;
+	case InterruptType::DMA0:
+		IF |= 0b100000000; break;
+	case InterruptType::DMA1:
+		IF |= 0b1000000000; break;
+	case InterruptType::DMA2:
+		IF |= 0b10000000000; break;
+	case InterruptType::DMA3:
+		IF |= 0b100000000000; break;
 	}
 }
 

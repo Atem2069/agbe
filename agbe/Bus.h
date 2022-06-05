@@ -66,4 +66,5 @@ private:
 	uint8_t DMARegRead(uint32_t address);
 	void DMARegWrite(uint32_t address, uint8_t value);
 	void checkDMAChannels();
+	void doDMATransfer(int channel);
 };

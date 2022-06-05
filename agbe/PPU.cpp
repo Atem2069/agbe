@@ -239,6 +239,7 @@ void PPU::writeIO(uint32_t address, uint8_t value)
 		DISPSTAT &= 0x00FF; DISPSTAT |= (value << 8);
 		break;
 	default:
-		Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Unknown PPU IO register write {:#x}", address));
+		break;
+		//Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Unknown PPU IO register write {:#x}", address));
 	}
 }

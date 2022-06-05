@@ -19,7 +19,7 @@ void ARM7TDMI::ARM_Branch()
 void ARM7TDMI::ARM_DataProcessing()
 {
 	//check if psr transfer instead (this is dumb but can probs be refactored completely)
-	if ((m_currentOpcode & 0b0000'1111'1011'1111'0000'1111'1111'1111) == 0b0000'0001'0000'1111'0000'0000'0000'0000)
+	/*if ((m_currentOpcode & 0b0000'1111'1011'1111'0000'1111'1111'1111) == 0b0000'0001'0000'1111'0000'0000'0000'0000)
 	{
 		ARM_PSRTransfer();
 		return;
@@ -33,13 +33,18 @@ void ARM7TDMI::ARM_DataProcessing()
 	{
 		ARM_PSRTransfer();
 		return;
-	}
-
+	}*/
 	bool immediate = ((m_currentOpcode >> 25) & 0b1);
 	uint8_t operation = ((m_currentOpcode >> 21) & 0xF);
 	bool setConditionCodes = ((m_currentOpcode >> 20) & 0b1);
 	uint8_t op1Idx = ((m_currentOpcode >> 16) & 0xF);
 	uint8_t destRegIdx = ((m_currentOpcode >> 12) & 0xF);
+
+	if (!setConditionCodes && (operation >> 2) == 0b10)
+	{
+		ARM_PSRTransfer();
+		return;
+	}
 
 	bool setCPSR = false;
 	if (destRegIdx == 15 && setConditionCodes)	//S=1,Rd=15 - copy SPSR over to CPSR
@@ -184,11 +189,6 @@ void ARM7TDMI::ARM_DataProcessing()
 	if (destRegIdx == 15)
 	{
 		//Logger::getInstance()->msg(LoggerSeverity::Info, "Dest reg was 15!!");
-		if (setCPSR)
-		{
-			uint32_t newPSR = getSPSR();
-			CPSR = newPSR;
-		}
 		if (shouldFlush == true)
 		{
 			if ((R[15] & 0b1) || ((CPSR >> 5) & 0b1))	//enter thumb
@@ -199,64 +199,80 @@ void ARM7TDMI::ARM_DataProcessing()
 			else
 				setReg(15, getReg(15) & ~0b11);	//clear bits 0,1
 		}
+		if (setCPSR)
+		{
+			uint32_t newPSR = getSPSR();
+			CPSR = newPSR;
+		}
 	}
 }
 
 void ARM7TDMI::ARM_PSRTransfer()
 {
+	bool PSR = ((m_currentOpcode >> 22) & 0b1);		//1: set spsr
+	bool immediate = ((m_currentOpcode >> 25) & 0b1);
+	bool opcode = ((m_currentOpcode >> 21) & 0b1);
 
-	uint32_t opBits = ((m_currentOpcode >> 12) & 0x3FF);	//extract 10 bits identifying opcode
+	if (opcode) // MSR
+	{
+		uint32_t input = 0;
+		uint32_t fieldMask = 0;
+		if (m_currentOpcode & 0x80000) { fieldMask |= 0xFF000000; }		//mask bits depend on specific psr transfer op. fwiw mostly affects lower/upper byte
+		if (m_currentOpcode & 0x40000) { fieldMask |= 0x00FF0000; }
+		if (m_currentOpcode & 0x20000) { fieldMask |= 0x0000FF00; }
+		if (m_currentOpcode & 0x10000) { fieldMask |= 0x000000FF; }
 
-	if (opBits == 0b1010011111)		//MSR
-	{
-		bool modifySPSR = ((m_currentOpcode >> 22) & 0b1);
-		uint8_t srcRegIdx = m_currentOpcode & 0xF;
-		uint32_t newPSRData = getReg(srcRegIdx);
-		if (modifySPSR)
-			setSPSR(newPSRData);
-		else
+		if (immediate)
 		{
-			//todo: check if unprivileged mode
-			CPSR = newPSRData;
-		}
-	}
-	else if (opBits == 0b1010001111)	//MSR
-	{
-		bool isImmediate = ((m_currentOpcode >> 25) & 0b1);
-		bool modifySPSR = ((m_currentOpcode >> 22) & 0b1);
-		uint32_t modifyVal = 0;
-		if (isImmediate)
-		{
-			modifyVal = m_currentOpcode & 0xFF;
+			input = m_currentOpcode & 0xFF;
+			uint8_t shift = (m_currentOpcode >> 8) & 0xF;
 			int meaningless = 0;
-			int shiftAmount = ((m_currentOpcode >> 8) & 0xF);
-			modifyVal = RORSpecial(modifyVal, shiftAmount, meaningless);	//TODO: doublecheck if this should be used here (as it multiplies the shift amount by 2)
+			input = RORSpecial(input, shift, meaningless);
 		}
 		else
-			modifyVal = getReg((m_currentOpcode & 0xF));
+		{
+			uint8_t srcReg = m_currentOpcode & 0xF;
+			if (srcReg == 15)
+			{
 
-		modifyVal &= 0xF0000000;
-		if (modifySPSR)
+			}
+			input = getReg(srcReg);
+			input &= fieldMask;
+		}
+
+		if (PSR)
 		{
-			uint32_t curSPSR = getSPSR();
-			curSPSR &= 0x0FFFFFFF;
-			curSPSR |= modifyVal;
-			setSPSR(curSPSR);
+			uint32_t temp = getSPSR();
+			temp &= ~fieldMask;
+			temp |= input;
+			setSPSR(temp);
 		}
 		else
 		{
-			CPSR &= 0x0FFFFFFF;
-			CPSR |= modifyVal;
+			CPSR &= ~fieldMask;
+			CPSR |= input;
+			if (CPSR & 0x20)
+			{
+				// Switch to THUMB
+				setReg(15, getReg(15) & ~0x1); // also flushes pipeline
+			}
 		}
 	}
-	else	//MRS
+	else // MRS (transfer PSR to register)
 	{
-		bool fetchSPSR = ((m_currentOpcode >> 22) & 0b1);
-		uint8_t destRegIdx = ((m_currentOpcode >> 12) & 0xF);
-		if (fetchSPSR)
-			setReg(destRegIdx, getSPSR());
+		uint8_t destReg = (m_currentOpcode >> 12) & 0xF;
+		if (destReg == 15)
+		{
+
+		}
+		if (PSR)
+		{
+			setReg(destReg, getSPSR());
+		}
 		else
-			setReg(destRegIdx, CPSR);
+		{
+			setReg(destReg, CPSR);
+		}
 	}
 }
 
@@ -793,12 +809,13 @@ void ARM7TDMI::ARM_CoprocessorRegisterTransfer()
 
 void ARM7TDMI::ARM_SoftwareInterrupt()
 {
+	std::cout << "arm swi" << '\n';
 	//svc mode bits are 10011
 	uint32_t oldCPSR = CPSR;
 	uint32_t oldPC = R[15] - 4;	//-4 because it points to next instruction
 
 	CPSR &= 0xFFFFFFE0;	//clear mode bits (0-4)
-	CPSR |= 0b10011;	//set svc bits
+	CPSR |= 0b0010011;	//set svc bits
 
 	setSPSR(oldCPSR);			//set SPSR_svc
 	setReg(14, oldPC);			//Save old R15

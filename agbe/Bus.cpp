@@ -32,7 +32,7 @@ void Bus::tick()
 {
 	//todo: tick other components
 	m_ppu->step();
-	checkDMAChannels();	//check if we need to dma (todo: check hblank,vblank)
+	//checkDMAChannels();	//check if we need to dma (todo: check hblank,vblank)
 }
 
 uint8_t Bus::read8(uint32_t address, bool doTick)
@@ -94,8 +94,14 @@ void Bus::write8(uint32_t address, uint8_t value, bool doTick)
 	case 4:
 		writeIO8(address, value);
 		break;
-	case 5: case 6: case 7:
-		Logger::getInstance()->msg(LoggerSeverity::Error, "Tried 8-bit write to VRAM - ignoring");
+	case 5: case 7:
+		Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Tried 8-bit write to VRAM - ignoring addr = {:#x}",address));
+		break;
+	case 6:
+		address = address & 0x1FFFF;
+		if (address >= 0x18000)
+			address -= 32768;
+		m_mem->VRAM[address]=value;
 		break;
 	case 8: case 9: case 0xA: case 0xB: case 0xC: case 0xD:
 		Logger::getInstance()->msg(LoggerSeverity::Error, "Tried writing to ROM - ignoring");
@@ -112,7 +118,9 @@ void Bus::write8(uint32_t address, uint8_t value, bool doTick)
 uint16_t Bus::read16(uint32_t address, bool doTick)
 {
 	if (doTick)
+	{
 		tick();
+	}
 	address &= 0xFFFFFFFE;
 	uint8_t page = (address >> 24) & 0xF;
 
@@ -154,7 +162,9 @@ uint16_t Bus::read16(uint32_t address, bool doTick)
 void Bus::write16(uint32_t address, uint16_t value, bool doTick)
 {
 	if (doTick)
+	{
 		tick();
+	}
 	address &= 0xFFFFFFFE;
 	uint8_t page = (address >> 24) & 0xF;
 	switch (page)
@@ -184,7 +194,7 @@ void Bus::write16(uint32_t address, uint16_t value, bool doTick)
 		setValue16(m_mem->OAM, address & 0x3FF, value);
 		break;
 	case 8: case 9: case 0xA: case 0xB: case 0xC: case 0xD: case 0xE:
-		Logger::getInstance()->msg(LoggerSeverity::Error, "Tried to write to cartridge space!!!");
+		Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Tried to write to cartridge space!!! addr={:#x}",address));
 		break;
 	default:
 		Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Out of bounds/invalid write addr={:#x}", address));
@@ -318,7 +328,7 @@ void Bus::writeIO8(uint32_t address, uint8_t value)
 		m_interruptManager->writeIO(address,value);
 		return;
 	}
-	Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Unimplemented IO write addr={:#x}", address));
+	//Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Unimplemented IO write addr={:#x}", address));
 }
 
 uint16_t Bus::readIO16(uint32_t address)

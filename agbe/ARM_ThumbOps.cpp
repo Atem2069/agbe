@@ -230,6 +230,11 @@ void ARM7TDMI::Thumb_HiRegisterOperations()
 		setReg(dstRegIdx, result);
 		break;
 	case 3:
+		if (operand2 == 0)
+		{
+			std::cout << "shit!!! R15 is going to be 0" << '\n';
+			std::cout << std::hex << R[15] << '\n';
+		}
 		if (!(operand2 & 0b1))
 		{
 			//enter arm
@@ -566,13 +571,15 @@ void ARM7TDMI::Thumb_ConditionalBranch()
 
 void ARM7TDMI::Thumb_SoftwareInterrupt()
 {
+	std::cout << "thumb swi" << '\n';
+	int swiId = m_currentOpcode & 0xFF;
 	//svc mode bits are 10011
 	uint32_t oldCPSR = CPSR;
-	uint32_t oldPC = R[15] - 2;	//-2 because it points to next instruction
+	uint32_t oldPC = R[15]-2;	//-2 because it points to next instruction
 
 	CPSR &= 0xFFFFFFE0;	//clear mode bits (0-4)
 	CPSR &= ~0b100000;	//clear T bit
-	CPSR |= 0b10011;	//set svc bits
+	CPSR |= 0b10010011;	//set svc bits
 
 	setSPSR(oldCPSR);			//set SPSR_svc
 	setReg(14, oldPC);			//Save old R15
