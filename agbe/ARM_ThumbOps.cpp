@@ -322,7 +322,9 @@ void ARM7TDMI::Thumb_LoadStoreSignExtended()
 	}
 	else if (op == 2)	//load halfword
 	{
-		uint32_t val = m_bus->read16(addr) & 0xFFFF;
+		uint32_t val = m_bus->read16(addr);
+		if (addr & 0b1)
+			val = std::rotr(val, 8);
 		setReg(srcDestRegIdx, val);
 	}
 	else if (op == 1)	//load sign extended byte
@@ -334,9 +336,19 @@ void ARM7TDMI::Thumb_LoadStoreSignExtended()
 	}
 	else if (op == 3)   //load sign extended halfword
 	{
-		uint32_t val = m_bus->read16(addr);
-		if (((val >> 15) & 0b1))
-			val |= 0xFFFF0000;
+		uint32_t val = 0;
+		if (!(addr & 0b1))
+		{
+			val = m_bus->read16(addr);
+			if (((val >> 15) & 0b1))
+				val |= 0xFFFF0000;
+		}
+		else
+		{
+			val = m_bus->read8(addr);
+			if (((val >> 7) & 0b1))
+				val |= 0xFFFFFF00;
+		}
 		setReg(srcDestRegIdx, val);
 	}
 }
@@ -393,6 +405,8 @@ void ARM7TDMI::Thumb_LoadStoreHalfword()
 	if (loadStore)
 	{
 		uint32_t val = m_bus->read16(base);
+		if (base & 0b1)
+			val = std::rotr(val, 8);
 		setReg(srcDestRegIdx, val);
 	}
 	else
@@ -407,12 +421,15 @@ void ARM7TDMI::Thumb_SPRelativeLoadStore()
 	bool loadStore = ((m_currentOpcode >> 11) & 0b1);
 	uint8_t destRegIdx = ((m_currentOpcode >> 8) & 0b111);
 	uint32_t offs = m_currentOpcode & 0xFF;
+	offs <<= 2;
 
 	uint32_t addr = getReg(13) + offs;
 
 	if (loadStore)
 	{
 		uint32_t val = m_bus->read32(addr);
+		if (addr & 3)
+			val = std::rotr(val, (addr & 3) * 8);
 		setReg(destRegIdx, val);
 	}
 	else
@@ -512,6 +529,25 @@ void ARM7TDMI::Thumb_MultipleLoadStore()
 	uint8_t regListOriginal = regList;
 
 	uint32_t base = getReg(baseRegIdx);
+	uint32_t oldBase = base;
+	bool baseIncluded = false;
+	if ((regListOriginal >> baseRegIdx) & 0b1)
+		baseIncluded = true;
+
+	int lowestReg = -1;
+	for (int i = 0; i < 8; i++)
+	{
+		if (((regListOriginal >> i) & 0b1))
+		{
+			lowestReg = i;
+			i = 99999;
+			break;
+		}
+	}
+
+	bool baseIsLowest = false;
+	if (baseRegIdx == lowestReg)
+		baseIsLowest = true;
 
 	if (loadStore)	//LDMIA
 	{
@@ -532,11 +568,25 @@ void ARM7TDMI::Thumb_MultipleLoadStore()
 		{
 			if (regList & 0b1)
 			{
-				uint32_t cur = getReg(i);
-				m_bus->write32(base, cur);
+				if (i == baseRegIdx)
+				{
+					if (baseIsLowest)
+						m_bus->write32(base, oldBase);
+					else
+					{
+						int numRegs = std::popcount(regListOriginal);
+						m_bus->write32(base, oldBase + (numRegs * 4));
+					}
+				}
+				else
+				{
+					uint32_t cur = getReg(i);
+					m_bus->write32(base, cur);
+				}
 				base += 4;
 			}
 			regList >>= 1;
+			setReg(baseRegIdx, base);
 		}
 	}
 
@@ -545,11 +595,11 @@ void ARM7TDMI::Thumb_MultipleLoadStore()
 		if (loadStore)
 			setReg(15, m_bus->read32(base));
 		else
-			m_bus->write32(base, getReg(15));
+			m_bus->write32(base, getReg(15)+2);
 		base += 0x40;
 	}
-
-	setReg(baseRegIdx, base);
+	if (!loadStore || (loadStore && !baseIncluded))
+		setReg(baseRegIdx, base);
 	//TODO: writeback with rb in rlist has different behaviour that's unimplemented (see gbatek)
 	
 }
