@@ -1,4 +1,4 @@
 # agbe
 Highly WIP Game Boy Advance Emulator.
 
-Current progress - starts armwrestler and shows menu screen.
+Current progress - runs test roms (armwrestler,arm/thumb.gba,FuzzArm).
