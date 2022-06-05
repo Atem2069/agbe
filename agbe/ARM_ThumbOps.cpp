@@ -566,8 +566,17 @@ void ARM7TDMI::Thumb_ConditionalBranch()
 
 void ARM7TDMI::Thumb_SoftwareInterrupt()
 {
-	Logger::getInstance()->msg(LoggerSeverity::Error, "Unimplemented");
-	throw std::runtime_error("unimplemented");
+	//svc mode bits are 10011
+	uint32_t oldCPSR = CPSR;
+	uint32_t oldPC = R[15] - 2;	//-2 because it points to next instruction
+
+	CPSR &= 0xFFFFFFE0;	//clear mode bits (0-4)
+	CPSR &= ~0b100000;	//clear T bit
+	CPSR |= 0b10011;	//set svc bits
+
+	setSPSR(oldCPSR);			//set SPSR_svc
+	setReg(14, oldPC);			//Save old R15
+	setReg(15, 0x00000008);		//SWI entry point is 0x08
 }
 
 void ARM7TDMI::Thumb_UnconditionalBranch()
