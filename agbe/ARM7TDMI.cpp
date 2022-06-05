@@ -22,11 +22,14 @@ ARM7TDMI::~ARM7TDMI()
 
 void ARM7TDMI::step()
 {
-	
 	fetch();
-	execute();	//no decode stage because it's inherent to 'execute' - we accommodate for the decode stage's effect anyway
-
 	dispatchInterrupt();
+	if (m_shouldFlush)
+	{
+		flushPipeline();
+		return;
+	}
+	execute();	//no decode stage because it's inherent to 'execute' - we accommodate for the decode stage's effect anyway
 
 	if (m_shouldFlush)
 		flushPipeline();
@@ -183,9 +186,9 @@ void ARM7TDMI::dispatchInterrupt()
 	bool wasThumb = ((oldCPSR >> 5) & 0b1);
 	setSPSR(oldCPSR);
 	if (wasThumb)
-		setReg(14, getReg(15) - 2);
+		setReg(14, getReg(15)-2);
 	else
-		setReg(14, getReg(15) - 4);
+		setReg(14, getReg(15)-4);
 	setReg(15, 0x00000018);
 }
 

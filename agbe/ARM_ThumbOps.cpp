@@ -399,8 +399,22 @@ void ARM7TDMI::Thumb_LoadStoreHalfword()
 
 void ARM7TDMI::Thumb_SPRelativeLoadStore()
 {
-	Logger::getInstance()->msg(LoggerSeverity::Error, "Unimplemented");
-	throw std::runtime_error("unimplemented");
+	bool loadStore = ((m_currentOpcode >> 11) & 0b1);
+	uint8_t destRegIdx = ((m_currentOpcode >> 8) & 0b111);
+	uint32_t offs = m_currentOpcode & 0xFF;
+
+	uint32_t addr = getReg(13) + offs;
+
+	if (loadStore)
+	{
+		uint32_t val = m_bus->read32(addr);
+		setReg(destRegIdx, val);
+	}
+	else
+	{
+		uint32_t val = getReg(destRegIdx);
+		m_bus->write32(addr, val);
+	}
 }
 
 void ARM7TDMI::Thumb_LoadAddress()
@@ -427,8 +441,11 @@ void ARM7TDMI::Thumb_LoadAddress()
 
 void ARM7TDMI::Thumb_AddOffsetToStackPointer()
 {
-	Logger::getInstance()->msg(LoggerSeverity::Error, "Unimplemented");
-	throw std::runtime_error("unimplemented");
+	uint32_t offset = m_currentOpcode & 0xFF;
+	if (((offset >> 7) & 0b1))
+		offset |= 0xFFFFFF00;
+
+	setReg(13, getReg(13) + offset);
 }
 
 void ARM7TDMI::Thumb_PushPopRegisters()
