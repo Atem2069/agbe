@@ -33,9 +33,15 @@ void ARM7TDMI::step()
 	{
 		bool thumb = (CPSR >> 5) & 0b1;	//increment pc only if pipeline not flushed
 		if (thumb)
+		{
 			R[15] += 2;
+			R[15] &= ~0b1;
+		}
 		else
+		{
 			R[15] += 4;
+			R[15] &= ~0b11;
+		}
 		m_pipelinePtr = ((m_pipelinePtr + 1) % 3);
 	}
 }

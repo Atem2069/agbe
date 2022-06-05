@@ -438,7 +438,7 @@ void ARM7TDMI::Thumb_LoadAddress()
 	}
 	else		//PC used as base
 	{
-		uint32_t PC = getReg(15) & ~0b11;
+		uint32_t PC = getReg(15) &~0b11;
 		PC += offset;
 		setReg(destRegIdx, PC);
 	}
@@ -447,8 +447,9 @@ void ARM7TDMI::Thumb_LoadAddress()
 void ARM7TDMI::Thumb_AddOffsetToStackPointer()
 {
 	uint32_t offset = m_currentOpcode & 0xFF;
-	if (((offset >> 7) & 0b1))
-		offset |= 0xFFFFFF00;
+	offset <<= 2;
+	if (((m_currentOpcode >> 7) & 0b1))
+		offset |= 0xFFFFFFE0;
 
 	setReg(13, getReg(13) + offset);
 }
