@@ -423,6 +423,8 @@ void ARM7TDMI::ARM_HalfwordTransferRegisterOffset()
 			break;
 		case 1:
 			val = m_bus->read16(base);
+			if (base & 1)
+				val = std::rotr(val, 8);
 			setReg(srcDestRegIdx, val);
 			break;
 		case 2:
@@ -432,9 +434,18 @@ void ARM7TDMI::ARM_HalfwordTransferRegisterOffset()
 			setReg(srcDestRegIdx, val);
 			break;
 		case 3:
-			val = m_bus->read16(base);
-			if (((val >> 15) & 0b1))
-				val |= 0xFFFF0000;
+			if (!(base & 0b1))
+			{
+				val = m_bus->read16(base);
+				if (((val >> 15) & 0b1))
+					val |= 0xFFFF0000;
+			}
+			else
+			{
+				val = m_bus->read8(base);
+				if (((val >> 7) & 0b1))
+					val |= 0xFFFFFF00;
+			}
 			setReg(srcDestRegIdx, val);
 			break;
 		}
@@ -507,6 +518,8 @@ void ARM7TDMI::ARM_HalfwordTransferImmediateOffset()
 			break;
 		case 1:
 			data = m_bus->read16(base);
+			if (base & 1)
+				data = std::rotr(data, 8);
 			setReg(srcDestRegIdx, data);
 			break;
 		case 2:
@@ -516,9 +529,18 @@ void ARM7TDMI::ARM_HalfwordTransferImmediateOffset()
 			setReg(srcDestRegIdx, data);
 			break;
 		case 3:
-			data = m_bus->read16(base);
-			if (((data >> 15) & 0b1))
-				data |= 0xFFFF0000;
+			if (!(base & 0b1))
+			{
+				data = m_bus->read16(base);
+				if (((data >> 15) & 0b1))
+					data |= 0xFFFF0000;
+			}
+			else
+			{
+				data = m_bus->read8(base);
+				if (((data >> 7) & 0b1))
+					data |= 0xFFFFFF00;
+			}
 			setReg(srcDestRegIdx, data);
 			break;
 		}
@@ -655,138 +677,125 @@ void ARM7TDMI::ARM_Undefined()
 
 void ARM7TDMI::ARM_BlockDataTransfer()
 {
-	bool prePost = ((m_currentOpcode >> 24) & 0b1);
-	bool upDown = ((m_currentOpcode >> 23) & 0b1);
-	bool forceUser = ((m_currentOpcode >> 22) & 0b1);
-	bool transferPSR = false;
-	bool writeBack = ((m_currentOpcode >> 21) & 0b1);
-	bool loadStore = ((m_currentOpcode >> 20) & 0b1);
-	uint8_t baseRegIdx = ((m_currentOpcode >> 16) & 0xF);
-	uint16_t regList = m_currentOpcode & 0xFFFF;
+	uint8_t pre_post = (m_currentOpcode & 0x1000000) ? 1 : 0;
+	uint8_t up_down = (m_currentOpcode & 0x800000) ? 1 : 0;
+	uint8_t psr = (m_currentOpcode & 0x400000) ? 1 : 0;
+	uint8_t write_back = (m_currentOpcode & 0x200000) ? 1 : 0;
+	uint8_t load_store = (m_currentOpcode & 0x100000) ? 1 : 0;
+	uint8_t base_reg = ((m_currentOpcode >> 16) & 0xF);
+	uint16_t r_list = (m_currentOpcode & 0xFFFF);
 
-	uint32_t base = getReg(baseRegIdx);
-	uint32_t originalBase = base;	//save for some weird edge case we need to implement
 
-	//figure out if base reg is first one 
-	int firstReg = 0;
-	for (int i = 0; i < 16; i++)
+	uint8_t oldMode = 0;
+	// Force USR mode
+	if (psr) { oldMode = CPSR & 0x1F; CPSR &= ~0xF; }
+
+	uint32_t base_addr = getReg(base_reg);
+	uint32_t old_base = base_addr;
+	uint8_t transfer_reg = 0xFF;
+
+	//Find out the first register in the Register List
+	for (int x = 0; x < 16; x++)
 	{
-		if (((originalBase >> i) & 0b1))
+		if (r_list & (1 << x))
 		{
-			firstReg = i;
-			i = 999;
+			transfer_reg = x;
+			x = 0xFF;
 			break;
 		}
 	}
 
-	if (firstReg == baseRegIdx)
-		Logger::getInstance()->msg(LoggerSeverity::Warn, "First reg in rlist is base reg!! unimplemented behaviour");
+	bool baseIncluded = (r_list >> base_reg) & 0b1;
 
-	if (upDown)
+	//Load-Store with an ascending stack order, Up-Down = 1
+	if ((up_down == 1) && (r_list != 0))
 	{
-		if (loadStore)	//LDMI(A)(B)
+		for (int x = 0; x < 16; x++)
 		{
-
-			if (((regList >> 15) & 0b1) && forceUser)
+			if (r_list & (1 << x))
 			{
-				forceUser = false;
-				transferPSR = true;
+				//Increment before transfer if pre-indexing
+				if (pre_post == 1) { base_addr += 4; }
+
+				if (load_store == 0)
+				{
+					//Store registers
+					if ((x == transfer_reg) && (base_reg == transfer_reg)) { m_bus->write32(base_addr, old_base); }
+					else { m_bus->write32(base_addr, getReg(x)); }
+				}
+				else
+				{
+					//Load registers
+					if ((x == transfer_reg) && (base_reg == transfer_reg)) { write_back = 0; }
+					setReg(x, m_bus->read32(base_addr));
+				}
+
+				//Increment after transfer if post-indexing
+				if (pre_post == 0) { base_addr += 4; }
 			}
 
-			for (int i = 0; i < 16; i++)
-			{
-				if (((regList >> i) & 0b1))
-				{
-					if (prePost)
-						base += 4;
-					uint32_t val = m_bus->read32(base);
-					setReg(i, val,forceUser);
-					if (!prePost)
-						base += 4;
+			//Write back the into base register
+			if (write_back == 1 && (!load_store || (load_store && !baseIncluded))) { setReg(base_reg, base_addr); }
+		}
+	}
 
-					//change CPSR if R15
-					if (i == 15 && transferPSR)
+	//Load-Store with a descending stack order, Up-Down = 0
+	else if ((up_down == 0) && (r_list != 0))
+	{
+		for (int x = 15; x >= 0; x--)
+		{
+			if (r_list & (1 << x))
+			{
+				//Decrement before transfer if pre-indexing
+				if (pre_post == 1) { base_addr -= 4; }
+
+				//Store registers
+				if (load_store == 0)
+				{
+					if ((x == transfer_reg) && (base_reg == transfer_reg)) { m_bus->write32(base_addr, old_base); }
+					else
 					{
-						uint32_t newpsr = getSPSR();
-						CPSR = newpsr;
+						uint32_t val = getReg(x);
+						if (x == 15)
+							val += 4;
+						m_bus->write32(base_addr, val);
 					}
-
 				}
-			}
-		}
 
-		else            //STMI(A)(B)
-		{
-			for (int i = 0; i < 16; i++)
-			{
-				if (((regList >> i) & 0b1))
+				//Load registers
+				else
 				{
-					if (prePost)
-						base += 4;
-
-					uint32_t val = getReg(i,forceUser);
-					m_bus->write32(base, val);
-
-					if (!prePost)
-						base += 4;
+					if ((x == transfer_reg) && (base_reg == transfer_reg)) { write_back = 0; }
+					setReg(x, m_bus->read32(base_addr));
 				}
+
+				//Decrement after transfer if post-indexing
+				if (pre_post == 0) { base_addr -= 4; }
 			}
+
+			//Write back the into base register
+			if (write_back == 1 && (!load_store || (load_store && !baseIncluded))) { setReg(base_reg, base_addr); }
 		}
 	}
-
-	else		//FWIW this implementation is wrong. the correct behaviour is to write increasing addresses (classic nes series will break if we write descending..!)
+	else //Special case, empty RList
 	{
-		if (loadStore)	//LDMD(A)(B)
+		//Load R15
+		if (load_store == 0) { m_bus->write32(base_addr, getReg(15) + 4); }
+		else //Store R15
 		{
-			if (((regList >> 15) & 0b1) && forceUser)
-			{
-				forceUser = false;
-				transferPSR = true;
-			}
-
-			for (int i = 15; i >= 0; i--)
-			{
-				if (((regList >> i) & 0b1))
-				{
-					if (prePost)
-						base -= 4;
-
-					uint32_t val = m_bus->read32(base);
-					setReg(i, val, forceUser);
-
-					if (!prePost)
-						base -= 4;
-				}
-			}
-
-			if (((regList >> 15) & 0b1) && transferPSR)
-			{
-				uint32_t newpsr = getSPSR();
-				CPSR = newpsr;
-			}
+			setReg(15, m_bus->read32(base_addr));
 		}
 
-		else			//STMD(A)(B)
-		{
-			for (int i = 15; i >= 0; i--)
-			{
-				if (((regList >> i) & 0b1))
-				{
-					if (prePost)
-						base -= 4;
+		//Add 0x40 to base address if ascending stack, writeback into base register
+		if (up_down == 1) { setReg(base_reg, (base_addr + 0x40)); }
 
-					uint32_t val = getReg(i, forceUser);
-					m_bus->write32(base, val);
+		//Subtract 0x40 from base address if descending stack, writeback into base register
+		else { setReg(base_reg, (base_addr - 0x40)); }
 
-					if (!prePost)
-						base -= 4;
-				}
-			}
-		}
 	}
 
-	if (writeBack)
-		setReg(baseRegIdx, base);
+	// Restore old mode
+	if (psr) { CPSR |= oldMode; }
 }
 
 void ARM7TDMI::ARM_CoprocessorDataTransfer()

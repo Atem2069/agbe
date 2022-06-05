@@ -220,6 +220,8 @@ void ARM7TDMI::Thumb_HiRegisterOperations()
 	case 0:
 		result = operand1 + operand2;
 		setReg(dstRegIdx, result);
+		if (dstRegIdx == 15)
+			setReg(dstRegIdx, result & ~0b1);
 		break;
 	case 1:
 		result = operand1 - operand2;
@@ -228,6 +230,8 @@ void ARM7TDMI::Thumb_HiRegisterOperations()
 	case 2:
 		result = operand2;
 		setReg(dstRegIdx, result);
+		if (dstRegIdx == 15)
+			setReg(dstRegIdx, result & ~0b1);
 		break;
 	case 3:
 		if (operand2 == 0)
@@ -622,7 +626,7 @@ void ARM7TDMI::Thumb_ConditionalBranch()
 
 void ARM7TDMI::Thumb_SoftwareInterrupt()
 {
-	std::cout << "thumb swi" << '\n';
+	std::cout << "thumb swi" << (int)(m_currentOpcode&0xFF) << '\n';
 	int swiId = m_currentOpcode & 0xFF;
 	//svc mode bits are 10011
 	uint32_t oldCPSR = CPSR;

@@ -8,13 +8,13 @@ Bus::Bus(std::vector<uint8_t> BIOS, std::vector<uint8_t> cartData, std::shared_p
 
 	m_mem = std::make_shared<GBAMem>();
 	m_ppu->registerMemory(m_mem);
-	if (BIOS.size() != 16385)
+	if (BIOS.size() != 16384)
 	{
 		std::cout << BIOS.size() << '\n';
 		Logger::getInstance()->msg(LoggerSeverity::Error, "Invalid BIOS ROM size!!");
 		return;
 	}
-	if (cartData.size()-1 > (32 * 1024 * 1024))
+	if (cartData.size() > (32 * 1024 * 1024))
 	{
 		Logger::getInstance()->msg(LoggerSeverity::Error, "ROM file is too big!!");
 		return;

@@ -30,4 +30,6 @@ private:
 	bool m_shouldStop = false;
 
 	void m_initialise();
+
+	std::vector<uint8_t> readFile(const char* name);
 };

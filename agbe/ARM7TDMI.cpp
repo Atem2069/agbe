@@ -26,7 +26,8 @@ void ARM7TDMI::step()
 	if (dispatchInterrupt())	//if interrupt was dispatched then fetch new opcode (dispatchInterrupt already flushes pipeline !)
 		return;
 	execute();	//no decode stage because it's inherent to 'execute' - we accommodate for the decode stage's effect anyway
-
+	if ((R[15] & 0b1))
+		std::cout << "crap! pc misalign" << '\n';
 	if (m_shouldFlush)
 		flushPipeline();
 	else												//essentially only advance pipeline stage if the last operation didn't cause a pipeline flush
@@ -35,12 +36,10 @@ void ARM7TDMI::step()
 		if (thumb)
 		{
 			R[15] += 2;
-			R[15] &= ~0b1;
 		}
 		else
 		{
 			R[15] += 4;
-			R[15] &= ~0b11;
 		}
 		m_pipelinePtr = ((m_pipelinePtr + 1) % 3);
 	}
@@ -177,6 +176,9 @@ bool ARM7TDMI::dispatchInterrupt()
 	
 	if (!m_interruptManager->getInterrupt())	//final check: if interrupt actually requested
 		return false;
+
+	std::cout << "irq dispatch" << '\n';
+
 	//irq bits: 10010
 	uint32_t oldCPSR = CPSR;
 
@@ -188,7 +190,7 @@ bool ARM7TDMI::dispatchInterrupt()
 	bool wasThumb = ((oldCPSR >> 5) & 0b1);
 	setSPSR(oldCPSR);
 	if (wasThumb)
-		setReg(14, getReg(15));		//...apparently this is correct :/
+		setReg(14, getReg(15)-2);		//...apparently this is correct :/
 	else
 		setReg(14, getReg(15)-4);
 	setReg(15, 0x00000018);

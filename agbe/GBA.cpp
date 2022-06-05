@@ -37,37 +37,11 @@ void GBA::registerInput(std::shared_ptr<InputState> inp)
 void GBA::m_initialise()
 {
 	Logger::getInstance()->msg(LoggerSeverity::Info, "Initializing new GBA instance");
-	std::string romName = "rom\\thumb.gba";
+	std::string romName = "rom\\doom.gba";
 	Logger::getInstance()->msg(LoggerSeverity::Info, "ROM Path: " + romName);
 
-	std::vector<uint8_t> romData;
-	std::ifstream romReadHandle(romName, std::ios::in | std::ios::binary);
-	if (!romReadHandle)
-		return;
-
-	romReadHandle >> std::noskipws;
-	while (!romReadHandle.eof())
-	{
-		unsigned char curByte;
-		romReadHandle.read((char*)&curByte, sizeof(uint8_t));
-		romData.push_back((uint8_t)curByte);
-	}
-	romReadHandle.close();
-
-
-	std::vector<uint8_t> biosData;
-	std::ifstream biosReadHandle("rom\\gba_bios.bin", std::ios::in | std::ios::binary);
-	if (!biosReadHandle)
-		return;
-
-	biosReadHandle >> std::noskipws;
-	while (!biosReadHandle.eof())
-	{
-		unsigned char curByte;
-		biosReadHandle.read((char*)&curByte, sizeof(uint8_t));
-		biosData.push_back((uint8_t)curByte);
-	}
-	biosReadHandle.close();
+	std::vector<uint8_t> romData = readFile(romName.c_str());
+	std::vector<uint8_t> biosData = readFile("rom\\gba_bios.bin");
 
 	m_interruptManager = std::make_shared<InterruptManager>();
 	m_ppu = std::make_shared<PPU>(m_interruptManager);
@@ -76,4 +50,31 @@ void GBA::m_initialise()
 	m_cpu = std::make_shared<ARM7TDMI>(m_bus,m_interruptManager);
 
 	Logger::getInstance()->msg(LoggerSeverity::Info, "Inited GBA instance!");
+}
+
+std::vector<uint8_t> GBA::readFile(const char* name)
+{
+	// open the file:
+	std::ifstream file(name, std::ios::binary);
+
+	// Stop eating new lines in binary mode!!!
+	file.unsetf(std::ios::skipws);
+
+	// get its size:
+	std::streampos fileSize;
+
+	file.seekg(0, std::ios::end);
+	fileSize = file.tellg();
+	file.seekg(0, std::ios::beg);
+
+	// reserve capacity
+	std::vector<uint8_t> vec;
+	vec.reserve(fileSize);
+
+	// read the data:
+	vec.insert(vec.begin(),
+		std::istream_iterator<uint8_t>(file),
+		std::istream_iterator<uint8_t>());
+
+	return vec;
 }
