@@ -679,20 +679,19 @@ void ARM7TDMI::ARM_Undefined()
 
 void ARM7TDMI::ARM_BlockDataTransfer()
 {
-	uint8_t pre_post = (m_currentOpcode & 0x1000000) ? 1 : 0;
-	uint8_t up_down = (m_currentOpcode & 0x800000) ? 1 : 0;
-	uint8_t psr = (m_currentOpcode & 0x400000) ? 1 : 0;
-	uint8_t write_back = (m_currentOpcode & 0x200000) ? 1 : 0;
-	uint8_t load_store = (m_currentOpcode & 0x100000) ? 1 : 0;
-	uint8_t base_reg = ((m_currentOpcode >> 16) & 0xF);
-	uint16_t r_list = (m_currentOpcode & 0xFFFF);
-
+	bool prePost = ((m_currentOpcode >> 24) & 0b1);
+	bool upDown = ((m_currentOpcode >> 23) & 0b1);
+	bool psr = ((m_currentOpcode >> 22) & 0b1);
+	bool writeBack = ((m_currentOpcode >> 21) & 0b1);
+	bool loadStore = ((m_currentOpcode >> 20) & 0b1);
+	uint8_t baseReg = ((m_currentOpcode >> 16) & 0xF);
+	uint16_t r_list = m_currentOpcode & 0xFFFF;
 
 	uint8_t oldMode = 0;
 	// Force USR mode
 	if (psr) { oldMode = CPSR & 0x1F; CPSR &= ~0xF; }
 
-	uint32_t base_addr = getReg(base_reg);
+	uint32_t base_addr = getReg(baseReg);
 	uint32_t old_base = base_addr;
 	uint8_t transfer_reg = 0xFF;
 
@@ -707,54 +706,54 @@ void ARM7TDMI::ARM_BlockDataTransfer()
 		}
 	}
 
-	bool baseIncluded = (r_list >> base_reg) & 0b1;
+	bool baseIncluded = (r_list >> baseReg) & 0b1;
 
 	//Load-Store with an ascending stack order, Up-Down = 1
-	if ((up_down == 1) && (r_list != 0))
+	if ((upDown == 1) && (r_list != 0))
 	{
 		for (int x = 0; x < 16; x++)
 		{
 			if (r_list & (1 << x))
 			{
 				//Increment before transfer if pre-indexing
-				if (pre_post == 1) { base_addr += 4; }
+				if (prePost == 1) { base_addr += 4; }
 
-				if (load_store == 0)
+				if (loadStore == 0)
 				{
 					//Store registers
-					if ((x == transfer_reg) && (base_reg == transfer_reg)) { m_bus->write32(base_addr, old_base); }
+					if ((x == transfer_reg) && (baseReg == transfer_reg)) { m_bus->write32(base_addr, old_base); }
 					else { m_bus->write32(base_addr, getReg(x)); }
 				}
 				else
 				{
 					//Load registers
-					if ((x == transfer_reg) && (base_reg == transfer_reg)) { write_back = 0; }
+					if ((x == transfer_reg) && (baseReg == transfer_reg)) { writeBack = 0; }
 					setReg(x, m_bus->read32(base_addr));
 				}
 
 				//Increment after transfer if post-indexing
-				if (pre_post == 0) { base_addr += 4; }
+				if (prePost == 0) { base_addr += 4; }
 			}
 
 			//Write back the into base register
-			if (write_back == 1 && (!load_store || (load_store && !baseIncluded))) { setReg(base_reg, base_addr); }
+			if (writeBack == 1 && (!loadStore || (loadStore && !baseIncluded))) { setReg(baseReg, base_addr); }
 		}
 	}
 
 	//Load-Store with a descending stack order, Up-Down = 0
-	else if ((up_down == 0) && (r_list != 0))
+	else if ((upDown == 0) && (r_list != 0))
 	{
 		for (int x = 15; x >= 0; x--)
 		{
 			if (r_list & (1 << x))
 			{
 				//Decrement before transfer if pre-indexing
-				if (pre_post == 1) { base_addr -= 4; }
+				if (prePost == 1) { base_addr -= 4; }
 
 				//Store registers
-				if (load_store == 0)
+				if (loadStore == 0)
 				{
-					if ((x == transfer_reg) && (base_reg == transfer_reg)) { m_bus->write32(base_addr, old_base); }
+					if ((x == transfer_reg) && (baseReg == transfer_reg)) { m_bus->write32(base_addr, old_base); }
 					else
 					{
 						uint32_t val = getReg(x);
@@ -767,32 +766,32 @@ void ARM7TDMI::ARM_BlockDataTransfer()
 				//Load registers
 				else
 				{
-					if ((x == transfer_reg) && (base_reg == transfer_reg)) { write_back = 0; }
+					if ((x == transfer_reg) && (baseReg == transfer_reg)) { writeBack = 0; }
 					setReg(x, m_bus->read32(base_addr));
 				}
 
 				//Decrement after transfer if post-indexing
-				if (pre_post == 0) { base_addr -= 4; }
+				if (prePost == 0) { base_addr -= 4; }
 			}
 
 			//Write back the into base register
-			if (write_back == 1 && (!load_store || (load_store && !baseIncluded))) { setReg(base_reg, base_addr); }
+			if (writeBack == 1 && (!loadStore || (loadStore && !baseIncluded))) { setReg(baseReg, base_addr); }
 		}
 	}
 	else //Special case, empty RList
 	{
 		//Load R15
-		if (load_store == 0) { m_bus->write32(base_addr, getReg(15) + 4); }
+		if (loadStore == 0) { m_bus->write32(base_addr, getReg(15) + 4); }
 		else //Store R15
 		{
 			setReg(15, m_bus->read32(base_addr));
 		}
 
 		//Add 0x40 to base address if ascending stack, writeback into base register
-		if (up_down == 1) { setReg(base_reg, (base_addr + 0x40)); }
+		if (upDown == 1) { setReg(baseReg, (base_addr + 0x40)); }
 
 		//Subtract 0x40 from base address if descending stack, writeback into base register
-		else { setReg(base_reg, (base_addr - 0x40)); }
+		else { setReg(baseReg, (base_addr - 0x40)); }
 
 	}
 
