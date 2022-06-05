@@ -1,4 +1,11 @@
 # agbe
 Highly WIP Game Boy Advance Emulator.
 
-Current progress - runs test roms (armwrestler,arm/thumb.gba,FuzzArm).
+Pass:
+  - armwrestler
+  - fuzzarm
+  - thumb.gba
+  - irqDemo
+  - retAddr
+  - tonc swi_demo,m3_demo
+
