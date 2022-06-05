@@ -186,7 +186,7 @@ void ARM7TDMI::dispatchInterrupt()
 	bool wasThumb = ((oldCPSR >> 5) & 0b1);
 	setSPSR(oldCPSR);
 	if (wasThumb)
-		setReg(14, getReg(15)-2);
+		setReg(14, getReg(15));		//...apparently this is correct :/
 	else
 		setReg(14, getReg(15)-4);
 	setReg(15, 0x00000018);
