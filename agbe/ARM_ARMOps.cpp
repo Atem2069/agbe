@@ -453,7 +453,7 @@ void ARM7TDMI::ARM_HalfwordTransferRegisterOffset()
 			base += offset;
 	}
 
-	if (writeback || !prePost)
+	if (((!prePost) || (prePost && writeback)) && ((baseRegIdx != srcDestRegIdx) || (baseRegIdx == srcDestRegIdx && !loadStore)))
 		setReg(baseRegIdx, base);
 }
 
@@ -537,7 +537,7 @@ void ARM7TDMI::ARM_HalfwordTransferImmediateOffset()
 			base += offset;
 	}
 
-	if (writeback || !prePost)
+	if (((!prePost) || (prePost && writeback)) && ((baseRegIdx != srcDestRegIdx) || (baseRegIdx == srcDestRegIdx && !loadStore)))
 		setReg(baseRegIdx, base);
 }
 
@@ -625,7 +625,7 @@ void ARM7TDMI::ARM_SingleDataTransfer()
 	if (!preIndex)
 		base += offset;
 
-	if (writeback || !preIndex)	//post index implies writeback
+	if (((!preIndex) || (preIndex && writeback)) && ((baseRegIdx != destRegIdx) || (baseRegIdx == destRegIdx && !loadStore)))
 	{
 		setReg(baseRegIdx, base);
 	}
