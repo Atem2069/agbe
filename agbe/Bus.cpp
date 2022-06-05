@@ -57,12 +57,10 @@ uint8_t Bus::read8(uint32_t address, bool doTick)
 	case 5:
 		return m_mem->paletteRAM[address & 0x3FF];
 	case 6:
-		if (address >= 0x06018000)
-		{
-			Logger::getInstance()->msg(LoggerSeverity::Error, "Unhandled OOB VRAM read");
-			return 0;
-		}
-		return m_mem->VRAM[address%(96*1024)];	//lmao. i think the additional 32k range is mirrored instead or something?
+		address = address & 0x1FFFF;
+		if (address >= 0x18000)
+			address -= 32768;
+		return m_mem->VRAM[address];
 	case 7:
 		return m_mem->OAM[address & 0x3FF];
 	case 8: case 9: case 0xA: case 0xB: case 0xC: case 0xD:	//need to do this better (different waitstates will have different timings)
@@ -135,12 +133,10 @@ uint16_t Bus::read16(uint32_t address, bool doTick)
 	case 5:
 		return getValue16(m_mem->paletteRAM, address & 0x3FF);
 	case 6:
-		if (address >= 0x06018000)
-		{
-			Logger::getInstance()->msg(LoggerSeverity::Error, "Unhandled OOB VRAM read");
-			return 0;
-		}
-		return getValue16(m_mem->VRAM, address % (96 * 1024));	//aaaa
+		address = address & 0x1FFFF;
+		if (address >= 0x18000)
+			address -= 32768;
+		return getValue16(m_mem->VRAM, address);
 	case 7:
 		return getValue16(m_mem->OAM, address & 0x3FF);
 	case 8: case 9: case 0xA: case 0xB: case 0xC: case 0xD:
@@ -178,12 +174,6 @@ void Bus::write16(uint32_t address, uint16_t value, bool doTick)
 		setValue16(m_mem->paletteRAM, address & 0x3FF, value);
 		break;
 	case 6:
-		/*if (address > 0x06017FFF)
-		{
-			Logger::getInstance()->msg(LoggerSeverity::Error, "Improperly handled OOB VRAM write");
-			break;
-		}
-		setValue16(m_mem->VRAM, address % (96 * 1024), value);*/
 		address = address & 0x1FFFF;
 		if (address >= 0x18000)
 			address -= 32768;
@@ -226,12 +216,10 @@ uint32_t Bus::read32(uint32_t address, bool doTick)
 	case 5:
 		return getValue32(m_mem->paletteRAM, address & 0x3FF);
 	case 6:
-		if (address >= 0x06018000)
-		{
-			Logger::getInstance()->msg(LoggerSeverity::Error, "Unhandled OOB VRAM read");
-			return 0;
-		}
-		return getValue32(m_mem->VRAM, address % (96 * 1024));	//aaaa
+		address = address & 0x1FFFF;
+		if (address >= 0x18000)
+			address -= 32768;
+		return getValue32(m_mem->VRAM, address);
 	case 7:
 		return getValue32(m_mem->OAM, address & 0x3FF);
 	case 8: case 9: case 0xA: case 0xB: case 0xC: case 0xD:
@@ -269,12 +257,6 @@ void Bus::write32(uint32_t address, uint32_t value, bool doTick)
 		setValue32(m_mem->paletteRAM, address & 0x3FF, value);
 		break;
 	case 6:
-		/*if (address > 0x06017FFF)
-		{
-			Logger::getInstance()->msg(LoggerSeverity::Error, "Improperly handled OOB VRAM write");
-			break;
-		}
-		setValue32(m_mem->VRAM, address % (96 * 1024), value);*/
 		address = address & 0x1FFFF;
 		if (address >= 0x18000)
 			address -= 32768;
