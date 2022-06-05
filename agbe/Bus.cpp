@@ -32,6 +32,7 @@ void Bus::tick()
 {
 	//todo: tick other components
 	m_ppu->step();
+	checkDMAChannels();	//check if we need to dma (todo: check hblank,vblank)
 }
 
 uint8_t Bus::read8(uint32_t address, bool doTick)
@@ -283,6 +284,8 @@ uint8_t Bus::readIO8(uint32_t address)
 		return m_ppu->readIO(address);
 	if (address >= 0x04000130 && address <= 0x04000133)
 		return m_input->readIORegister(address);
+	if (address >= 0x040000B0 && address <= 0x040000DF)
+		return DMARegRead(address);
 	switch (address)
 	{
 	case 0x04000200:case 0x04000201: case 0x04000202:  case 0x04000203: case 0x04000208: case 0x04000209: case 0x0400020A: case 0x0400020B:
@@ -302,6 +305,11 @@ void Bus::writeIO8(uint32_t address, uint8_t value)
 	if (address >= 0x04000130 && address <= 0x04000133)
 	{
 		m_input->writeIORegister(address, value);
+		return;
+	}
+	if (address >= 0x040000B0 && address <= 0x040000DF)
+	{
+		DMARegWrite(address,value);
 		return;
 	}
 	switch (address)
@@ -365,4 +373,24 @@ void Bus::setValue32(uint8_t* arr, int base, uint32_t val)
 	arr[base + 1] = ((val >> 8) & 0xFF);
 	arr[base + 2] = ((val >> 16) & 0xFF);
 	arr[base + 3] = ((val >> 24) & 0xFF);
+}
+
+void Bus::setByteInWord(uint32_t* word, uint8_t byte, int pos)
+{
+	uint32_t tmp = *word;
+	uint32_t mask = 0xFF;
+	mask = ~(mask << (pos * 8));
+	tmp &= mask;
+	tmp |= (byte << (pos * 8));
+	*word = tmp;
+}
+
+void Bus::setByteInHalfword(uint16_t* halfword, uint8_t byte, int pos)
+{
+	uint16_t tmp = *halfword;
+	uint16_t mask = 0xFF;
+	mask = ~(mask << (pos * 8));
+	tmp &= mask;
+	tmp |= (byte << (pos * 8));
+	*halfword = tmp;
 }

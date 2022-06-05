@@ -8,6 +8,15 @@
 
 #include<iostream>
 
+struct DMAChannel
+{
+	uint32_t srcAddress;
+	uint32_t destAddress;
+	uint16_t wordCount;
+	uint16_t control;
+};
+
+
 class Bus
 {
 public:
@@ -36,15 +45,25 @@ public:
 	uint32_t readIO32(uint32_t address);
 	void writeIO32(uint32_t address, uint32_t value);
 
+
 private:
 	std::shared_ptr<GBAMem> m_mem;
 	std::shared_ptr<InterruptManager> m_interruptManager;
 	std::shared_ptr<PPU> m_ppu;
 	std::shared_ptr<Input> m_input;
 
+	DMAChannel m_dmaChannels[4];
+
 	uint16_t getValue16(uint8_t* arr, int base);
 	void setValue16(uint8_t* arr, int base, uint16_t val);
 
 	uint32_t getValue32(uint8_t* arr, int base);
 	void setValue32(uint8_t* arr, int base, uint32_t val);
+
+	void setByteInWord(uint32_t* word, uint8_t byte, int pos);
+	void setByteInHalfword(uint16_t* halfword, uint8_t byte, int pos);
+
+	uint8_t DMARegRead(uint32_t address);
+	void DMARegWrite(uint32_t address, uint8_t value);
+	void checkDMAChannels();
 };
