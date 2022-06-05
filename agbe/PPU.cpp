@@ -29,6 +29,7 @@ void PPU::step()
 		return;
 	}
 	m_lineCycles += 1;
+
 	if (inVBlank)
 	{
 		VBlank();
@@ -78,6 +79,14 @@ void PPU::HBlank()
 		m_lineCycles = 0;
 
 		VCOUNT++;
+
+		uint16_t vcountCmp = ((DISPSTAT >> 8) & 0xFF);
+		if ((VCOUNT & 0xFF) == vcountCmp)
+		{
+			setVCounterFlag(true);
+			if ((DISPSTAT >> 5) & 0b1)
+				m_interruptManager->requestInterrupt(InterruptType::VCount);
+		}
 
 		if (VCOUNT == 160)
 		{
@@ -182,7 +191,7 @@ void PPU::setHBlankFlag(bool value)
 		DISPSTAT &= ~0b10;
 }
 
-bool PPU::setVCounterFlag(bool value)
+void PPU::setVCounterFlag(bool value)
 {
 	if (value)
 		DISPSTAT |= 0b100;

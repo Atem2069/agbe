@@ -39,7 +39,7 @@ private:
 
 	void setVBlankFlag(bool value);
 	void setHBlankFlag(bool value);
-	bool setVCounterFlag(bool value);
+	void setVCounterFlag(bool value);
 
 	uint16_t DISPCNT = {};
 	uint16_t DISPSTAT = {};

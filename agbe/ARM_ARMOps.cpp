@@ -130,12 +130,12 @@ void ARM7TDMI::ARM_DataProcessing()
 	case 5:	//ADC
 		result = operand1 + operand2 + carryIn;
 		setReg(destRegIdx, result);
-		if (setConditionCodes) { setArithmeticFlags(operand1, operand2 + carryIn, result, true); }
+		if (setConditionCodes) { setArithmeticFlags(operand1, (uint64_t)operand2 + (uint64_t)carryIn, result, true); }
 		break;
 	case 6:	//SBC
 		result = operand1 - operand2 + carryIn - 1;
 		setReg(destRegIdx, result);
-		if (setConditionCodes) { setArithmeticFlags(operand1, operand2 + carryIn + 1, result, false); }
+		if (setConditionCodes) { setArithmeticFlags(operand1, (uint64_t)operand2 + (uint64_t)carryIn + 1, result, false); }
 		break;
 	case 7:	//RSC
 		result = operand2 - operand1 + carryIn - 1;

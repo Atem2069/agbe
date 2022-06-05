@@ -5,7 +5,8 @@
 enum class InterruptType	//todo: more interrupt sources!
 {
 	VBlank,
-	HBlank
+	HBlank,
+	VCount
 };
 
 class InterruptManager

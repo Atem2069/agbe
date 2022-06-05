@@ -18,6 +18,8 @@ void InterruptManager::requestInterrupt(InterruptType type)
 		IF |= 0b1; break;
 	case InterruptType::HBlank:
 		IF |= 0b10; break;
+	case InterruptType::VCount:
+		IF |= 0b100; break;
 	}
 }
 

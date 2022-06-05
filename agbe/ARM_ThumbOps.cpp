@@ -148,7 +148,7 @@ void ARM7TDMI::Thumb_ALUOperations()
 	case 6:	//SBC
 		result = operand1 - operand2 - (!carryIn);
 		setReg(srcDestRegIdx, result);
-		setArithmeticFlags(operand1, operand2 + (!carryIn), result, false);
+		setArithmeticFlags(operand1, (uint64_t)operand2 + (uint64_t)(!carryIn), result, false);
 		break;
 	case 7:	//ROR
 		operand2 &= 0xFF;

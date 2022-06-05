@@ -37,7 +37,7 @@ void GBA::registerInput(std::shared_ptr<InputState> inp)
 void GBA::m_initialise()
 {
 	Logger::getInstance()->msg(LoggerSeverity::Info, "Initializing new GBA instance");
-	std::string romName = "rom\\armwrestler.gba";
+	std::string romName = "rom\\fuzzarm.gba";
 	Logger::getInstance()->msg(LoggerSeverity::Info, "ROM Path: " + romName);
 
 	std::vector<uint8_t> romData;

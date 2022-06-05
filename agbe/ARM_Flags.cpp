@@ -8,7 +8,7 @@ void ARM7TDMI::setLogicalFlags(uint32_t result, int carry)
 	m_setNegativeFlag(((result >> 31) & 0b1));
 }
 
-void ARM7TDMI::setArithmeticFlags(uint32_t input, uint32_t operand, uint32_t result, bool addition)
+void ARM7TDMI::setArithmeticFlags(uint32_t input, uint64_t operand, uint32_t result, bool addition)
 {
 	//truthfully: copypasted (bc arithmetic flags are magic to me for the most part)
 	//note: operand might need to be uint64_t?
