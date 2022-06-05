@@ -50,7 +50,7 @@ private:
 
 	void executeThumb();
 
-	void dispatchInterrupt();
+	bool dispatchInterrupt();
 
 	uint32_t m_currentOpcode = 0;
 
