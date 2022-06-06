@@ -133,6 +133,13 @@ void PPU::renderMode0()
 	bool bg2Enabled = ((DISPCNT >> 10) & 0b1);
 	bool bg3Enabled = ((DISPCNT >> 11) & 0b1);
 	
+	//render backdrop first (this might be kinda slow)
+	uint16_t bd = (m_mem->paletteRAM[0] << 8) | m_mem->paletteRAM[1];
+	uint32_t backdropcol = col16to32(bd);
+	uint32_t baseAddr = (VCOUNT * 240);
+	for (int i = 0; i < 240; i++)
+		m_renderBuffer[baseAddr + i] = backdropcol;
+
 	//this is wrong: should take into account priority. 
 	if (bg3Enabled)
 		drawBackground(3);
@@ -153,17 +160,8 @@ void PPU::renderMode3()
 		uint8_t colLow = m_mem->VRAM[address];
 		uint8_t colHigh = m_mem->VRAM[address + 1];
 		uint16_t col = ((colHigh << 8) | colLow);
-
-		int red = (col & 0b0000000000011111);
-		red = (red << 3) | (red >> 2);
-		int green = (col & 0b0000001111100000) >> 5;
-		green = (green << 3) | (green >> 2);
-		int blue = (col & 0b0111110000000000) >> 10;
-		blue = (blue << 3) | (blue >> 2);
-
-		uint32_t res = (red << 24) | (green << 16) | (blue << 8) | 0x000000FF;
 		uint32_t plotAddr = (VCOUNT * 240) + i;
-		m_renderBuffer[plotAddr] = res;
+		m_renderBuffer[plotAddr] = col16to32(col);
 	}
 }
 
@@ -182,17 +180,8 @@ void PPU::renderMode4()
 		uint8_t paletteHigh = m_mem->paletteRAM[paletteAddress + 1];
 
 		uint16_t paletteData = ((paletteHigh << 8) | paletteLow);
-
-		int red = (paletteData & 0b0000000000011111);
-		red = (red << 3) | (red >> 2);
-		int green = (paletteData & 0b0000001111100000) >> 5;
-		green = (green << 3) | (green >> 2);
-		int blue = (paletteData & 0b0111110000000000) >> 10;
-		blue = (blue << 3) | (blue >> 2);
-
-		uint32_t res = (red << 24) | (green << 16) | (blue << 8) | 0x000000FF;
 		uint32_t plotAddress = (VCOUNT * 240) + i;
-		m_renderBuffer[plotAddress] = res;
+		m_renderBuffer[plotAddress] = col16to32(paletteData);
 	}
 }
 
@@ -274,20 +263,24 @@ void PPU::drawBackground(int bg)
 		uint8_t colLow = m_mem->paletteRAM[paletteMemoryAddr];
 		uint8_t colHigh = m_mem->paletteRAM[paletteMemoryAddr + 1];
 		uint16_t col = ((colHigh << 8) | colLow);
-		int red = (col & 0b0000000000011111);
-		red = (red << 3) | (red >> 2);
-		int green = (col & 0b0000001111100000) >> 5;
-		green = (green << 3) | (green >> 2);
-		int blue = (col & 0b0111110000000000) >> 10;
-		blue = (blue << 3) | (blue >> 2);
-
-		uint32_t res = (red << 24) | (green << 16) | (blue << 8) | 0x000000FF;
 		uint32_t plotAddr = (VCOUNT * 240) + x;
-		m_renderBuffer[plotAddr] = res;
+		m_renderBuffer[plotAddr] = col16to32(col);
 	}
 
 }
 
+uint32_t PPU::col16to32(uint16_t col)
+{
+	int red = (col & 0b0000000000011111);
+	red = (red << 3) | (red >> 2);
+	int green = (col & 0b0000001111100000) >> 5;
+	green = (green << 3) | (green >> 2);
+	int blue = (col & 0b0111110000000000) >> 10;
+	blue = (blue << 3) | (blue >> 2);
+
+	return (red << 24) | (green << 16) | (blue << 8) | 0x000000FF;
+
+}
 
 uint32_t* PPU::getDisplayBuffer()
 {

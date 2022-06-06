@@ -43,6 +43,8 @@ private:
 	void setHBlankFlag(bool value);
 	void setVCounterFlag(bool value);
 
+	uint32_t col16to32(uint16_t col);
+
 	uint16_t DISPCNT = {};
 	uint16_t DISPSTAT = {};
 	uint16_t VCOUNT = {};
