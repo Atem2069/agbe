@@ -4,6 +4,20 @@
 #include"GBAMem.h"
 #include"InterruptManager.h"
 
+#include<array>
+
+//this isn't a great approach to bg priority !!
+struct BGSortItem
+{
+	int priorityBits;
+	int bgNumber;
+	bool enabled;
+	static bool sortDescending(const BGSortItem& lhs, const BGSortItem& rhs)	//sort by decreasing priority
+	{
+		return lhs.priorityBits > rhs.priorityBits;
+	}
+};
+
 class PPU
 {
 public:

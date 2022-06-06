@@ -132,7 +132,15 @@ void PPU::renderMode0()
 	bool bg1Enabled = ((DISPCNT >> 9) & 0b1);
 	bool bg2Enabled = ((DISPCNT >> 10) & 0b1);
 	bool bg3Enabled = ((DISPCNT >> 11) & 0b1);
+
+	std::array<BGSortItem, 4> bgItems;
+	bgItems[3] = { BG0CNT & 0b11,0,bg0Enabled };
+	bgItems[2]={BG1CNT & 0b11, 1, bg1Enabled};
+	bgItems[1]={BG2CNT & 0b11, 2, bg2Enabled};
+	bgItems[0] = { BG3CNT & 0b11, 3, bg3Enabled };
 	
+	std::sort(bgItems.begin(), bgItems.end(), BGSortItem::sortDescending);
+
 	//render backdrop first (this might be kinda slow)
 	uint16_t bd = (m_mem->paletteRAM[0] << 8) | m_mem->paletteRAM[1];
 	uint32_t backdropcol = col16to32(bd);
@@ -140,16 +148,11 @@ void PPU::renderMode0()
 	for (int i = 0; i < 240; i++)
 		m_renderBuffer[baseAddr + i] = backdropcol;
 
-	//this is wrong: should take into account priority. 
-	if (bg3Enabled)
-		drawBackground(3);
-	if (bg2Enabled)
-		drawBackground(2);
-	if (bg1Enabled)
-		drawBackground(1);
-	if (bg0Enabled)
-		drawBackground(0);
-
+	for (int i = 0; i < 4; i++)
+	{
+		if (bgItems[i].enabled)
+			drawBackground(bgItems[i].bgNumber);
+	}
 }
 
 void PPU::renderMode3()
