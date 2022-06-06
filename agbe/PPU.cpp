@@ -225,7 +225,12 @@ void PPU::drawBackground(int bg)
 		if (!hiColor)	//16 colors, 16 palettes
 		{
 			tileMapBaseAddress = (tileDataBaseBlock * 16384) + (tileNumber * 32);
-			tileMapBaseAddress += ((VCOUNT % 8) * 4);
+
+			int yMod8 = ((VCOUNT % 8));
+			if (verticalFlip)
+				yMod8 = 7 - yMod8;
+
+			tileMapBaseAddress += (yMod8 * 4);
 
 			//have correct row of 4 bytes - now need to get correct byte
 			//hl hl hl hl
@@ -255,7 +260,11 @@ void PPU::drawBackground(int bg)
 			tileMapBaseAddress = (tileDataBaseBlock * 16384) + (tileNumber * 64);
 			tileMapBaseAddress += ((VCOUNT % 8) * 8);
 
-			tileMapBaseAddress += (x % 8);
+			int xmod8 = (x % 8);
+			if (horizontalFlip)
+				xmod8 = 7 - xmod8;
+
+			tileMapBaseAddress += xmod8;
 			uint8_t tileData = m_mem->VRAM[tileMapBaseAddress];
 			paletteMemoryAddr = (tileData * 2);
 		}
