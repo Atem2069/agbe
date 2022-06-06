@@ -37,6 +37,7 @@ private:
 	void renderMode3();
 	void renderMode4();
 
+	void drawBackground(int bg);
 
 	void setVBlankFlag(bool value);
 	void setHBlankFlag(bool value);
@@ -46,4 +47,12 @@ private:
 	uint16_t DISPSTAT = {};
 	uint16_t VCOUNT = {};
 	uint16_t BG0CNT = {};
+	uint16_t BG1CNT = {};
+	uint16_t BG2CNT = {};
+	uint16_t BG3CNT = {};
+	uint16_t BG0HOFS = {};
+	uint16_t BG0VOFS = {};
+	uint16_t BG1VOFS = {};
+	uint16_t BG2VOFS = {};
+	uint16_t BG3VOFS = {};
 };

@@ -128,64 +128,21 @@ void PPU::VBlank()
 
 void PPU::renderMode0()
 {
-	if (BG0CNT)
-	{
-		int screenSize = ((BG0CNT >> 14) & 0b11);
-		int bgMapBaseBlock = ((BG0CNT >> 8) & 0b11111);
-		int bgDataBaseBlock = ((BG0CNT >> 2) & 0b11);
-		bool bitDepthIs8 = ((BG0CNT >> 7) & 0b1);
-		int line = ((VCOUNT/8) * 256) * 2;	//2 bytes per entry
+	bool bg0Enabled = ((DISPCNT >> 8) & 0b1);
+	bool bg1Enabled = ((DISPCNT >> 9) & 0b1);
+	bool bg2Enabled = ((DISPCNT >> 10) & 0b1);
+	bool bg3Enabled = ((DISPCNT >> 11) & 0b1);
+	
+	//this is wrong: should take into account priority. 
+	if (bg3Enabled)
+		drawBackground(3);
+	if (bg2Enabled)
+		drawBackground(2);
+	if (bg1Enabled)
+		drawBackground(1);
+	if (bg0Enabled)
+		drawBackground(0);
 
-		int baseAddress = (bgMapBaseBlock * 2048) + line;
-
-		for (int i = 0; i < 240; i++)
-		{
-			int curTileMapAddress = baseAddress + ((i/8) * 2);
-			uint8_t entryLow = m_mem->VRAM[curTileMapAddress];
-			uint8_t entryHigh = m_mem->VRAM[curTileMapAddress+1];
-			uint16_t tileEntry = ((entryHigh << 8) | entryLow);
-			//assume 4 bit depth for now. wrong!!!
-			uint32_t tileNumber = tileEntry & 0x1ff;
-			uint32_t paletteNumber = ((tileEntry >> 12) & 0xf);
-			//todo: tile flip
-
-			uint32_t tileDataAddr = (bgDataBaseBlock * 16384);
-			tileDataAddr += (tileNumber * 32);
-			//get right row (ASSUMING 4 BIT DEPTH: EACH TILE IS 4 BYTES)
-			tileDataAddr += ((VCOUNT % 8) * 4);
-
-			int xMod8 = (i % 8);
-			tileDataAddr += (xMod8 / 2);	//not sure: might extract correct byte
-
-			uint8_t tile = m_mem->VRAM[tileDataAddr];
-
-			uint8_t colorEntry = 0;
-			if ((xMod8 % 2) == 0)
-				colorEntry = tile & 0xF;
-			else
-				colorEntry = ((tile >> 4) & 0xF);
-
-			int paletteBase = (paletteNumber * 32);
-			paletteBase += (colorEntry * 2);
-
-			uint8_t colLow = m_mem->paletteRAM[paletteBase];
-			uint8_t colHigh = m_mem->paletteRAM[paletteBase + 1];
-			uint16_t col = ((colHigh << 8) | colLow);
-			int red = (col & 0b0000000000011111);
-			red = (red << 3) | (red >> 2);
-			int green = (col & 0b0000001111100000) >> 5;
-			green = (green << 3) | (green >> 2);
-			int blue = (col & 0b0111110000000000) >> 10;
-			blue = (blue << 3) | (blue >> 2);
-
-			uint32_t res = (red << 24) | (green << 16) | (blue << 8) | 0x000000FF;
-			uint32_t plotAddr = (VCOUNT * 240) + i;
-			m_renderBuffer[plotAddr] = res;
-
-		}
-
-
-	}
 }
 
 void PPU::renderMode3()
@@ -239,6 +196,98 @@ void PPU::renderMode4()
 	}
 }
 
+void PPU::drawBackground(int bg)
+{
+	uint16_t ctrlReg = 0;
+	switch (bg)
+	{
+	case 0:
+		ctrlReg = BG0CNT; break;
+	case 1:
+		ctrlReg = BG1CNT; break;
+	case 2:
+		ctrlReg = BG2CNT; break;
+	case 3:
+		ctrlReg = BG3CNT; break;
+	}
+
+
+	uint32_t tileDataBaseBlock = ((ctrlReg >> 2) & 0b11);
+	bool hiColor = ((ctrlReg >> 7) & 0b1);
+	uint32_t bgMapBaseBlock = ((ctrlReg >> 8) & 0x1F);
+	int screenSize = ((ctrlReg >> 14) & 0b11);
+	uint32_t curLine = ((VCOUNT / 8) * 32) * 2;
+	uint32_t bgMapBaseAddress = (bgMapBaseBlock * 2048) + curLine;
+
+	for (int x = 0; x < 240; x++)
+	{
+		uint32_t curBgAddr = bgMapBaseAddress + ((x/8)*2);
+		uint8_t tileLower = m_mem->VRAM[curBgAddr];
+		uint8_t tileHigher = m_mem->VRAM[curBgAddr + 1];
+		uint16_t tile = (((uint16_t)tileHigher << 8) | tileLower);
+
+		uint32_t tileNumber = tile & 0x3FF;
+		uint32_t paletteNumber = ((tile >> 12) & 0xF);
+		bool horizontalFlip = ((tile >> 10) & 0b1);
+		bool verticalFlip = ((tile >> 11) & 0b1);
+		uint32_t paletteMemoryAddr = 0;
+		uint32_t tileMapBaseAddress = 0;
+
+		if (!hiColor)	//16 colors, 16 palettes
+		{
+			tileMapBaseAddress = (tileDataBaseBlock * 16384) + (tileNumber * 32);
+			tileMapBaseAddress += ((VCOUNT % 8) * 4);
+
+			//have correct row of 4 bytes - now need to get correct byte
+			//hl hl hl hl
+			//(x mod 8) / 2 gives us correct byte
+			//then x mod 2 gives us the nibble 
+
+			int xmod8 = (x % 8);
+			if (horizontalFlip)
+				xmod8 = 7 - xmod8;
+			tileMapBaseAddress += (xmod8 / 2);
+
+			uint8_t tileData = m_mem->VRAM[tileMapBaseAddress];
+			int colorId = 0;
+			if (xmod8 % 2 == 0)
+				colorId = tileData & 0xf;
+			else
+				colorId = ((tileData >> 4) & 0xf);
+
+			if (!colorId)
+				continue;
+
+			paletteMemoryAddr = paletteNumber * 32;
+			paletteMemoryAddr += (colorId * 2);
+		}
+		else		//256 colors, 1 palette
+		{
+			tileMapBaseAddress = (tileDataBaseBlock * 16384) + (tileNumber * 64);
+			tileMapBaseAddress += ((VCOUNT % 8) * 8);
+
+			tileMapBaseAddress += (x % 8);
+			uint8_t tileData = m_mem->VRAM[tileMapBaseAddress];
+			paletteMemoryAddr = (tileData * 2);
+		}
+
+		uint8_t colLow = m_mem->paletteRAM[paletteMemoryAddr];
+		uint8_t colHigh = m_mem->paletteRAM[paletteMemoryAddr + 1];
+		uint16_t col = ((colHigh << 8) | colLow);
+		int red = (col & 0b0000000000011111);
+		red = (red << 3) | (red >> 2);
+		int green = (col & 0b0000001111100000) >> 5;
+		green = (green << 3) | (green >> 2);
+		int blue = (col & 0b0111110000000000) >> 10;
+		blue = (blue << 3) | (blue >> 2);
+
+		uint32_t res = (red << 24) | (green << 16) | (blue << 8) | 0x000000FF;
+		uint32_t plotAddr = (VCOUNT * 240) + x;
+		m_renderBuffer[plotAddr] = res;
+	}
+
+}
+
 
 uint32_t* PPU::getDisplayBuffer()
 {
@@ -289,6 +338,18 @@ uint8_t PPU::readIO(uint32_t address)
 		return BG0CNT & 0xFF;
 	case 0x04000009:
 		return ((BG0CNT >> 8) & 0xFF);
+	case 0x0400000A:
+		return BG1CNT & 0xFF;
+	case 0x0400000B:
+		return ((BG1CNT >> 8) & 0xFF);
+	case 0x0400000C:
+		return BG2CNT & 0xFF;
+	case 0x0400000D:
+		return ((BG2CNT >> 8) & 0xFF);
+	case 0x0400000E:
+		return BG3CNT & 0xFF;
+	case 0x0400000F:
+		return ((BG3CNT >> 8) & 0xFF);
 	}
 
 	Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Unknown PPU IO register read {:#x}", address));
@@ -317,6 +378,37 @@ void PPU::writeIO(uint32_t address, uint8_t value)
 		break;
 	case 0x04000009:
 		BG0CNT &= 0xFF; BG0CNT |= (value << 8);
+		break;
+	case 0x0400000A:
+		BG1CNT &= 0xFF00; BG1CNT |= value;
+		break;
+	case 0x0400000B:
+		BG1CNT &= 0xFF; BG1CNT |= (value << 8);
+		break;
+	case 0x0400000C:
+		BG2CNT &= 0xFF00; BG2CNT |= value;
+		break;
+	case 0x0400000D:
+		BG2CNT &= 0xFF; BG2CNT |= (value << 8);
+		break;
+	case 0x0400000E:
+		BG3CNT &= 0xFF00; BG3CNT |= value;
+		break;
+	case 0x0400000F:
+		BG3CNT &= 0xFF; BG3CNT |= (value << 8);
+		break;
+	case 0x04000010:
+		BG0HOFS &= 0xFF00; BG0HOFS |= value;
+		break;
+	case 0x04000011:
+		BG0HOFS &= 0xFF; BG0HOFS |= ((value << 8) & 0b1);
+		break;
+	case 0x04000012:
+		BG0VOFS &= 0xFF00; BG0VOFS |= value;
+		break;
+	case 0x04000013:
+		BG0VOFS &= 0xFF; BG0VOFS |= ((value << 8) & 0b1);
+		break;
 	default:
 		//break;
 		Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Unknown PPU IO register write {:#x}", address));

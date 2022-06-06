@@ -309,6 +309,10 @@ uint8_t Bus::readIO8(uint32_t address)
 		return WAITCNT & 0xFF;
 	case 0x04000205:
 		return ((WAITCNT >> 8) & 0xFF);
+	case 0x04000088:
+		return hack_soundbias & 0xFF;
+	case 0x04000089:
+		return (hack_soundbias >> 8) & 0xFF;
 	}
 	Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Unimplemented IO read addr={:#x}", address));
 	return 0;
@@ -343,6 +347,12 @@ void Bus::writeIO8(uint32_t address, uint8_t value)
 	case 0x04000205:
 		WAITCNT &= 0xFF; WAITCNT |= (value << 8);
 		return;
+	case 0x04000088:
+		hack_soundbias &= 0xFF00; hack_soundbias |= value;
+		break;
+	case 0x04000089:
+		hack_soundbias &= 0xFF; hack_soundbias |= (value << 8);
+		break;
 	}
 	//Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Unimplemented IO write addr={:#x}", address));
 }
