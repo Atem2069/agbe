@@ -94,14 +94,19 @@ void Bus::write8(uint32_t address, uint8_t value, bool doTick)
 	case 4:
 		writeIO8(address, value);
 		break;
-	case 5: case 7:
-		Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Tried 8-bit write to VRAM - ignoring addr = {:#x}",address));
+	case 5:
+		m_mem->paletteRAM[address & 0x3FF] = value;
+		m_mem->paletteRAM[(address + 1) & 0x3FF] = value;
 		break;
 	case 6:
 		address = address & 0x1FFFF;
 		if (address >= 0x18000)
 			address -= 32768;
 		m_mem->VRAM[address]=value;
+		m_mem->VRAM[address + 1] = value;
+		break;
+	case 7:
+		Logger::getInstance()->msg(LoggerSeverity::Error, "Ignore obj write");
 		break;
 	case 8: case 9: case 0xA: case 0xB: case 0xC: case 0xD:
 		Logger::getInstance()->msg(LoggerSeverity::Error, "Tried writing to ROM - ignoring");
@@ -214,7 +219,7 @@ uint32_t Bus::read32(uint32_t address, bool doTick)
 	case 0: case 1:
 		if (address > 0x3FFF)
 		{
-			Logger::getInstance()->msg(LoggerSeverity::Error, "Out of bounds BIOS read");
+			//Logger::getInstance()->msg(LoggerSeverity::Error, "Out of bounds BIOS read");
 			return 0;
 		}
 		return getValue32(m_mem->BIOS, address & 0x3FFF,0x3FFF);
@@ -300,6 +305,10 @@ uint8_t Bus::readIO8(uint32_t address)
 	{
 	case 0x04000200:case 0x04000201: case 0x04000202:  case 0x04000203: case 0x04000208: case 0x04000209: case 0x0400020A: case 0x0400020B:
 		return m_interruptManager->readIO(address);
+	case 0x04000204:
+		return WAITCNT & 0xFF;
+	case 0x04000205:
+		return ((WAITCNT >> 8) & 0xFF);
 	}
 	Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Unimplemented IO read addr={:#x}", address));
 	return 0;
@@ -326,6 +335,13 @@ void Bus::writeIO8(uint32_t address, uint8_t value)
 	{
 	case 0x04000200:case 0x04000201: case 0x04000202:  case 0x04000203: case 0x04000208: case 0x04000209: case 0x0400020A: case 0x0400020B:
 		m_interruptManager->writeIO(address,value);
+		return;
+	case 0x04000204:
+		Logger::getInstance()->msg(LoggerSeverity::Warn, "WAITCNT not properly implemented !! Timings won't be correct");
+		WAITCNT &= 0xFF00; WAITCNT |= value;
+		return;
+	case 0x04000205:
+		WAITCNT &= 0xFF; WAITCNT |= (value << 8);
 		return;
 	}
 	//Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Unimplemented IO write addr={:#x}", address));

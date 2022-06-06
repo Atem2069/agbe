@@ -33,6 +33,7 @@ private:
 	void HBlank();
 	void VBlank();
 
+	void renderMode0();
 	void renderMode3();
 	void renderMode4();
 
@@ -44,4 +45,5 @@ private:
 	uint16_t DISPCNT = {};
 	uint16_t DISPSTAT = {};
 	uint16_t VCOUNT = {};
+	uint16_t BG0CNT = {};
 };

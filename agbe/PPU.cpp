@@ -49,7 +49,10 @@ void PPU::HDraw()
 		uint8_t mode = DISPCNT & 0b111;
 		switch (mode)
 		{
-		case 0: case 1: case 2: case 5:
+		case 0:
+			renderMode0();
+			break;
+		case 1: case 2: case 5:
 			//Logger::getInstance()->msg(LoggerSeverity::Error, "Tried to draw with unimplemented video mode");
 			//std::cout << (int)mode << '\n';
 			break;
@@ -123,6 +126,68 @@ void PPU::VBlank()
 	}
 }
 
+void PPU::renderMode0()
+{
+	if (BG0CNT)
+	{
+		int screenSize = ((BG0CNT >> 14) & 0b11);
+		int bgMapBaseBlock = ((BG0CNT >> 8) & 0b11111);
+		int bgDataBaseBlock = ((BG0CNT >> 2) & 0b11);
+		bool bitDepthIs8 = ((BG0CNT >> 7) & 0b1);
+		int line = ((VCOUNT/8) * 256) * 2;	//2 bytes per entry
+
+		int baseAddress = (bgMapBaseBlock * 2048) + line;
+
+		for (int i = 0; i < 240; i++)
+		{
+			int curTileMapAddress = baseAddress + ((i/8) * 2);
+			uint8_t entryLow = m_mem->VRAM[curTileMapAddress];
+			uint8_t entryHigh = m_mem->VRAM[curTileMapAddress+1];
+			uint16_t tileEntry = ((entryHigh << 8) | entryLow);
+			//assume 4 bit depth for now. wrong!!!
+			uint32_t tileNumber = tileEntry & 0x1ff;
+			uint32_t paletteNumber = ((tileEntry >> 12) & 0xf);
+			//todo: tile flip
+
+			uint32_t tileDataAddr = (bgDataBaseBlock * 16384);
+			tileDataAddr += (tileNumber * 32);
+			//get right row (ASSUMING 4 BIT DEPTH: EACH TILE IS 4 BYTES)
+			tileDataAddr += ((VCOUNT % 8) * 4);
+
+			int xMod8 = (i % 8);
+			tileDataAddr += (xMod8 / 2);	//not sure: might extract correct byte
+
+			uint8_t tile = m_mem->VRAM[tileDataAddr];
+
+			uint8_t colorEntry = 0;
+			if ((xMod8 % 2) == 0)
+				colorEntry = tile & 0xF;
+			else
+				colorEntry = ((tile >> 4) & 0xF);
+
+			int paletteBase = (paletteNumber * 32);
+			paletteBase += (colorEntry * 2);
+
+			uint8_t colLow = m_mem->paletteRAM[paletteBase];
+			uint8_t colHigh = m_mem->paletteRAM[paletteBase + 1];
+			uint16_t col = ((colHigh << 8) | colLow);
+			int red = (col & 0b0000000000011111);
+			red = (red << 3) | (red >> 2);
+			int green = (col & 0b0000001111100000) >> 5;
+			green = (green << 3) | (green >> 2);
+			int blue = (col & 0b0111110000000000) >> 10;
+			blue = (blue << 3) | (blue >> 2);
+
+			uint32_t res = (red << 24) | (green << 16) | (blue << 8) | 0x000000FF;
+			uint32_t plotAddr = (VCOUNT * 240) + i;
+			m_renderBuffer[plotAddr] = res;
+
+		}
+
+
+	}
+}
+
 void PPU::renderMode3()
 {
 	for (int i = 0; i < 240; i++)
@@ -147,9 +212,13 @@ void PPU::renderMode3()
 
 void PPU::renderMode4()
 {
+	uint32_t base = 0;
+	bool pageFlip = ((DISPCNT >> 4) & 0b1);
+	if (pageFlip)
+		base = 0xA000;
 	for (int i = 0; i < 240; i++)
 	{
-		uint32_t address = (VCOUNT * 240) + i;
+		uint32_t address = base + (VCOUNT * 240) + i;
 		uint8_t curPaletteIdx = m_mem->VRAM[address];
 		uint16_t paletteAddress = (uint16_t)curPaletteIdx * 2;
 		uint8_t paletteLow = m_mem->paletteRAM[paletteAddress];
@@ -165,7 +234,8 @@ void PPU::renderMode4()
 		blue = (blue << 3) | (blue >> 2);
 
 		uint32_t res = (red << 24) | (green << 16) | (blue << 8) | 0x000000FF;
-		m_renderBuffer[address] = res;
+		uint32_t plotAddress = (VCOUNT * 240) + i;
+		m_renderBuffer[plotAddress] = res;
 	}
 }
 
@@ -215,6 +285,10 @@ uint8_t PPU::readIO(uint32_t address)
 		return VCOUNT & 0xFF;
 	case 0x04000007:
 		return ((VCOUNT >> 8) & 0xFF);
+	case 0x04000008:
+		return BG0CNT & 0xFF;
+	case 0x04000009:
+		return ((BG0CNT >> 8) & 0xFF);
 	}
 
 	Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Unknown PPU IO register read {:#x}", address));
@@ -238,8 +312,13 @@ void PPU::writeIO(uint32_t address, uint8_t value)
 	case 0x04000005:
 		DISPSTAT &= 0x00FF; DISPSTAT |= (value << 8);
 		break;
-	default:
+	case 0x04000008:
+		BG0CNT &= 0xFF00; BG0CNT |= value;
 		break;
-		//Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Unknown PPU IO register write {:#x}", address));
+	case 0x04000009:
+		BG0CNT &= 0xFF; BG0CNT |= (value << 8);
+	default:
+		//break;
+		Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Unknown PPU IO register write {:#x}", address));
 	}
 }

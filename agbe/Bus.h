@@ -53,6 +53,7 @@ private:
 	std::shared_ptr<Input> m_input;
 
 	DMAChannel m_dmaChannels[4];
+	uint16_t WAITCNT = 0;
 
 	uint16_t getValue16(uint8_t* arr, int base, int mask);
 	void setValue16(uint8_t* arr, int base, int mask, uint16_t val);
