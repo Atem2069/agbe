@@ -1,6 +1,7 @@
 #pragma once
 
 #include"Logger.h"
+#include "GuiRenderer.h"
 
 #include<iostream>
 #include<format>

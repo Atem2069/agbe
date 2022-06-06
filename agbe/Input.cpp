@@ -33,7 +33,7 @@ void Input::update(InputState newInput)
 	if (newInput.R)
 		keyInput &= ~0b100000000;
 	if (newInput.L)
-		keyInput &= ~0b100000000;
+		keyInput &= ~0b1000000000;
 
 }
 

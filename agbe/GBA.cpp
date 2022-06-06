@@ -14,8 +14,18 @@ void GBA::run()
 {
 	while (!m_shouldStop)
 	{
-		m_cpu->step();
-		m_input->update(*m_inp);
+		if (m_initialised)
+		{
+			m_cpu->step();
+			m_input->update(*m_inp);
+		}
+		if (Config::GBA.shouldReset)
+		{
+			while (m_copying)
+				(void)0;
+			m_destroy();
+			m_initialise();
+		}
 	}
 }
 
@@ -26,7 +36,11 @@ void GBA::notifyDetach()
 
 void* GBA::getPPUData()
 {
-	return m_ppu->getDisplayBuffer();
+	m_copying = true;
+	if(m_initialised)
+		memcpy(safe_dispBuffer, m_ppu->getDisplayBuffer(), 240 * 160 * sizeof(uint32_t));
+	m_copying = false;
+	return safe_dispBuffer;
 }
 
 void GBA::registerInput(std::shared_ptr<InputState> inp)
@@ -34,14 +48,29 @@ void GBA::registerInput(std::shared_ptr<InputState> inp)
 	m_inp = inp;
 }
 
+void GBA::m_destroy()
+{
+	if (!m_initialised)
+		return;
+
+	m_ppu.reset();
+	m_input.reset();
+	m_bus.reset();
+	m_cpu.reset();
+}
+
 void GBA::m_initialise()
 {
 	Logger::getInstance()->msg(LoggerSeverity::Info, "Initializing new GBA instance");
-	std::string romName = "rom\\pmd.gba";
+	std::string romName = Config::GBA.RomName;
+	if (romName == "")
+		return;
 	Logger::getInstance()->msg(LoggerSeverity::Info, "ROM Path: " + romName);
 
 	std::vector<uint8_t> romData = readFile(romName.c_str());
-	std::vector<uint8_t> biosData = readFile("rom\\gba_bios.bin");
+	std::string biosPath = Config::GBA.exePath + (std::string)"\\rom\\gba_bios.bin";
+
+	std::vector<uint8_t> biosData = readFile(biosPath.c_str());
 
 	m_interruptManager = std::make_shared<InterruptManager>();
 	m_ppu = std::make_shared<PPU>(m_interruptManager);
@@ -50,6 +79,8 @@ void GBA::m_initialise()
 	m_cpu = std::make_shared<ARM7TDMI>(m_bus,m_interruptManager);
 
 	Logger::getInstance()->msg(LoggerSeverity::Info, "Inited GBA instance!");
+	m_initialised = true;
+	Config::GBA.shouldReset = false;
 }
 
 std::vector<uint8_t> GBA::readFile(const char* name)

@@ -6,6 +6,9 @@
 #include"PPU.h"
 #include"Input.h"
 #include"InterruptManager.h"
+#include"Config.h"
+
+#include<Windows.h>
 
 class GBA
 {
@@ -29,7 +32,12 @@ private:
 
 	bool m_shouldStop = false;
 
+	void m_destroy();
 	void m_initialise();
 
+	bool m_initialised = false;
+	bool m_copying = false;
+
 	std::vector<uint8_t> readFile(const char* name);
+	uint32_t safe_dispBuffer[240 * 160] = {};
 };

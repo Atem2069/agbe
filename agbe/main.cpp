@@ -4,6 +4,7 @@
 
 #include<iostream>
 #include<thread>
+#include<filesystem>
 
 void emuWorkerThread();
 std::shared_ptr<GBA> m_gba;
@@ -12,7 +13,7 @@ std::shared_ptr<InputState> inputState;
 int main()
 {
 	Logger::getInstance()->msg(LoggerSeverity::Info, "Hello world!");
-
+	Config::GBA.exePath = std::filesystem::current_path().string();
 	//have display in main thread here. then, spawn GBA instance on a separate thread running asynchronously.
 	//ppu can be polled whenever necessary pretty simply, by having some vfunc to return a framebuffer - uploaded to display
 	Display m_display(4);
@@ -24,7 +25,9 @@ int main()
 	while (!m_display.getShouldClose())
 	{
 		//update texture
-		m_display.update(m_gba->getPPUData());
+		void* data = m_gba->getPPUData();
+		if(data!=nullptr)
+			m_display.update(data);
 		m_display.draw();
 
 		//blarg. key input
