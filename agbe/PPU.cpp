@@ -8,6 +8,8 @@ PPU::PPU(std::shared_ptr<InterruptManager> interruptManager)
 	//simple test
 	for (int i = 0; i < (240 * 160); i++)
 		m_displayBuffer[i] = i;
+	for (int i = 0; i < 240; i++)
+		m_bgPriorities[i] = 255;
 }
 
 PPU::~PPU()
@@ -148,11 +150,15 @@ void PPU::renderMode0()
 	for (int i = 0; i < 240; i++)
 		m_renderBuffer[baseAddr + i] = backdropcol;
 
-	for (int i = 0; i < 4; i++)
+	for (int i = 0; i < 4; i++)	//todo: optimise. can use a single for loop and get each pixel one by one
 	{
 		if (bgItems[i].enabled)
 			drawBackground(bgItems[i].bgNumber);
 	}
+
+	bool objEnabled = ((DISPCNT >> 12) & 0b1);
+	if (objEnabled)
+		drawSprites();
 }
 
 void PPU::renderMode3()
@@ -228,7 +234,6 @@ void PPU::drawBackground(int bg)
 
 	for (int x = 0; x < 240; x++)
 	{
-
 		int xCoord = (x + xScroll) % 256;
 
 		uint32_t curBgAddr = bgMapBaseAddress + ((xCoord/8)*2);
@@ -294,9 +299,147 @@ void PPU::drawBackground(int bg)
 		uint8_t colHigh = m_mem->paletteRAM[paletteMemoryAddr + 1];
 		uint16_t col = ((colHigh << 8) | colLow);
 		uint32_t plotAddr = (VCOUNT * 240) + x;
+		m_bgPriorities[x] = ctrlReg & 0b11;
 		m_renderBuffer[plotAddr] = col16to32(col);
 	}
 
+}
+
+void PPU::drawSprites()
+{
+	for (int i = 0; i < 128; i++)
+	{
+		uint32_t spriteBase = i * 8;	//each OAM entry is 8 bytes
+		uint8_t attr0Low = m_mem->OAM[spriteBase];
+		uint8_t attr0High = m_mem->OAM[spriteBase + 1];
+		uint8_t attr1Low = m_mem->OAM[spriteBase + 2];
+		uint8_t attr1High = m_mem->OAM[spriteBase + 3];
+		uint8_t attr2Low = m_mem->OAM[spriteBase + 4];
+		uint8_t attr2High = m_mem->OAM[spriteBase + 5];
+		uint16_t attr0 = ((attr0High << 8) | attr0Low);
+		uint16_t attr1 = ((attr1High << 8) | attr1Low);
+		uint16_t attr2 = ((attr2High << 8) | attr2Low);
+
+		int spriteTop = attr0 & 0xFF;
+		int spriteLeft = attr1 & 0x1FF;
+		if (spriteLeft >= 240 || spriteTop > VCOUNT)	//nope. sprite is offscreen or too low
+			continue;
+		int spriteBottom = 0, spriteRight = 0;
+		//need to find out dimensions first to figure out whether to ignore this object
+		int shape = ((attr0 >> 14) & 0b11);
+		int size = ((attr1 >> 14) & 0b11);
+		switch (shape)
+		{
+		case 0:
+			switch (size)
+			{
+			case 0:
+				spriteRight = spriteLeft + 8;
+				spriteBottom = spriteTop + 8;
+				break;
+			case 1:
+				spriteRight = spriteLeft + 16;
+				spriteBottom = spriteTop + 16;
+				break;
+			case 2:
+				spriteRight = spriteLeft + 32;
+				spriteBottom = spriteTop + 32;
+				break;
+			case 3:
+				spriteRight = spriteLeft + 64;
+				spriteBottom = spriteTop + 64;
+				break;
+			}
+			break;
+		case 1:
+			switch (size)
+			{
+			case 0:
+				spriteRight = spriteLeft + 16;
+				spriteBottom = spriteTop + 8;
+				break;
+			case 1:
+				spriteRight = spriteLeft + 32;
+				spriteBottom = spriteTop + 8;
+				break;
+			case 2:
+				spriteRight = spriteLeft + 32;
+				spriteBottom = spriteTop + 16;
+				break;
+			case 3:
+				spriteRight = spriteLeft + 64;
+				spriteBottom = spriteTop + 32;
+				break;
+			}
+			break;
+		case 2:
+			switch (size)
+			{
+			case 0:
+				spriteRight = spriteLeft + 8;
+				spriteBottom = spriteTop + 16;
+				break;
+			case 1:
+				spriteRight = spriteLeft + 8;
+				spriteBottom = spriteTop + 32;
+				break;
+			case 2:
+				spriteRight = spriteLeft + 16;
+				spriteBottom = spriteTop + 32;
+				break;
+			case 3:
+				spriteRight = spriteLeft + 32;
+				spriteBottom = spriteTop + 64;
+				break;
+			}
+		}
+
+
+		if (VCOUNT > spriteBottom || ((VCOUNT-spriteTop) >=8))	//nope, we're past it. (SECOND IS FOR DEBUGGING)
+			continue;
+
+		uint32_t tileId = ((attr2) & 0x3FF);
+		uint8_t priorityBits = ((attr2 >> 10) & 0b11);
+		uint8_t paletteNumber = ((attr2 >> 12) & 0xF);
+		bool hiColor = ((attr0 >> 13) & 0b1);
+		if (hiColor)
+			std::cout << "sprite can't render! unsupported mode!!" << '\n';
+
+		//for testing: only draw the first tile
+		uint32_t objBase = 0x10000;
+		objBase += (tileId * 32);
+		objBase += ((VCOUNT - spriteTop) * 4);	//extract correct row
+
+		for (int baseX = 0; baseX < 8; baseX++)
+		{
+			int plotCoord = baseX + spriteLeft;
+			if (plotCoord >= 240)
+				continue;
+
+			objBase += (baseX / 2);
+			uint8_t tileRow = m_mem->VRAM[objBase];
+			int paletteId = 0;
+			if (baseX % 2)
+				paletteId = ((tileRow >> 4) & 0xF);
+			else
+				paletteId = tileRow & 0xF;
+
+			if (!paletteId)
+				continue;
+
+			int paletteAddr = (int)(paletteNumber) * 16 + (paletteId * 2);
+			paletteAddr += 0x200;
+			uint8_t colLow = m_mem->paletteRAM[paletteAddr];
+			uint8_t colHigh = m_mem->paletteRAM[paletteAddr + 1];
+			uint16_t col = ((colHigh << 8) | colLow);
+
+			uint32_t res = col16to32(col);
+			m_renderBuffer[plotCoord + (VCOUNT * 240)] = res;
+			//TODO: priority. obj is affected by bg priority
+
+		}
+
+	}
 }
 
 uint32_t PPU::col16to32(uint16_t col)

@@ -39,6 +39,7 @@ private:
 	std::shared_ptr<InterruptManager> m_interruptManager;
 	uint32_t m_renderBuffer[240 * 160];	//currently being rendered
 	uint32_t m_displayBuffer[240 * 160]; //buffer the display gets
+	uint8_t m_bgPriorities[240] = {};	//save bg priority at each pixel
 
 	uint32_t m_lineCycles = 0;
 	bool inVBlank = false;
@@ -52,6 +53,7 @@ private:
 	void renderMode4();
 
 	void drawBackground(int bg);
+	void drawSprites();
 
 	void setVBlankFlag(bool value);
 	void setHBlankFlag(bool value);
