@@ -54,7 +54,10 @@ private:
 	uint16_t BG3CNT = {};
 	uint16_t BG0HOFS = {};
 	uint16_t BG0VOFS = {};
+	uint16_t BG1HOFS = {};
 	uint16_t BG1VOFS = {};
+	uint16_t BG2HOFS = {};
 	uint16_t BG2VOFS = {};
+	uint16_t BG3HOFS = {};
 	uint16_t BG3VOFS = {};
 };

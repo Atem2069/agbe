@@ -188,29 +188,47 @@ void PPU::renderMode4()
 void PPU::drawBackground(int bg)
 {
 	uint16_t ctrlReg = 0;
+	int xScroll = 0, yScroll = 0;
 	switch (bg)
 	{
 	case 0:
-		ctrlReg = BG0CNT; break;
+		ctrlReg = BG0CNT;
+		xScroll = BG0HOFS;
+		yScroll = BG0VOFS;
+		break;
 	case 1:
-		ctrlReg = BG1CNT; break;
+		ctrlReg = BG1CNT;
+		xScroll = BG1HOFS;
+		yScroll = BG1VOFS;
+		break;
 	case 2:
-		ctrlReg = BG2CNT; break;
+		ctrlReg = BG2CNT;
+		xScroll = BG2HOFS;
+		yScroll = BG2VOFS;
+		break;
 	case 3:
-		ctrlReg = BG3CNT; break;
+		ctrlReg = BG3CNT;
+		xScroll = BG3HOFS;
+		yScroll = BG3VOFS;
+		break;
 	}
-
 
 	uint32_t tileDataBaseBlock = ((ctrlReg >> 2) & 0b11);
 	bool hiColor = ((ctrlReg >> 7) & 0b1);
 	uint32_t bgMapBaseBlock = ((ctrlReg >> 8) & 0x1F);
 	int screenSize = ((ctrlReg >> 14) & 0b11);
-	uint32_t curLine = ((VCOUNT / 8) * 32) * 2;
+
+	int yCoord = ((VCOUNT + yScroll) % 256);
+
+	uint32_t curLine = ((yCoord / 8) * 32) * 2;
 	uint32_t bgMapBaseAddress = (bgMapBaseBlock * 2048) + curLine;
 
 	for (int x = 0; x < 240; x++)
 	{
-		uint32_t curBgAddr = bgMapBaseAddress + ((x/8)*2);
+
+		int xCoord = (x + xScroll) % 256;
+
+		uint32_t curBgAddr = bgMapBaseAddress + ((xCoord/8)*2);
 		uint8_t tileLower = m_mem->VRAM[curBgAddr];
 		uint8_t tileHigher = m_mem->VRAM[curBgAddr + 1];
 		uint16_t tile = (((uint16_t)tileHigher << 8) | tileLower);
@@ -226,7 +244,7 @@ void PPU::drawBackground(int bg)
 		{
 			tileMapBaseAddress = (tileDataBaseBlock * 16384) + (tileNumber * 32);
 
-			int yMod8 = ((VCOUNT % 8));
+			int yMod8 = ((yCoord%8));
 			if (verticalFlip)
 				yMod8 = 7 - yMod8;
 
@@ -237,7 +255,7 @@ void PPU::drawBackground(int bg)
 			//(x mod 8) / 2 gives us correct byte
 			//then x mod 2 gives us the nibble 
 
-			int xmod8 = (x % 8);
+			int xmod8 = (xCoord % 8);
 			if (horizontalFlip)
 				xmod8 = 7 - xmod8;
 			tileMapBaseAddress += (xmod8 / 2);
@@ -410,6 +428,42 @@ void PPU::writeIO(uint32_t address, uint8_t value)
 		break;
 	case 0x04000013:
 		BG0VOFS &= 0xFF; BG0VOFS |= ((value << 8) & 0b1);
+		break;
+	case 0x04000014:
+		BG1HOFS &= 0xFF00; BG1HOFS |= value;
+		break;
+	case 0x04000015:
+		BG1HOFS &= 0xFF; BG1HOFS |= ((value << 8) & 0b1);
+		break;
+	case 0x04000016:
+		BG1VOFS &= 0xFF00; BG1VOFS |= value;
+		break;
+	case 0x04000017:
+		BG1VOFS &= 0xFF; BG1VOFS |= ((value << 8) & 0b1);
+		break;
+	case 0x04000018:
+		BG2HOFS &= 0xFF00; BG2HOFS |= value;
+		break;
+	case 0x04000019:
+		BG2HOFS &= 0xFF; BG2HOFS |= ((value << 8) & 0b1);
+		break;
+	case 0x0400001A:
+		BG2VOFS &= 0xFF00; BG2VOFS |= value;
+		break;
+	case 0x0400001B:
+		BG2VOFS &= 0xFF; BG2VOFS |= ((value << 8) & 0b1);
+		break;
+	case 0x0400001C:
+		BG3HOFS &= 0xFF00; BG3HOFS |= value;
+		break;
+	case 0x0400001D:
+		BG3HOFS &= 0xFF; BG3HOFS |= ((value << 8) & 0b1);
+		break;
+	case 0x0400001E:
+		BG3VOFS &= 0xFF00; BG3VOFS |= value;
+		break;
+	case 0x0400001F:
+		BG3VOFS &= 0xFF; BG3VOFS |= ((value << 8) & 0b1);
 		break;
 	default:
 		//break;
