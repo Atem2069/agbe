@@ -234,10 +234,10 @@ void ARM7TDMI::Thumb_HiRegisterOperations()
 			setReg(dstRegIdx, result & ~0b1);
 		break;
 	case 3:
-		if (operand2 == 0)
+		if (operand2 == 0x3008068)
 		{
-			std::cout << "shit!!! R15 is going to be 0" << '\n';
-			std::cout << std::hex << R[15] << '\n';
+			//std::cout << "shit!!! R15 is going to be wrong" << '\n';
+			//std::cout << std::hex << R[15] << '\n';
 		}
 		if (!(operand2 & 0b1))
 		{
@@ -252,6 +252,7 @@ void ARM7TDMI::Thumb_HiRegisterOperations()
 			operand2 &= ~0b1;
 			setReg(15, operand2);
 		}
+
 		break;
 	}
 

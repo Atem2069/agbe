@@ -216,11 +216,8 @@ void Bus::doDMATransfer(int channel)
 {
 	//we assume the transfer is going to take place by the time this function is called
 	DMAChannel curChannel = m_dmaChannels[channel];
-	uint32_t src = curChannel.srcAddress & 0x07FFFFFF;
-	uint32_t dest = curChannel.destAddress & 0x07FFFFFF;
-
-
-	std::cout << "DMA src = " << std::hex << src << " dst= " << std::hex << dest << '\n';
+	uint32_t src = curChannel.srcAddress;// &0x07FFFFFF;
+	uint32_t dest = curChannel.destAddress;// &0x07FFFFFF;
 
 	int numWords = curChannel.wordCount;
 	if (numWords == 0)
@@ -229,6 +226,9 @@ void Bus::doDMATransfer(int channel)
 		if (channel == 3)
 			numWords = 0x10000;	//channel 3 has higher word count
 	}
+
+
+	std::cout << "DMA src = " << std::hex << src << " dst= " << std::hex << dest << " length= " << std::hex << numWords << '\n';
 
 	uint8_t srcAddrCtrl = ((curChannel.control >> 7) & 0b11);
 	uint8_t dstAddrCtrl = ((curChannel.control >> 5) & 0b11);

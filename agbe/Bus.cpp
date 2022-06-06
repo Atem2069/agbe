@@ -43,7 +43,7 @@ uint8_t Bus::read8(uint32_t address, bool doTick)
 	switch (page)
 	{
 	case 0: case 1:
-		if (address >= 0x4000)
+		if ((address >= 0x4000) || biosLockout)
 		{
 			Logger::getInstance()->msg(LoggerSeverity::Error, "Open bus BIOS read");
 			return 0;
@@ -132,7 +132,7 @@ uint16_t Bus::read16(uint32_t address, bool doTick)
 	switch (page)
 	{
 	case 0: case 1:
-		if (address > 0x3FFF)
+		if ((address > 0x3FFF) || biosLockout)
 		{
 			Logger::getInstance()->msg(LoggerSeverity::Error, "Out of bounds BIOS read");
 			return 0;
@@ -217,9 +217,9 @@ uint32_t Bus::read32(uint32_t address, bool doTick)
 	switch (page)
 	{
 	case 0: case 1:
-		if (address > 0x3FFF)
+		if ((address > 0x3FFF) || biosLockout)
 		{
-			//Logger::getInstance()->msg(LoggerSeverity::Error, "Out of bounds BIOS read");
+			Logger::getInstance()->msg(LoggerSeverity::Error, "Out of bounds BIOS read");
 			return 0;
 		}
 		return getValue32(m_mem->BIOS, address & 0x3FFF,0x3FFF);
@@ -290,6 +290,23 @@ void Bus::write32(uint32_t address, uint32_t value, bool doTick)
 	}
 }
 
+uint32_t Bus::fetch32(uint32_t address)
+{
+	biosLockout = false;
+	uint32_t val = read32(address);
+	if(address>0x3FFF)
+		biosLockout = true;
+	return val;
+}
+
+uint16_t Bus::fetch16(uint32_t address)
+{
+	biosLockout = false;
+	uint16_t val = read16(address);
+	if(address>0x3FFF)
+		biosLockout = true;
+	return val;
+}
 
 //Probably handle reading a single IO byte in 'readIO8'
 //And then sort out 16/32 bit r/w using the above

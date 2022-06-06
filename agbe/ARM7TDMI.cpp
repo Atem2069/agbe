@@ -10,7 +10,7 @@ ARM7TDMI::ARM7TDMI(std::shared_ptr<Bus> bus, std::shared_ptr<InterruptManager> i
 	R[13] = 0x03007F00;
 	R13_irq = 0x03007FA0;
 	R13_svc = 0x03007FE0;
-	R[15] = 0x00000000;	//start of cartridge
+	R[15] = 0x08000000;	//start of cartridge
 	flushPipeline();
 	m_shouldFlush = 0;
 }
@@ -51,9 +51,9 @@ void ARM7TDMI::fetch()
 	int curPipelinePtr = m_pipelinePtr;
 	m_pipeline[curPipelinePtr].state = PipelineState::FILLED;
 	if (thumb)
-		m_pipeline[curPipelinePtr].opcode = m_bus->read16(R[15]);
+		m_pipeline[curPipelinePtr].opcode = m_bus->fetch16(R[15]);
 	else
-		m_pipeline[curPipelinePtr].opcode = m_bus->read32(R[15]);
+		m_pipeline[curPipelinePtr].opcode = m_bus->fetch32(R[15]);
 }
 
 void ARM7TDMI::execute()
@@ -228,7 +228,7 @@ bool ARM7TDMI::checkConditions(uint8_t code)
 	case 14: return true;
 	case 15: Logger::getInstance()->msg(LoggerSeverity::Error, "Invalid condition code 1111 !!!!"); break;
 	}
-	return false;
+	return true;
 }
 
 //misc flag stuff
@@ -411,6 +411,8 @@ void ARM7TDMI::setReg(uint8_t reg, uint32_t value, bool forceUser)
 		break;
 	case 15:
 		m_shouldFlush = true;	//modifying PC always causes flush
+		if (value == 0x4000000)
+			std::cout << "crap!" << '\n';
 		R[15] = value;
 		break;
 	}
