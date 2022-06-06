@@ -411,8 +411,6 @@ void ARM7TDMI::setReg(uint8_t reg, uint32_t value, bool forceUser)
 		break;
 	case 15:
 		m_shouldFlush = true;	//modifying PC always causes flush
-		if (value == 0x4000000)
-			std::cout << "crap!" << '\n';
 		R[15] = value;
 		break;
 	}
