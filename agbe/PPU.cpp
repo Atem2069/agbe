@@ -157,8 +157,8 @@ void PPU::renderMode0()
 	}
 
 	bool objEnabled = ((DISPCNT >> 12) & 0b1);
-	if (objEnabled)
-		drawSprites();
+	//if (objEnabled)
+	//	drawSprites();
 }
 
 void PPU::renderMode3()
@@ -197,7 +197,7 @@ void PPU::renderMode4()
 void PPU::drawBackground(int bg)
 {
 	uint16_t ctrlReg = 0;
-	int xScroll = 0, yScroll = 0;
+	uint32_t xScroll = 0, yScroll = 0;
 	switch (bg)
 	{
 	case 0:
@@ -222,21 +222,52 @@ void PPU::drawBackground(int bg)
 		break;
 	}
 
+	//xScroll &= 0x1FF;
+	//yScroll &= 0x1FF;
+
 	uint32_t tileDataBaseBlock = ((ctrlReg >> 2) & 0b11);
 	bool hiColor = ((ctrlReg >> 7) & 0b1);
 	uint32_t bgMapBaseBlock = ((ctrlReg >> 8) & 0x1F);
 	int screenSize = ((ctrlReg >> 14) & 0b11);
+	int xWrap = 256, yWrap = 256;
+	switch (screenSize)
+	{
+	case 1:
+		xWrap = 512;
+		break;
+	case 2:
+		yWrap = 512;
+		break;
+	case 3:
+		xWrap = 512;
+		yWrap = 512;
+		break;
+	}
 
-	int yCoord = ((VCOUNT + yScroll) % 256);
-
-	uint32_t curLine = ((yCoord / 8) * 32) * 2;
-	uint32_t bgMapBaseAddress = (bgMapBaseBlock * 2048) + curLine;
+	uint32_t fetcherY = ((VCOUNT + yScroll) % yWrap);
+	if (screenSize && (fetcherY > 255))
+	{
+		fetcherY -= 255;
+		bgMapBaseBlock += 1;	
+		if (screenSize == 3)	//not completely sure
+			bgMapBaseBlock += 1;
+	}
+	uint32_t bgMapYIdx = ((fetcherY / 8) * 32) * 2; //each row is 32 chars - each char is 2 bytes
+	//uint32_t curLine = ((yCoord / 8) * 32) * 2;
+	//uint32_t bgMapBaseAddress = (bgMapBaseBlock * 2048) + curLine;
 
 	for (int x = 0; x < 240; x++)
 	{
-		int xCoord = (x + xScroll) % 256;
-
-		uint32_t curBgAddr = bgMapBaseAddress + ((xCoord/8)*2);
+		int xCoord = (x + xScroll) % xWrap;
+		int tempBaseBlock = bgMapBaseBlock;
+		if (screenSize && (xCoord > 255))
+		{
+			xCoord -= 256;
+			tempBaseBlock += 1;
+		}
+		//tempBaseBlock %= 32;
+		uint32_t bgMapBaseAddress = (tempBaseBlock * 2048) + bgMapYIdx;
+		uint32_t curBgAddr = bgMapBaseAddress + (((xCoord/8)*2));
 		uint8_t tileLower = m_mem->VRAM[curBgAddr];
 		uint8_t tileHigher = m_mem->VRAM[curBgAddr + 1];
 		uint16_t tile = (((uint16_t)tileHigher << 8) | tileLower);
@@ -252,7 +283,7 @@ void PPU::drawBackground(int bg)
 		{
 			tileMapBaseAddress = (tileDataBaseBlock * 16384) + (tileNumber * 32);
 
-			int yMod8 = ((yCoord%8));
+			int yMod8 = ((fetcherY%8));
 			if (verticalFlip)
 				yMod8 = 7 - yMod8;
 
@@ -328,6 +359,8 @@ void PPU::drawSprites()
 		//need to find out dimensions first to figure out whether to ignore this object
 		int shape = ((attr0 >> 14) & 0b11);
 		int size = ((attr1 >> 14) & 0b11);
+		if (shape != 0 || size != 0)
+			continue;
 		switch (shape)
 		{
 		case 0:
@@ -405,13 +438,25 @@ void PPU::drawSprites()
 		if (hiColor)
 			std::cout << "sprite can't render! unsupported mode!!" << '\n';
 
+
+		bool flipHorizontal = ((attr1 >> 12) & 0b1);
+		bool flipVertical = ((attr1 >> 13) & 0b1);
+
 		//for testing: only draw the first tile
 		uint32_t objBase = 0x10000;
 		objBase += (tileId * 32);
-		objBase += ((VCOUNT - spriteTop) * 4);	//extract correct row
 
-		for (int baseX = 0; baseX < 8; baseX++)
+		int yOffset = (VCOUNT - spriteTop);
+		if (flipVertical)
+			yOffset = 7 - yOffset;
+
+		objBase += (yOffset * 4);	//extract correct row
+
+		for (int x = 0; x < 8; x++)
 		{
+			int baseX = x;
+			if (flipHorizontal)
+				baseX = 7 - baseX;
 			int plotCoord = baseX + spriteLeft;
 			if (plotCoord >= 240)
 				continue;
@@ -427,7 +472,7 @@ void PPU::drawSprites()
 			if (!paletteId)
 				continue;
 
-			int paletteAddr = (int)(paletteNumber) * 16 + (paletteId * 2);
+			int paletteAddr = ((int)(paletteNumber) * 32) + (paletteId * 2);
 			paletteAddr += 0x200;
 			uint8_t colLow = m_mem->paletteRAM[paletteAddr];
 			uint8_t colHigh = m_mem->paletteRAM[paletteAddr + 1];
@@ -567,49 +612,49 @@ void PPU::writeIO(uint32_t address, uint8_t value)
 		BG0HOFS &= 0xFF00; BG0HOFS |= value;
 		break;
 	case 0x04000011:
-		BG0HOFS &= 0xFF; BG0HOFS |= ((value << 8) & 0b1);
+		BG0HOFS &= 0xFF; BG0HOFS |= (((value&0b1) << 8));
 		break;
 	case 0x04000012:
 		BG0VOFS &= 0xFF00; BG0VOFS |= value;
 		break;
 	case 0x04000013:
-		BG0VOFS &= 0xFF; BG0VOFS |= ((value << 8) & 0b1);
+		BG0VOFS &= 0xFF; BG0VOFS |= (((value&0b1) << 8));
 		break;
 	case 0x04000014:
 		BG1HOFS &= 0xFF00; BG1HOFS |= value;
 		break;
 	case 0x04000015:
-		BG1HOFS &= 0xFF; BG1HOFS |= ((value << 8) & 0b1);
+		BG1HOFS &= 0xFF; BG1HOFS |= (((value&0b1) << 8));
 		break;
 	case 0x04000016:
 		BG1VOFS &= 0xFF00; BG1VOFS |= value;
 		break;
 	case 0x04000017:
-		BG1VOFS &= 0xFF; BG1VOFS |= ((value << 8) & 0b1);
+		BG1VOFS &= 0xFF; BG1VOFS |= (((value&0b1) << 8));
 		break;
 	case 0x04000018:
 		BG2HOFS &= 0xFF00; BG2HOFS |= value;
 		break;
 	case 0x04000019:
-		BG2HOFS &= 0xFF; BG2HOFS |= ((value << 8) & 0b1);
+		BG2HOFS &= 0xFF; BG2HOFS |= (((value&0b1) << 8));
 		break;
 	case 0x0400001A:
 		BG2VOFS &= 0xFF00; BG2VOFS |= value;
 		break;
 	case 0x0400001B:
-		BG2VOFS &= 0xFF; BG2VOFS |= ((value << 8) & 0b1);
+		BG2VOFS &= 0xFF; BG2VOFS |= (((value&0b1) << 8));
 		break;
 	case 0x0400001C:
 		BG3HOFS &= 0xFF00; BG3HOFS |= value;
 		break;
 	case 0x0400001D:
-		BG3HOFS &= 0xFF; BG3HOFS |= ((value << 8) & 0b1);
+		BG3HOFS &= 0xFF; BG3HOFS |= (((value&0b1) << 8));
 		break;
 	case 0x0400001E:
 		BG3VOFS &= 0xFF00; BG3VOFS |= value;
 		break;
 	case 0x0400001F:
-		BG3VOFS &= 0xFF; BG3VOFS |= ((value << 8) & 0b1);
+		BG3VOFS &= 0xFF; BG3VOFS |= (((value&0b1) << 8));
 		break;
 	default:
 		//break;
