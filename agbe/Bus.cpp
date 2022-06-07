@@ -67,8 +67,7 @@ uint8_t Bus::read8(uint32_t address, bool doTick)
 	case 8: case 9: case 0xA: case 0xB: case 0xC: case 0xD:	//need to do this better (different waitstates will have different timings)
 		return m_mem->ROM[address & 0x01FFFFFF];
 	case 0xE:
-		Logger::getInstance()->msg(LoggerSeverity::Error, "SRAM not implemented");
-		return 0;
+		return m_mem->SRAM[address & 0xFFFF];
 	}
 
 	Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Out of bounds/invalid read addr={:#x}", address));
@@ -112,7 +111,7 @@ void Bus::write8(uint32_t address, uint8_t value, bool doTick)
 		Logger::getInstance()->msg(LoggerSeverity::Error, "Tried writing to ROM - ignoring");
 		break;
 	case 0xE:
-		Logger::getInstance()->msg(LoggerSeverity::Error, "Unimplemented SRAM write");
+		m_mem->SRAM[address & 0xFFFF] = value;
 		break;
 	default:
 		Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Out of bounds/invalid write addr={:#x}", address));
