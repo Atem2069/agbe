@@ -21,10 +21,10 @@ void GBA::run()
 		}
 		if (Config::GBA.shouldReset)
 		{
-			while (m_copying)
-				(void)0;
+			vramCopyLock.lock();
 			m_destroy();
 			m_initialise();
+			vramCopyLock.unlock();
 		}
 	}
 }
@@ -36,10 +36,10 @@ void GBA::notifyDetach()
 
 void* GBA::getPPUData()
 {
-	m_copying = true;
+	vramCopyLock.lock();
 	if(m_initialised)
 		memcpy(safe_dispBuffer, m_ppu->getDisplayBuffer(), 240 * 160 * sizeof(uint32_t));
-	m_copying = false;
+	vramCopyLock.unlock();
 	return safe_dispBuffer;
 }
 

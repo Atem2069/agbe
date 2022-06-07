@@ -9,6 +9,7 @@
 #include"Config.h"
 
 #include<Windows.h>
+#include<mutex>
 
 class GBA
 {
@@ -36,7 +37,7 @@ private:
 	void m_initialise();
 
 	bool m_initialised = false;
-	bool m_copying = false;
+	std::mutex vramCopyLock;
 
 	std::vector<uint8_t> readFile(const char* name);
 	uint32_t safe_dispBuffer[240 * 160] = {};
