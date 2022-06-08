@@ -144,7 +144,7 @@ void PPU::renderMode0()
 	std::sort(bgItems.begin(), bgItems.end(), BGSortItem::sortDescending);
 
 	//render backdrop first (this might be kinda slow)
-	uint16_t bd = (m_mem->paletteRAM[0] << 8) | m_mem->paletteRAM[1];
+	uint16_t bd = (m_mem->paletteRAM[1] << 8) | m_mem->paletteRAM[0];
 	uint32_t backdropcol = col16to32(bd);
 	uint32_t baseAddr = (VCOUNT * 240);
 	for (int i = 0; i < 240; i++)
@@ -310,6 +310,7 @@ void PPU::drawBackground(int bg)
 		}
 		else		//256 colors, 1 palette
 		{
+			//this is completely wrong !! todo: fix
 			tileMapBaseAddress = (tileDataBaseBlock * 16384) + (tileNumber * 64);
 			tileMapBaseAddress += ((VCOUNT % 8) * 8);
 
