@@ -334,6 +334,8 @@ void PPU::drawBackground(int bg)
 
 void PPU::drawSprites()
 {
+	bool oneDimensionalMapping = ((DISPCNT >> 6) & 0b1);
+
 	for (int i = 0; i < 128; i++)
 	{
 		uint32_t spriteBase = i * 8;	//each OAM entry is 8 bytes
@@ -352,11 +354,11 @@ void PPU::drawSprites()
 		if (spriteLeft >= 240 || spriteTop > VCOUNT)	//nope. sprite is offscreen or too low
 			continue;
 		int spriteBottom = 0, spriteRight = 0;
+		int rowPitch = 1;	//find out how many lines we have to 'cross' to get to next row (in 1d mapping)
 		//need to find out dimensions first to figure out whether to ignore this object
 		int shape = ((attr0 >> 14) & 0b11);
 		int size = ((attr1 >> 14) & 0b11);
-		if (shape != 0 || size != 0)
-			continue;
+		int spritePriority = ((attr2 >> 10) & 0b11);	//used to figure out whether we should actually render the sprite
 		switch (shape)
 		{
 		case 0:
@@ -369,14 +371,17 @@ void PPU::drawSprites()
 			case 1:
 				spriteRight = spriteLeft + 16;
 				spriteBottom = spriteTop + 16;
+				rowPitch = 2;
 				break;
 			case 2:
 				spriteRight = spriteLeft + 32;
 				spriteBottom = spriteTop + 32;
+				rowPitch = 4;
 				break;
 			case 3:
 				spriteRight = spriteLeft + 64;
 				spriteBottom = spriteTop + 64;
+				rowPitch = 8;
 				break;
 			}
 			break;
@@ -386,18 +391,22 @@ void PPU::drawSprites()
 			case 0:
 				spriteRight = spriteLeft + 16;
 				spriteBottom = spriteTop + 8;
+				rowPitch = 2;
 				break;
 			case 1:
 				spriteRight = spriteLeft + 32;
 				spriteBottom = spriteTop + 8;
+				rowPitch = 4;
 				break;
 			case 2:
 				spriteRight = spriteLeft + 32;
 				spriteBottom = spriteTop + 16;
+				rowPitch = 4;
 				break;
 			case 3:
 				spriteRight = spriteLeft + 64;
 				spriteBottom = spriteTop + 32;
+				rowPitch = 8;
 				break;
 			}
 			break;
@@ -415,17 +424,27 @@ void PPU::drawSprites()
 			case 2:
 				spriteRight = spriteLeft + 16;
 				spriteBottom = spriteTop + 32;
+				rowPitch = 2;
 				break;
 			case 3:
 				spriteRight = spriteLeft + 32;
 				spriteBottom = spriteTop + 64;
+				rowPitch = 4;
 				break;
 			}
 		}
 
 
-		if (VCOUNT > spriteBottom || ((VCOUNT-spriteTop) >=8))	//nope, we're past it. (SECOND IS FOR DEBUGGING)
+		if (VCOUNT > spriteBottom)	//nope, we're past it.
 			continue;
+
+		bool flipHorizontal = ((attr1 >> 12) & 0b1);
+		bool flipVertical = ((attr1 >> 13) & 0b1);
+
+		int spriteYSize = (spriteBottom - spriteTop);	//find out how big sprite is
+		int yOffsetIntoSprite = VCOUNT - spriteTop;
+		if (flipVertical)
+			yOffsetIntoSprite = (spriteYSize-1) - yOffsetIntoSprite;//flip y coord we're considering
 
 		uint32_t tileId = ((attr2) & 0x3FF);
 		uint8_t priorityBits = ((attr2 >> 10) & 0b11);
@@ -435,48 +454,62 @@ void PPU::drawSprites()
 			std::cout << "sprite can't render! unsupported mode!!" << '\n';
 
 
-		bool flipHorizontal = ((attr1 >> 12) & 0b1);
-		bool flipVertical = ((attr1 >> 13) & 0b1);
+		//check y coord (ASSUMING 2D MAPPING). tiles are arranged in 32x32 (each tile is 32 bytes). so need to add offset if y too big
+		while (yOffsetIntoSprite >= 8)
+		{
+			yOffsetIntoSprite -= 8;
+			if (!oneDimensionalMapping)
+				tileId += 32;	//add 32 to get to next tile row with 2d mapping
+			else
+				tileId += rowPitch; //otherwise, add the row pitch (which says how many tiles exist per row)
+		}
 
 		//for testing: only draw the first tile
 		uint32_t objBase = 0x10000;
 		objBase += (tileId * 32);
+		objBase += (yOffsetIntoSprite * 4);	//finally add corrected y offset
 
-		int yOffset = (VCOUNT - spriteTop);
-		if (flipVertical)
-			yOffset = 7 - yOffset;
-
-		objBase += (yOffset * 4);	//extract correct row
-
-		for (int x = 0; x < 8; x++)
+		int numXTilesToRender = (spriteRight - spriteLeft) / 8;
+		for (int xSpanTile = 0; xSpanTile < numXTilesToRender; xSpanTile++)
 		{
-			int baseX = x;
+			int curXSpanTile = xSpanTile;
 			if (flipHorizontal)
-				baseX = 7 - baseX;
-			int plotCoord = baseX + spriteLeft;
-			if (plotCoord >= 240)
-				continue;
+				curXSpanTile = ((numXTilesToRender - 1) - curXSpanTile);	//flip render order if horizontal flip !!
+			uint32_t tileMapLookupAddr = objBase + (xSpanTile * 32);
 
-			uint8_t tileRow = m_mem->VRAM[objBase+(baseX/2)];
-			int paletteId = 0;
-			if (baseX % 2)
-				paletteId = ((tileRow >> 4) & 0xF);
-			else
-				paletteId = tileRow & 0xF;
+			for (int x = 0; x < 8; x++)
+			{
+				int baseX = x;
+				if (flipHorizontal)
+					baseX - 7 - baseX;
 
-			if (!paletteId)
-				continue;
+				int plotCoord = (curXSpanTile * 8) + baseX + spriteLeft;
+				if (plotCoord > 239)
+					continue;
 
-			int paletteAddr = ((int)(paletteNumber) * 32) + (paletteId * 2);
-			paletteAddr += 0x200;
-			uint8_t colLow = m_mem->paletteRAM[paletteAddr];
-			uint8_t colHigh = m_mem->paletteRAM[paletteAddr + 1];
-			uint16_t col = ((colHigh << 8) | colLow);
+				//let's see if a bg pixel with higher priority already exists!
+				int priorityAtPixel = m_bgPriorities[plotCoord];
+				if (spritePriority > priorityAtPixel)
+					continue;
 
-			uint32_t res = col16to32(col);
-			m_renderBuffer[plotCoord + (VCOUNT * 240)] = res;
-			//TODO: priority. obj is affected by bg priority
+				uint8_t tileData = m_mem->VRAM[tileMapLookupAddr + (baseX / 2)];
+				int paletteId = tileData & 0xF;
+				if (baseX & 0b1)
+					paletteId = ((tileData >> 4) & 0xF);
 
+				if (!paletteId)		//don't render if palette id == 0
+					continue;
+
+				int paletteAddr = ((int)(paletteNumber) * 32) + (paletteId * 2);
+				paletteAddr += 0x200;
+				uint8_t colLow = m_mem->paletteRAM[paletteAddr];
+				uint8_t colHigh = m_mem->paletteRAM[paletteAddr + 1];
+				uint16_t col = ((colHigh << 8) | colLow);
+
+				uint32_t res = col16to32(col);
+				plotCoord += (VCOUNT * 240);
+				m_renderBuffer[plotCoord] = res;
+			}
 		}
 
 	}
