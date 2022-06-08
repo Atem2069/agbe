@@ -157,8 +157,8 @@ void PPU::renderMode0()
 	}
 
 	bool objEnabled = ((DISPCNT >> 12) & 0b1);
-	//if (objEnabled)
-	//	drawSprites();
+	if (objEnabled)
+		drawSprites();
 }
 
 void PPU::renderMode3()
@@ -253,20 +253,16 @@ void PPU::drawBackground(int bg)
 			bgMapBaseBlock += 1;
 	}
 	uint32_t bgMapYIdx = ((fetcherY / 8) * 32) * 2; //each row is 32 chars - each char is 2 bytes
-	//uint32_t curLine = ((yCoord / 8) * 32) * 2;
-	//uint32_t bgMapBaseAddress = (bgMapBaseBlock * 2048) + curLine;
-
 	for (int x = 0; x < 240; x++)
 	{
 		int xCoord = (x + xScroll) % xWrap;
-		int tempBaseBlock = bgMapBaseBlock;
+		int baseBlockOffset = 0;				//x scrolling can cause new baseblock to bee selected
 		if (screenSize && (xCoord > 255))
 		{
 			xCoord -= 256;
-			tempBaseBlock += 1;
+			baseBlockOffset += 1;
 		}
-		//tempBaseBlock %= 32;
-		uint32_t bgMapBaseAddress = (tempBaseBlock * 2048) + bgMapYIdx;
+		uint32_t bgMapBaseAddress = ((bgMapBaseBlock+baseBlockOffset) * 2048) + bgMapYIdx;
 		uint32_t curBgAddr = bgMapBaseAddress + (((xCoord/8)*2));
 		uint8_t tileLower = m_mem->VRAM[curBgAddr];
 		uint8_t tileHigher = m_mem->VRAM[curBgAddr + 1];
@@ -461,8 +457,7 @@ void PPU::drawSprites()
 			if (plotCoord >= 240)
 				continue;
 
-			objBase += (baseX / 2);
-			uint8_t tileRow = m_mem->VRAM[objBase];
+			uint8_t tileRow = m_mem->VRAM[objBase+(baseX/2)];
 			int paletteId = 0;
 			if (baseX % 2)
 				paletteId = ((tileRow >> 4) & 0xF);
