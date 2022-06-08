@@ -19,6 +19,8 @@ Bus::Bus(std::vector<uint8_t> BIOS, std::vector<uint8_t> cartData, std::shared_p
 		Logger::getInstance()->msg(LoggerSeverity::Error, "ROM file is too big!!");
 		return;
 	}
+	for (int i = 0; i < 4; i++)	//clear dma channel registers
+		m_dmaChannels[i] = {};
 	memcpy(m_mem->BIOS, &BIOS[0], BIOS.size());
 	memcpy(m_mem->ROM, &cartData[0], cartData.size());	//ROM seems to be mirrored if size <= 16mb. should add later (classic nes might rely on it?)
 }
