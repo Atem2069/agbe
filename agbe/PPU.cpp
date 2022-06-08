@@ -437,8 +437,15 @@ void PPU::drawSprites()
 		uint16_t attr1 = ((attr1High << 8) | attr1Low);
 		uint16_t attr2 = ((attr2High << 8) | attr2Low);
 
+		bool spriteDisabled = ((attr0 >> 9) & 0b1);	//todo: fix maybe. this isn't a disable flag if sprite is affine
+		if (spriteDisabled)
+			continue;
 		int spriteTop = attr0 & 0xFF;
+		if (spriteTop > 225)							//bit of a dumb hack to accommodate for when sprites are offscreen
+			spriteTop = 0 - (255 - spriteTop);
 		int spriteLeft = attr1 & 0x1FF;
+		if ((spriteLeft >> 8) & 0b1)
+			spriteLeft |= 0xFFFFFF00;	//not sure maybe sign extension is okay
 		if (spriteLeft >= 240 || spriteTop > VCOUNT)	//nope. sprite is offscreen or too low
 			continue;
 		int spriteBottom = 0, spriteRight = 0;
@@ -521,8 +528,7 @@ void PPU::drawSprites()
 				break;
 			}
 		}
-
-
+		
 		if (VCOUNT >= spriteBottom)	//nope, we're past it.
 			continue;
 
@@ -580,7 +586,7 @@ void PPU::drawSprites()
 					baseX = 7 - baseX;
 
 				int plotCoord = (xSpanTile * 8) + x + spriteLeft;
-				if (plotCoord > 239)
+				if (plotCoord > 239 || plotCoord < 0)
 					continue;
 
 				//let's see if a bg pixel with higher priority already exists!
