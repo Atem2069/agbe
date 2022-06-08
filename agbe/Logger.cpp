@@ -28,8 +28,8 @@ void Logger::msg(LoggerSeverity severity, std::string msg, const std::source_loc
 	prefix += msg;
 
 	m_msgLog.push(prefix);
-	//if (m_msgLog.size() > 10000)
-//		m_msgLog.pop();
+	if (m_msgLog.size() > 1000)
+		m_msgLog.pop();
 	
 
 	//if (severity == LoggerSeverity::Warn || severity == LoggerSeverity::Error)

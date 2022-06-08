@@ -49,10 +49,13 @@ private:
 	void VBlank();
 
 	void renderMode0();
+	void renderMode1();
+	void renderMode2();
 	void renderMode3();
 	void renderMode4();
 
 	void drawBackground(int bg);
+	void drawRotationScalingBackground(int bg);
 	void drawSprites();
 
 	void setVBlankFlag(bool value);

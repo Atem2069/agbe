@@ -54,15 +54,19 @@ void PPU::HDraw()
 		case 0:
 			renderMode0();
 			break;
-		case 1: case 2: case 5:
-			//Logger::getInstance()->msg(LoggerSeverity::Error, "Tried to draw with unimplemented video mode");
-			//std::cout << (int)mode << '\n';
+		case 1:
+			renderMode1();
+			break;
+		case 2:
+			renderMode2();
 			break;
 		case 3:
 			renderMode3();
 			break;
 		case 4:
 			renderMode4();
+			break;
+		case 5:
 			break;
 		}
 	}
@@ -159,6 +163,31 @@ void PPU::renderMode0()
 	bool objEnabled = ((DISPCNT >> 12) & 0b1);
 	if (objEnabled)
 		drawSprites();
+}
+
+void PPU::renderMode1()
+{
+	Logger::getInstance()->msg(LoggerSeverity::Error, "Unsupported video mode 1");
+}
+
+void PPU::renderMode2()
+{
+	bool bg2Enabled = ((DISPCNT >> 10) & 0b1);
+	bool bg3Enabled = ((DISPCNT >> 11) & 0b1);
+	
+	//render backdrop first (this might be kinda slow)
+	uint16_t bd = (m_mem->paletteRAM[1] << 8) | m_mem->paletteRAM[0];
+	uint32_t backdropcol = col16to32(bd);
+	uint32_t baseAddr = (VCOUNT * 240);
+	for (int i = 0; i < 240; i++)
+		m_renderBuffer[baseAddr + i] = backdropcol;
+
+	//todo: priority
+	if(bg3Enabled)
+		drawRotationScalingBackground(3);
+	if(bg2Enabled)
+		drawRotationScalingBackground(2);
+	drawSprites();
 }
 
 void PPU::renderMode3()
@@ -333,6 +362,64 @@ void PPU::drawBackground(int bg)
 
 }
 
+void PPU::drawRotationScalingBackground(int bg)
+{
+	uint16_t ctrlReg = 0;
+	uint32_t xScroll = 0, yScroll = 0;
+	switch (bg)
+	{
+	case 2:
+		ctrlReg = BG2CNT;
+		xScroll = BG2HOFS;
+		yScroll = BG2VOFS;
+		break;
+	case 3:
+		ctrlReg = BG3CNT;
+		xScroll = BG3HOFS;
+		yScroll = BG3VOFS;
+		break;
+	}
+
+	int screenSize = ((ctrlReg >> 14) & 0b11);
+	if (screenSize != 1)
+	{
+		Logger::getInstance()->msg(LoggerSeverity::Error, "Unsupported bg size, aborting draw");
+		return;
+	}
+
+	uint32_t tileDataBaseBlock = ((ctrlReg >> 2) & 0b11);
+	uint32_t bgMapBaseBlock = ((ctrlReg >> 8) & 0x1F);
+	int xWrap = 256, yWrap = 256;
+	uint32_t fetcherY = ((VCOUNT + yScroll) % yWrap);
+	uint32_t bgMapYIdx = ((fetcherY / 8) * 32); //each row is 32 chars; in rotation/scroll each entry is 1 byte
+
+	for (int x = 0; x < 240; x++)
+	{
+		int xCoord = (x + xScroll) % xWrap;
+
+		uint32_t bgMapAddr = (bgMapBaseBlock * 2048) + bgMapYIdx;
+		bgMapAddr += (xCoord/8);
+
+		uint32_t tileIdx = m_mem->VRAM[bgMapAddr];
+
+		uint32_t tileMapBaseAddress = (tileDataBaseBlock * 16384) + (tileIdx * 64);
+		tileMapBaseAddress += ((VCOUNT % 8) * 8);
+
+		int xmod8 = (xCoord % 8);
+		tileMapBaseAddress += xmod8;
+		uint8_t tileData = m_mem->VRAM[tileMapBaseAddress];
+		uint32_t paletteMemoryAddr = (tileData * 2);
+
+		uint8_t colLow = m_mem->paletteRAM[paletteMemoryAddr];
+		uint8_t colHigh = m_mem->paletteRAM[paletteMemoryAddr + 1];
+		uint16_t col = ((colHigh << 8) | colLow);
+		uint32_t plotAddr = (VCOUNT * 240) + x;
+		m_bgPriorities[x] = 255;// ctrlReg & 0b11;
+		m_renderBuffer[plotAddr] = col16to32(col);
+
+	}
+}
+
 void PPU::drawSprites()
 {
 	bool oneDimensionalMapping = ((DISPCNT >> 6) & 0b1);
@@ -451,8 +538,8 @@ void PPU::drawSprites()
 		uint8_t priorityBits = ((attr2 >> 10) & 0b11);
 		uint8_t paletteNumber = ((attr2 >> 12) & 0xF);
 		bool hiColor = ((attr0 >> 13) & 0b1);
-		if (hiColor)
-			std::cout << "sprite can't render! unsupported mode!!" << '\n';
+		//if (hiColor)
+		//	std::cout << "sprite can't render! unsupported mode!!" << '\n';
 
 
 		//check y coord (ASSUMING 2D MAPPING). tiles are arranged in 32x32 (each tile is 32 bytes). so need to add offset if y too big
@@ -467,8 +554,16 @@ void PPU::drawSprites()
 
 		//for testing: only draw the first tile
 		uint32_t objBase = 0x10000;
-		objBase += (tileId * 32);
-		objBase += (yOffsetIntoSprite * 4);	//finally add corrected y offset
+		if (!hiColor)
+		{
+			objBase += (tileId * 32);
+			objBase += (yOffsetIntoSprite * 4);	//finally add corrected y offset
+		}
+		else
+		{
+			objBase += ((tileId&~0b1) * 32);
+			objBase += (yOffsetIntoSprite * 8);
+		}
 
 		int numXTilesToRender = (spriteRight - spriteLeft) / 8;
 		for (int xSpanTile = 0; xSpanTile < numXTilesToRender; xSpanTile++)
@@ -476,7 +571,7 @@ void PPU::drawSprites()
 			int curXSpanTile = xSpanTile;
 			if (flipHorizontal)
 				curXSpanTile = ((numXTilesToRender - 1) - curXSpanTile);	//flip render order if horizontal flip !!
-			uint32_t tileMapLookupAddr = objBase + (xSpanTile * 32);
+			uint32_t tileMapLookupAddr = objBase + (curXSpanTile * ((hiColor) ? 64 : 32));
 
 			for (int x = 0; x < 8; x++)
 			{
@@ -493,16 +588,27 @@ void PPU::drawSprites()
 				if (spritePriority > priorityAtPixel)
 					continue;
 
-				uint8_t tileData = m_mem->VRAM[tileMapLookupAddr + (baseX / 2)];
-				int paletteId = tileData & 0xF;
-				if (baseX & 0b1)
-					paletteId = ((tileData >> 4) & 0xF);
+				int paletteAddr = 0x200;
+				if (!hiColor)
+				{
+					uint8_t tileData = m_mem->VRAM[tileMapLookupAddr + (baseX / 2)];
+					int paletteId = tileData & 0xF;
+					if (baseX & 0b1)
+						paletteId = ((tileData >> 4) & 0xF);
 
-				if (!paletteId)		//don't render if palette id == 0
-					continue;
+					if (!paletteId)		//don't render if palette id == 0
+						continue;
 
-				int paletteAddr = ((int)(paletteNumber) * 32) + (paletteId * 2);
-				paletteAddr += 0x200;
+					paletteAddr += ((int)(paletteNumber) * 32) + (paletteId * 2);
+				}
+				else
+				{
+					uint8_t tileData = m_mem->VRAM[tileMapLookupAddr + baseX];
+					int paletteId = tileData;
+					if (!paletteId)
+						continue;
+					paletteAddr += (paletteId * 2);
+				}
 				uint8_t colLow = m_mem->paletteRAM[paletteAddr];
 				uint8_t colHigh = m_mem->paletteRAM[paletteAddr + 1];
 				uint16_t col = ((colHigh << 8) | colLow);
