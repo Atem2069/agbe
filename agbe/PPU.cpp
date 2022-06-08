@@ -336,7 +336,7 @@ void PPU::drawSprites()
 {
 	bool oneDimensionalMapping = ((DISPCNT >> 6) & 0b1);
 
-	for (int i = 0; i < 128; i++)
+	for (int i = 127; i >= 0; i--)
 	{
 		uint32_t spriteBase = i * 8;	//each OAM entry is 8 bytes
 		uint8_t attr0Low = m_mem->OAM[spriteBase];
@@ -435,7 +435,7 @@ void PPU::drawSprites()
 		}
 
 
-		if (VCOUNT > spriteBottom)	//nope, we're past it.
+		if (VCOUNT >= spriteBottom)	//nope, we're past it.
 			continue;
 
 		bool flipHorizontal = ((attr1 >> 12) & 0b1);
