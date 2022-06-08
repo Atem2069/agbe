@@ -577,9 +577,9 @@ void PPU::drawSprites()
 			{
 				int baseX = x;
 				if (flipHorizontal)
-					baseX - 7 - baseX;
+					baseX = 7 - baseX;
 
-				int plotCoord = (curXSpanTile * 8) + baseX + spriteLeft;
+				int plotCoord = (xSpanTile * 8) + x + spriteLeft;
 				if (plotCoord > 239)
 					continue;
 
