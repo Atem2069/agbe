@@ -258,22 +258,22 @@ void PPU::drawBackground(int bg)
 	bool hiColor = ((ctrlReg >> 7) & 0b1);
 	uint32_t bgMapBaseBlock = ((ctrlReg >> 8) & 0x1F);
 	int screenSize = ((ctrlReg >> 14) & 0b11);
-	int xWrap = 256, yWrap = 256;
+	int xWrap = 255, yWrap = 255;
 	switch (screenSize)
 	{
 	case 1:
-		xWrap = 512;
+		xWrap = 511;
 		break;
 	case 2:
-		yWrap = 512;
+		yWrap = 511;
 		break;
 	case 3:
-		xWrap = 512;
-		yWrap = 512;
+		xWrap = 511;
+		yWrap = 511;
 		break;
 	}
 
-	uint32_t fetcherY = ((VCOUNT + yScroll) % yWrap);
+	uint32_t fetcherY = ((VCOUNT + yScroll) & yWrap);
 	if (screenSize && (fetcherY > 255))
 	{
 		fetcherY -= 255;
@@ -284,7 +284,7 @@ void PPU::drawBackground(int bg)
 	uint32_t bgMapYIdx = ((fetcherY / 8) * 32) * 2; //each row is 32 chars - each char is 2 bytes
 	for (int x = 0; x < 240; x++)
 	{
-		int xCoord = (x + xScroll) % xWrap;
+		int xCoord = (x + xScroll) & xWrap;
 		int baseBlockOffset = 0;				//x scrolling can cause new baseblock to bee selected
 		if (screenSize && (xCoord > 255))
 		{
@@ -308,7 +308,7 @@ void PPU::drawBackground(int bg)
 		{
 			tileMapBaseAddress = (tileDataBaseBlock * 16384) + (tileNumber * 32);
 
-			int yMod8 = ((fetcherY%8));
+			int yMod8 = ((fetcherY&7));
 			if (verticalFlip)
 				yMod8 = 7 - yMod8;
 
@@ -319,18 +319,15 @@ void PPU::drawBackground(int bg)
 			//(x mod 8) / 2 gives us correct byte
 			//then x mod 2 gives us the nibble 
 
-			int xmod8 = (xCoord % 8);
+			int xmod8 = (xCoord & 7);
 			if (horizontalFlip)
 				xmod8 = 7 - xmod8;
 			tileMapBaseAddress += (xmod8 / 2);
 
 			uint8_t tileData = m_mem->VRAM[tileMapBaseAddress];
 			int colorId = 0;
-			if (xmod8 % 2 == 0)
-				colorId = tileData & 0xf;
-			else
-				colorId = ((tileData >> 4) & 0xf);
-
+			int stepTile = ((xmod8 & 0b1));
+			colorId = ((tileData >> (stepTile * 4)) & 0xf);	//first (even) pixel - low nibble. second (odd) pixel - high nibble
 			if (!colorId)
 				continue;
 
@@ -454,81 +451,15 @@ void PPU::drawSprites()
 		int shape = ((attr0 >> 14) & 0b11);
 		int size = ((attr1 >> 14) & 0b11);
 		int spritePriority = ((attr2 >> 10) & 0b11);	//used to figure out whether we should actually render the sprite
-		switch (shape)
-		{
-		case 0:
-			switch (size)
-			{
-			case 0:
-				spriteRight = spriteLeft + 8;
-				spriteBottom = spriteTop + 8;
-				break;
-			case 1:
-				spriteRight = spriteLeft + 16;
-				spriteBottom = spriteTop + 16;
-				rowPitch = 2;
-				break;
-			case 2:
-				spriteRight = spriteLeft + 32;
-				spriteBottom = spriteTop + 32;
-				rowPitch = 4;
-				break;
-			case 3:
-				spriteRight = spriteLeft + 64;
-				spriteBottom = spriteTop + 64;
-				rowPitch = 8;
-				break;
-			}
-			break;
-		case 1:
-			switch (size)
-			{
-			case 0:
-				spriteRight = spriteLeft + 16;
-				spriteBottom = spriteTop + 8;
-				rowPitch = 2;
-				break;
-			case 1:
-				spriteRight = spriteLeft + 32;
-				spriteBottom = spriteTop + 8;
-				rowPitch = 4;
-				break;
-			case 2:
-				spriteRight = spriteLeft + 32;
-				spriteBottom = spriteTop + 16;
-				rowPitch = 4;
-				break;
-			case 3:
-				spriteRight = spriteLeft + 64;
-				spriteBottom = spriteTop + 32;
-				rowPitch = 8;
-				break;
-			}
-			break;
-		case 2:
-			switch (size)
-			{
-			case 0:
-				spriteRight = spriteLeft + 8;
-				spriteBottom = spriteTop + 16;
-				break;
-			case 1:
-				spriteRight = spriteLeft + 8;
-				spriteBottom = spriteTop + 32;
-				break;
-			case 2:
-				spriteRight = spriteLeft + 16;
-				spriteBottom = spriteTop + 32;
-				rowPitch = 2;
-				break;
-			case 3:
-				spriteRight = spriteLeft + 32;
-				spriteBottom = spriteTop + 64;
-				rowPitch = 4;
-				break;
-			}
-		}
-		
+
+		int spriteBoundsLookupId = (shape << 2) | size;
+		int spriteXBoundsLUT[12] ={8,16,32,64,16,32,32,64,8,8,16,32};
+		int spriteYBoundsLUT[12] ={8,16,32,64,8,8,16,32,16,32,32,64};
+		int xPitchLUT[12] ={1,2,4,8,2,4,4,8,1,1,2,4};
+
+		spriteRight = spriteLeft + spriteXBoundsLUT[spriteBoundsLookupId];
+		spriteBottom = spriteTop + spriteYBoundsLUT[spriteBoundsLookupId];
+		rowPitch = xPitchLUT[spriteBoundsLookupId];	
 		if (VCOUNT >= spriteBottom)	//nope, we're past it.
 			continue;
 
@@ -798,7 +729,7 @@ void PPU::writeIO(uint32_t address, uint8_t value)
 		BG3VOFS &= 0xFF; BG3VOFS |= (((value&0b1) << 8));
 		break;
 	default:
-		//break;
-		Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Unknown PPU IO register write {:#x}", address));
+		break;
+		//Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Unknown PPU IO register write {:#x}", address));
 	}
 }

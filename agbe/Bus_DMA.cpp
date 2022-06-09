@@ -22,7 +22,7 @@ uint8_t Bus::DMARegRead(uint32_t address)
 	case 0x040000DF:
 		return (m_dmaChannels[3].control >> 8) & 0xFF;
 	}
-	Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Unknown DMA Read: {:#x}", address));
+	//Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Unknown DMA Read: {:#x}", address));
 	return 0;
 }
 
@@ -187,8 +187,8 @@ void Bus::DMARegWrite(uint32_t address, uint8_t value)
 		setByteInHalfword(&(m_dmaChannels[3].control), value, 1);
 		break;
 
-	default:
-		Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Unknown DMA Write: {#x}", address));
+	//default:
+	//	Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Unknown DMA Write: {#x}", address));
 	}
 
 	checkDMAChannels();
@@ -205,7 +205,7 @@ void Bus::checkDMAChannels()
 			uint8_t startTiming = ((curCtrlReg >> 12) & 0b11);
 			if (startTiming == 0)
 			{
-				Logger::getInstance()->msg(LoggerSeverity::Info, std::format("Dma Channel{:#x} wants to start!!", i));
+				//Logger::getInstance()->msg(LoggerSeverity::Info, std::format("Dma Channel{:#x} wants to start!!", i));
 				doDMATransfer(i);
 			}
 		}
@@ -216,8 +216,16 @@ void Bus::doDMATransfer(int channel)
 {
 	//we assume the transfer is going to take place by the time this function is called
 	DMAChannel curChannel = m_dmaChannels[channel];
-	uint32_t src = curChannel.srcAddress;// &0x07FFFFFF;
-	uint32_t dest = curChannel.destAddress;// &0x07FFFFFF;
+
+	uint32_t srcAddrMask = 0x0FFFFFFF;
+	if (channel == 0)
+		srcAddrMask = 0x07FFFFFF;
+	uint32_t destAddrMask = 0x07FFFFFF;
+	if (channel == 3)
+		destAddrMask = 0x0FFFFFFF;
+
+	uint32_t src = curChannel.srcAddress & srcAddrMask;
+	uint32_t dest = curChannel.destAddress & destAddrMask;
 
 	int numWords = curChannel.wordCount;
 	if (numWords == 0)
@@ -228,7 +236,7 @@ void Bus::doDMATransfer(int channel)
 	}
 
 
-	std::cout << "DMA src = " << std::hex << src << " dst= " << std::hex << dest << " length= " << std::hex << numWords << '\n';
+	//std::cout << "DMA src = " << std::hex << src << " dst= " << std::hex << dest << " length= " << std::hex << numWords << '\n';
 
 	uint8_t srcAddrCtrl = ((curChannel.control >> 7) & 0b11);
 	uint8_t dstAddrCtrl = ((curChannel.control >> 5) & 0b11);
