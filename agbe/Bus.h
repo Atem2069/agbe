@@ -5,6 +5,7 @@
 #include "PPU.h"
 #include "Input.h"
 #include "InterruptManager.h"
+#include"Timer.h"
 
 #include<iostream>
 
@@ -54,6 +55,7 @@ private:
 	std::shared_ptr<InterruptManager> m_interruptManager;
 	std::shared_ptr<PPU> m_ppu;
 	std::shared_ptr<Input> m_input;
+	std::shared_ptr<Timer> m_timer;
 
 	DMAChannel m_dmaChannels[4];
 	uint16_t WAITCNT = 0;

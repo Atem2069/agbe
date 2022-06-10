@@ -348,6 +348,8 @@ void PPU::drawBackground(int bg)
 
 			tileMapBaseAddress += xmod8;
 			uint8_t tileData = m_mem->VRAM[tileMapBaseAddress];
+			if (!tileData)
+				continue;
 			paletteMemoryAddr = (tileData * 2);
 		}
 
@@ -409,6 +411,8 @@ void PPU::drawRotationScalingBackground(int bg)
 		int xmod8 = (xCoord % 8);
 		tileMapBaseAddress += xmod8;
 		uint8_t tileData = m_mem->VRAM[tileMapBaseAddress];
+		if (!tileData)
+			continue;
 		uint32_t paletteMemoryAddr = (tileData * 2);
 
 		uint8_t colLow = m_mem->paletteRAM[paletteMemoryAddr];

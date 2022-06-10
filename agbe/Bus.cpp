@@ -7,6 +7,7 @@ Bus::Bus(std::vector<uint8_t> BIOS, std::vector<uint8_t> cartData, std::shared_p
 	m_input = input;
 
 	m_mem = std::make_shared<GBAMem>();
+	m_timer = std::make_shared<Timer>(m_interruptManager);
 	m_ppu->registerMemory(m_mem);
 	if (BIOS.size() != 16384)
 	{
@@ -27,13 +28,15 @@ Bus::Bus(std::vector<uint8_t> BIOS, std::vector<uint8_t> cartData, std::shared_p
 
 Bus::~Bus()
 {
-
+	m_mem.reset();
+	m_timer.reset();
 }
 
 void Bus::tick()
 {
 	//todo: tick other components
 	m_ppu->step();
+	m_timer->step();
 	//checkDMAChannels();	//check if we need to dma (todo: check hblank,vblank)
 }
 
@@ -319,6 +322,8 @@ uint8_t Bus::readIO8(uint32_t address)
 		return m_input->readIORegister(address);
 	if (address >= 0x040000B0 && address <= 0x040000DF)
 		return DMARegRead(address);
+	if (address >= 0x04000100 && address <= 0x0400010F)
+		return m_timer->readIO(address);
 	switch (address)
 	{
 	case 0x04000200:case 0x04000201: case 0x04000202:  case 0x04000203: case 0x04000208: case 0x04000209: case 0x0400020A: case 0x0400020B:
@@ -351,6 +356,11 @@ void Bus::writeIO8(uint32_t address, uint8_t value)
 	if (address >= 0x040000B0 && address <= 0x040000DF)
 	{
 		DMARegWrite(address,value);
+		return;
+	}
+	if (address >= 0x04000100 && address <= 0x0400010F)
+	{
+		m_timer->writeIO(address, value);
 		return;
 	}
 	switch (address)

@@ -10,7 +10,11 @@ enum class InterruptType	//todo: more interrupt sources!
 	DMA0,
 	DMA1,
 	DMA2,
-	DMA3
+	DMA3,
+	Timer0,
+	Timer1,
+	Timer2,
+	Timer3
 };
 
 class InterruptManager
