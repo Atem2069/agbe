@@ -64,6 +64,8 @@ private:
 
 	uint32_t col16to32(uint16_t col);
 
+	bool getPointDrawable(int x, int y, int backgroundLayer, bool obj);
+
 	uint16_t DISPCNT = {};
 	uint16_t DISPSTAT = {};
 	uint16_t VCOUNT = {};
@@ -79,4 +81,10 @@ private:
 	uint16_t BG2VOFS = {};
 	uint16_t BG3HOFS = {};
 	uint16_t BG3VOFS = {};
+	uint16_t WIN0H = {};
+	uint16_t WIN1H = {};
+	uint16_t WIN0V = {};
+	uint16_t WIN1V = {};
+	uint16_t WININ = {};
+	uint16_t WINOUT = {};
 };

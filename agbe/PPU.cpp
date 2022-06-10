@@ -284,6 +284,8 @@ void PPU::drawBackground(int bg)
 	uint32_t bgMapYIdx = ((fetcherY / 8) * 32) * 2; //each row is 32 chars - each char is 2 bytes
 	for (int x = 0; x < 240; x++)
 	{
+		if (!getPointDrawable(x, VCOUNT, bg, false))
+			continue;
 		int xCoord = (x + xScroll) & xWrap;
 		int baseBlockOffset = 0;				//x scrolling can cause new baseblock to bee selected
 		if (screenSize && (xCoord > 255))
@@ -392,6 +394,8 @@ void PPU::drawRotationScalingBackground(int bg)
 
 	for (int x = 0; x < 240; x++)
 	{
+		if (!getPointDrawable(x, VCOUNT, bg, false))
+			continue;
 		int xCoord = (x + xScroll) % xWrap;
 
 		uint32_t bgMapAddr = (bgMapBaseBlock * 2048) + bgMapYIdx;
@@ -512,6 +516,8 @@ void PPU::drawSprites()
 
 			for (int x = 0; x < 8; x++)
 			{
+				if (!getPointDrawable(x, VCOUNT, 0, true))
+					continue;
 				int baseX = x;
 				if (flipHorizontal)
 					baseX = 7 - baseX;
@@ -570,6 +576,60 @@ uint32_t PPU::col16to32(uint16_t col)
 
 	return (red << 24) | (green << 16) | (blue << 8) | 0x000000FF;
 
+}
+
+bool PPU::getPointDrawable(int x, int y, int backgroundLayer, bool obj)
+{
+	bool window0Enabled = ((DISPCNT >> 13) & 0b1);
+	bool window1Enabled = ((DISPCNT >> 14) & 0b1);
+	if (!(window0Enabled || window1Enabled))		//drawable if neither window enabled
+		return true;
+	//todo: obj window
+	//also todo: window priority. win0 has higher priority than win1, win1 has higher priority than obj window
+	if (window0Enabled)
+	{
+		int winRight = (WIN0H & 0xFF);
+		int winLeft = ((WIN0H >> 8) & 0xFF);
+		int winBottom = (WIN0V & 0xFF) - 1;	//not sure about -1? gbateek says bottom-most plus 1
+		int winTop = ((WIN0V >> 8) & 0xFF);
+		bool inWindow = (x >= winLeft && x <= winRight && y >= winTop && y <= winBottom);
+		if (inWindow)
+		{
+			if (obj)
+				return ((WININ >> 4) & 0b1);
+			else
+				return ((WININ >> backgroundLayer) & 0b1);
+		}
+		else
+		{
+			if (obj)
+				return ((WINOUT >> 4) & 0b1);
+			else
+				return ((WINOUT >> backgroundLayer) & 0b1);
+		}
+	}
+	if (window1Enabled)
+	{
+		int winRight = (WIN1H & 0xFF);
+		int winLeft = ((WIN1H >> 8) & 0xFF);
+		int winBottom = (WIN1V & 0xFF) - 1;	//not sure about -1? gbateek says bottom-most plus 1
+		int winTop = ((WIN1V >> 8) & 0xFF);
+		bool inWindow = (x >= winLeft && x <= winRight && y >= winTop && y <= winBottom);
+		if (inWindow)
+		{
+			if (obj)
+				return ((WININ >> 12) & 0b1);
+			else
+				return ((WININ >> (backgroundLayer+8)) & 0b1);
+		}
+		else
+		{
+			if (obj)
+				return ((WINOUT >> 12) & 0b1);
+			else
+				return ((WINOUT >> (backgroundLayer+8)) & 0b1);
+		}
+	}
 }
 
 uint32_t* PPU::getDisplayBuffer()
@@ -633,6 +693,14 @@ uint8_t PPU::readIO(uint32_t address)
 		return BG3CNT & 0xFF;
 	case 0x0400000F:
 		return ((BG3CNT >> 8) & 0xFF);
+	case 0x04000048:
+		return WININ & 0xFF;
+	case 0x04000049:
+		return ((WININ >> 8) & 0xFF);
+	case 0x0400004A:
+		return WINOUT & 0xFF;
+	case 0x0400004B:
+		return ((WINOUT >> 8) & 0xFF);
 	}
 
 	Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Unknown PPU IO register read {:#x}", address));
@@ -727,6 +795,42 @@ void PPU::writeIO(uint32_t address, uint8_t value)
 		break;
 	case 0x0400001F:
 		BG3VOFS &= 0xFF; BG3VOFS |= (((value&0b1) << 8));
+		break;
+	case 0x04000040:
+		WIN0H &= 0xFF00; WIN0H |= value;
+		break;
+	case 0x04000041:
+		WIN0H &= 0xFF; WIN0H |= (value << 8);
+		break;
+	case 0x04000042:
+		WIN1H &= 0xFF00; WIN1H |= value;
+		break;
+	case 0x04000043:
+		WIN1H &= 0xFF; WIN1H |= ((value << 8));
+		break;
+	case 0x04000044:
+		WIN0V &= 0xFF00; WIN0V |= value;
+		break;
+	case 0x04000045:
+		WIN0V &= 0xFF; WIN0V |= (value << 8);
+		break;
+	case 0x04000046:
+		WIN1V &= 0xFF00; WIN1V |= value;
+		break;
+	case 0x04000047:
+		WIN1V &= 0xFF; WIN1V |= (value << 8);
+		break;
+	case 0x04000048:
+		WININ &= 0xFF00; WININ |= value;
+		break;
+	case 0x04000049:
+		WININ &= 0xFF; WININ |= (value << 8);
+		break;
+	case 0x0400004A:
+		WINOUT &= 0xFF00; WINOUT |= value;
+		break;
+	case 0x0400004B:
+		WINOUT &= 0xFF; WINOUT |= (value << 8);
 		break;
 	default:
 		break;
