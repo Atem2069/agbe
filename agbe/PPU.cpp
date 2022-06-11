@@ -162,8 +162,12 @@ void PPU::renderMode0()
 	}
 	for (int i = 0; i < 240; i++)
 	{
-		if(m_bgPriorities[i]==255)
+		if (m_bgPriorities[i] == 255)
+		{
 			m_renderBuffer[baseAddr + i] = backdropcol;
+			if (m_spritePriorities[i] != 255)
+				m_renderBuffer[baseAddr + i] = m_spriteLineBuffer[i];
+		}
 		m_bgPriorities[i] = 255;
 	}
 }
