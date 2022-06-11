@@ -90,4 +90,8 @@ private:
 	uint16_t WIN1V = {};
 	uint16_t WININ = {};
 	uint16_t WINOUT = {};
+	uint32_t BG2X = {};
+	uint32_t BG2Y = {};
+	uint32_t BG3X = {};
+	uint32_t BG3Y = {};
 };

@@ -386,18 +386,22 @@ void PPU::drawBackground(int bg)
 void PPU::drawRotationScalingBackground(int bg)
 {
 	uint16_t ctrlReg = 0;
-	uint32_t xScroll = 0, yScroll = 0;
+	int32_t xScroll = 0, yScroll = 0;
 	switch (bg)
 	{
 	case 2:
 		ctrlReg = BG2CNT;
-		xScroll = BG2HOFS;
-		yScroll = BG2VOFS;
+		xScroll = (BG2X >> 8) & 0x7FFFF;	//dumb hack (shift out fractional portion). todo - fix
+		yScroll = (BG2Y >> 8) & 0x7FFFF;
+		if ((BG2X >> 27) & 0b1)
+			xScroll = -xScroll;
+		if ((BG2Y >> 27) & 0b1)
+			yScroll = -yScroll;
 		break;
 	case 3:
 		ctrlReg = BG3CNT;
-		xScroll = BG3HOFS;
-		yScroll = BG3VOFS;
+		xScroll = (BG3X >> 8) & 0x7FFFF;	//dumb hack (shift out fractional portion). todo - fix
+		yScroll = (BG3Y >> 8) & 0x7FFFF;
 		break;
 	}
 
@@ -417,8 +421,8 @@ void PPU::drawRotationScalingBackground(int bg)
 	for (int x = 0; x < 240; x++)
 	{
 		uint32_t plotAddr = (VCOUNT * 240) + x;
-		//if (m_spritePriorities[x] <= bgPriority)
-		if(m_spritePriorities[x] != 255)	//bad... something is wrong with bg-sprite priority in mode 2. can't figure it out
+		if (m_spritePriorities[x] <= bgPriority)
+		//if(m_spritePriorities[x] != 255)	//bad... something is wrong with bg-sprite priority in mode 2. can't figure it out
 		{
 			m_renderBuffer[plotAddr] = m_spriteLineBuffer[x];
 			m_bgPriorities[x] = 254;	//dumb hack :P
@@ -903,6 +907,54 @@ void PPU::writeIO(uint32_t address, uint8_t value)
 		break;
 	case 0x0400004B:
 		WINOUT &= 0xFF; WINOUT |= (value << 8);
+		break;
+	case 0x04000028:
+		BG2X &= 0xFFFFFF00; BG2X |= value;
+		break;
+	case 0x04000029:
+		BG2X &= 0xFFFF00FF; BG2X |= (value << 8);
+		break;
+	case 0x0400002A:
+		BG2X &= 0xFF00FFFF; BG2X |= (value << 16);
+		break;
+	case 0x0400002B:
+		BG2X &= 0x00FFFFFF; BG2X |= (value << 24);
+		break;
+	case 0x0400002C:
+		BG2Y &= 0xFFFFFF00; BG2Y |= value;
+		break;
+	case 0x0400002D:
+		BG2Y &= 0xFFFF00FF; BG2Y |= (value << 8);
+		break;
+	case 0x0400002E:
+		BG2Y &= 0xFF00FFFF; BG2Y |= (value << 16);
+		break;
+	case 0x0400002F:
+		BG2Y &= 0x00FFFFFF; BG2Y |= (value << 24);
+		break;
+	case 0x04000038:
+		BG3X &= 0xFFFFFF00; BG3X |= value;
+		break;
+	case 0x04000039:
+		BG3X &= 0xFFFF00FF; BG3X |= (value << 8);
+		break;
+	case 0x0400003A:
+		BG3X &= 0xFF00FFFF; BG3X |= (value << 16);
+		break;
+	case 0x0400003B:
+		BG3X &= 0x00FFFFFF; BG3X |= (value << 24);
+		break;
+	case 0x0400003C:
+		BG3Y &= 0xFFFFFF00; BG3Y |= value;
+		break;
+	case 0x0400003D:
+		BG3Y &= 0xFFFF00FF; BG3Y |= (value << 8);
+		break;
+	case 0x0400003E:
+		BG3Y &= 0xFF00FFFF; BG3Y |= (value << 16);
+		break;
+	case 0x0400003F:
+		BG3Y &= 0x00FFFFFF; BG3Y |= (value << 24);
 		break;
 	default:
 		break;
