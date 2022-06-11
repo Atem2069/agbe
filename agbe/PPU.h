@@ -37,8 +37,9 @@ private:
 	bool registered = false;
 	std::shared_ptr<GBAMem> m_mem;
 	std::shared_ptr<InterruptManager> m_interruptManager;
-	uint32_t m_renderBuffer[240 * 160];	//currently being rendered
-	uint32_t m_displayBuffer[240 * 160]; //buffer the display gets
+	uint32_t m_renderBuffer[2][240 * 160];	//currently being rendered
+	bool pageIdx = false;
+	//uint32_t m_displayBuffer[240 * 160]; //buffer the display gets
 	uint8_t m_bgPriorities[240] = {};	//save bg priority at each pixel
 	uint8_t m_spritePriorities[240] = {};
 	uint32_t m_spriteLineBuffer[240] = {};

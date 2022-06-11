@@ -241,7 +241,7 @@ void Bus::doDMATransfer(int channel)
 	uint8_t srcAddrCtrl = ((curChannel.control >> 7) & 0b11);
 	uint8_t dstAddrCtrl = ((curChannel.control >> 5) & 0b11);
 	bool wordTransfer = ((curChannel.control >> 10) & 0b1);
-
+	dmaInProgress = true;
 	for (int i = 0; i < numWords; i++)
 	{
 		if (wordTransfer)
@@ -296,5 +296,5 @@ void Bus::doDMATransfer(int channel)
 	}
 
 	m_dmaChannels[channel].control &= 0x7FFF;	//clear DMA enable
-
+	dmaInProgress = false;
 }

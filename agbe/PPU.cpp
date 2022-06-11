@@ -7,7 +7,7 @@ PPU::PPU(std::shared_ptr<InterruptManager> interruptManager)
 	inVBlank = false;
 	//simple test
 	for (int i = 0; i < (240 * 160); i++)
-		m_displayBuffer[i] = i;
+		m_renderBuffer[pageIdx][i] = i;
 	for (int i = 0; i < 240; i++)
 		m_bgPriorities[i] = 255;
 }
@@ -106,7 +106,8 @@ void PPU::HBlank()
 				m_interruptManager->requestInterrupt(InterruptType::VBlank);
 
 			//copy display buf over
-			memcpy(m_displayBuffer, m_renderBuffer, 240 * 160 * sizeof(uint32_t));
+			//memcpy(m_displayBuffer, m_renderBuffer, 240 * 160 * sizeof(uint32_t));
+			pageIdx = !pageIdx;
 
 		}
 	}
@@ -164,9 +165,9 @@ void PPU::renderMode0()
 	{
 		if (m_bgPriorities[i] == 255)
 		{
-			m_renderBuffer[baseAddr + i] = backdropcol;
+			m_renderBuffer[pageIdx][baseAddr + i] = backdropcol;
 			if (m_spritePriorities[i] != 255)
-				m_renderBuffer[baseAddr + i] = m_spriteLineBuffer[i];
+				m_renderBuffer[pageIdx][baseAddr + i] = m_spriteLineBuffer[i];
 		}
 		m_bgPriorities[i] = 255;
 	}
@@ -207,9 +208,9 @@ void PPU::renderMode1()
 	{
 		if (m_bgPriorities[i] == 255)
 		{
-			m_renderBuffer[baseAddr + i] = backdropcol;
+			m_renderBuffer[pageIdx][baseAddr + i] = backdropcol;
 			if (m_spritePriorities[i] != 255)
-				m_renderBuffer[baseAddr + i] = m_spriteLineBuffer[i];
+				m_renderBuffer[pageIdx][baseAddr + i] = m_spriteLineBuffer[i];
 		}
 		m_bgPriorities[i] = 255;
 	}
@@ -233,9 +234,9 @@ void PPU::renderMode2()
 	{
 		if (m_bgPriorities[i] == 255)
 		{
-			m_renderBuffer[baseAddr + i] = backdropcol;
+			m_renderBuffer[pageIdx][baseAddr + i] = backdropcol;
 			if (m_spritePriorities[i] != 255)
-				m_renderBuffer[baseAddr + i] = m_spriteLineBuffer[i];
+				m_renderBuffer[pageIdx][baseAddr + i] = m_spriteLineBuffer[i];
 		}
 		m_bgPriorities[i] = 255;
 	}
@@ -251,7 +252,7 @@ void PPU::renderMode3()
 		uint8_t colHigh = m_mem->VRAM[address + 1];
 		uint16_t col = ((colHigh << 8) | colLow);
 		uint32_t plotAddr = (VCOUNT * 240) + i;
-		m_renderBuffer[plotAddr] = col16to32(col);
+		m_renderBuffer[pageIdx][plotAddr] = col16to32(col);
 	}
 }
 
@@ -271,7 +272,7 @@ void PPU::renderMode4()
 
 		uint16_t paletteData = ((paletteHigh << 8) | paletteLow);
 		uint32_t plotAddress = (VCOUNT * 240) + i;
-		m_renderBuffer[plotAddress] = col16to32(paletteData);
+		m_renderBuffer[pageIdx][plotAddress] = col16to32(paletteData);
 	}
 }
 
@@ -340,7 +341,7 @@ void PPU::drawBackground(int bg)
 		uint32_t plotAddr = (VCOUNT * 240) + x;
 		if (m_spritePriorities[x] <= bgPriority)
 		{
-			m_renderBuffer[plotAddr] = m_spriteLineBuffer[x];
+			m_renderBuffer[pageIdx][plotAddr] = m_spriteLineBuffer[x];
 			m_bgPriorities[x] = 254;	//lmfao
 			continue;
 		}
@@ -416,7 +417,7 @@ void PPU::drawBackground(int bg)
 		uint8_t colHigh = m_mem->paletteRAM[paletteMemoryAddr + 1];
 		uint16_t col = ((colHigh << 8) | colLow);
 		m_bgPriorities[x] = bgPriority;
-		m_renderBuffer[plotAddr] = col16to32(col);
+		m_renderBuffer[pageIdx][plotAddr] = col16to32(col);
 	}
 
 }
@@ -462,7 +463,7 @@ void PPU::drawRotationScalingBackground(int bg)
 		if (m_spritePriorities[x] <= bgPriority)
 		//if(m_spritePriorities[x] != 255)	//bad... something is wrong with bg-sprite priority in mode 2. can't figure it out
 		{
-			m_renderBuffer[plotAddr] = m_spriteLineBuffer[x];
+			m_renderBuffer[pageIdx][plotAddr] = m_spriteLineBuffer[x];
 			m_bgPriorities[x] = 254;	//dumb hack :P
 			continue;
 		}
@@ -489,7 +490,7 @@ void PPU::drawRotationScalingBackground(int bg)
 		uint8_t colHigh = m_mem->paletteRAM[paletteMemoryAddr + 1];
 		uint16_t col = ((colHigh << 8) | colLow);
 		m_bgPriorities[x] = bgPriority;
-		m_renderBuffer[plotAddr] = col16to32(col);
+		m_renderBuffer[pageIdx][plotAddr] = col16to32(col);
 
 	}
 }
@@ -748,7 +749,7 @@ bool PPU::getPointDrawable(int x, int y, int backgroundLayer, bool obj)
 
 uint32_t* PPU::getDisplayBuffer()
 {
-	return m_displayBuffer;
+	return m_renderBuffer[!pageIdx];
 }
 
 void PPU::setVBlankFlag(bool value)

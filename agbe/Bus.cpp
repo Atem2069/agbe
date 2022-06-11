@@ -37,7 +37,8 @@ void Bus::tick()
 	//todo: tick other components
 	m_ppu->step();
 	m_timer->step();
-	//checkDMAChannels();	//check if we need to dma (todo: check hblank,vblank)
+	if(!dmaInProgress)
+		checkDMAChannels();	//check if we need to dma (todo: check hblank,vblank)
 }
 
 uint8_t Bus::read8(uint32_t address, bool doTick)
