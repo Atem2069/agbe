@@ -203,13 +203,15 @@ void Bus::checkDMAChannels()
 		{
 			//dma enabled
 			uint8_t startTiming = ((curCtrlReg >> 12) & 0b11);
-			if (startTiming == 0)
+			if ((startTiming == 0) || ((startTiming==1) && m_ppu->getVBlank()) || ((startTiming==2) && m_ppu->getHBlank()))
 			{
-				//Logger::getInstance()->msg(LoggerSeverity::Info, std::format("Dma Channel{:#x} wants to start!!", i));
 				doDMATransfer(i);
 			}
 		}
 	}
+	//clear hblank/vblank flags now that we've checked all dma channels
+	m_ppu->getHBlank(true);
+	m_ppu->getVBlank(true);
 }
 
 void Bus::doDMATransfer(int channel)

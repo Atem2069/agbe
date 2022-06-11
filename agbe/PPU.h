@@ -33,6 +33,9 @@ public:
 	uint8_t readIO(uint32_t address);
 	void writeIO(uint32_t address, uint8_t value);
 
+	bool getHBlank(bool acknowledge=false);
+	bool getVBlank(bool acknowledge=false);
+
 private:
 	bool registered = false;
 	std::shared_ptr<GBAMem> m_mem;
@@ -47,6 +50,9 @@ private:
 
 	uint32_t m_lineCycles = 0;
 	bool inVBlank = false;
+
+	bool signalHBlank = false;
+	bool signalVBlank = false;
 
 	void HDraw();
 	void HBlank();

@@ -76,6 +76,7 @@ void PPU::HBlank()
 {
 	if (m_lineCycles == 961)
 	{
+		signalHBlank = true;
 		if (((DISPSTAT >> 4) & 0b1))
 			m_interruptManager->requestInterrupt(InterruptType::HBlank);
 	}
@@ -101,6 +102,7 @@ void PPU::HBlank()
 		{
 			setVBlankFlag(true);
 			inVBlank = true;
+			signalVBlank = true;
 
 			if (((DISPSTAT >> 3) & 0b1))
 				m_interruptManager->requestInterrupt(InterruptType::VBlank);
@@ -1008,4 +1010,20 @@ void PPU::writeIO(uint32_t address, uint8_t value)
 		break;
 		//Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Unknown PPU IO register write {:#x}", address));
 	}
+}
+
+bool PPU::getHBlank(bool acknowledge)
+{
+	bool res = signalHBlank;
+	if (acknowledge)
+		signalHBlank = false;
+	return res;
+}
+
+bool PPU::getVBlank(bool acknowledge)
+{
+	bool res = signalVBlank;
+	if (acknowledge)
+		signalVBlank = false;
+	return res;
 }

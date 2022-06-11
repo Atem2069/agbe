@@ -673,7 +673,7 @@ void ARM7TDMI::ARM_SingleDataTransfer()
 
 void ARM7TDMI::ARM_Undefined()
 {
-	Logger::getInstance()->msg(LoggerSeverity::Error, "Unimplemented");
+	//Logger::getInstance()->msg(LoggerSeverity::Error, "Unimplemented");
 	throw std::runtime_error("unimplemented");
 }
 
