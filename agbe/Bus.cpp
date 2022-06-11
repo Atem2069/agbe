@@ -8,6 +8,7 @@ Bus::Bus(std::vector<uint8_t> BIOS, std::vector<uint8_t> cartData, std::shared_p
 
 	m_mem = std::make_shared<GBAMem>();
 	m_timer = std::make_shared<Timer>(m_interruptManager);
+	m_eeprom = std::make_shared<EEPROM>();
 	m_ppu->registerMemory(m_mem);
 	if (BIOS.size() != 16384)
 	{
@@ -159,6 +160,8 @@ uint16_t Bus::read16(uint32_t address, bool doTick)
 	case 7:
 		return getValue16(m_mem->OAM, address & 0x3FF,0x3FF);
 	case 8: case 9: case 0xA: case 0xB: case 0xC: case 0xD:
+		if (address >= 0x0D000000 && address <= 0x0DFFFFFF)		//not strictly accurate, bc not like the cart will always have eeprom
+			return m_eeprom->read(address);
 		return getValue16(m_mem->ROM, address & 0x01FFFFFF,0xFFFFFFFF);
 	case 0xE:
 		Logger::getInstance()->msg(LoggerSeverity::Error, "Invalid 16-bit SRAM read");
@@ -204,6 +207,11 @@ void Bus::write16(uint32_t address, uint16_t value, bool doTick)
 		setValue16(m_mem->OAM, address & 0x3FF, 0x3FF, value);
 		break;
 	case 8: case 9: case 0xA: case 0xB: case 0xC: case 0xD: case 0xE:
+		if (address >= 0x0D000000 && address <= 0x0DFFFFFF)
+		{
+			m_eeprom->write(address, value);
+			break;
+		}
 		Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Tried to write to cartridge space!!! addr={:#x}",address));
 		break;
 	default:

@@ -6,6 +6,7 @@
 #include "Input.h"
 #include "InterruptManager.h"
 #include"Timer.h"
+#include"EEPROM.h"
 
 #include<iostream>
 
@@ -56,6 +57,7 @@ private:
 	std::shared_ptr<PPU> m_ppu;
 	std::shared_ptr<Input> m_input;
 	std::shared_ptr<Timer> m_timer;
+	std::shared_ptr<EEPROM> m_eeprom;
 
 	DMAChannel m_dmaChannels[4];
 	uint16_t WAITCNT = 0;

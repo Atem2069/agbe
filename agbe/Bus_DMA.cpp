@@ -297,6 +297,8 @@ void Bus::doDMATransfer(int channel)
 		}
 	}
 
-	m_dmaChannels[channel].control &= 0x7FFF;	//clear DMA enable
+	bool repeatDMA = ((curChannel.control >> 9) & 0b1);
+	if(!repeatDMA)
+		m_dmaChannels[channel].control &= 0x7FFF;	//clear DMA enable
 	dmaInProgress = false;
 }
