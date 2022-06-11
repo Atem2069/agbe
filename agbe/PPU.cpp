@@ -457,7 +457,10 @@ void PPU::drawSprites()
 	bool oneDimensionalMapping = ((DISPCNT >> 6) & 0b1);
 
 	for (int i = 0; i < 240; i++)
+	{
+		m_objWindowMask[i] = 0;
 		m_spritePriorities[i] = 255;
+	}
 
 	for (int i = 127; i >= 0; i--)
 	{
@@ -476,9 +479,8 @@ void PPU::drawSprites()
 		if (spriteDisabled)
 			continue;
 
-		uint8_t objMode = (attr0 >> 10) & 0b11;
-		if (objMode == 2)						//need to implement obj window at some point
-			continue;
+		uint8_t objMode = (attr0 >> 10) & 0b11;	//have to accommodate for the other obj modes.
+		bool isObjWindow = (objMode == 2);
 
 		int spriteTop = attr0 & 0xFF;
 		if (spriteTop > 225)							//bit of a dumb hack to accommodate for when sprites are offscreen
@@ -563,13 +565,16 @@ void PPU::drawSprites()
 				if (plotCoord > 239 || plotCoord < 0)
 					continue;
 
-				if (!getPointDrawable(plotCoord, VCOUNT, 0, true))
+				if (!getPointDrawable(plotCoord, VCOUNT, 0, true) && !isObjWindow)	//not sure about the 'isObjWindow' check
 					continue;
 
 				//let's see if a bg pixel with higher priority already exists! (todo: check for sprite priority too)
 				//int priorityAtPixel = m_bgPriorities[plotCoord];
 				//if (spritePriority > priorityAtPixel)
 				//	continue;
+				uint8_t priorityAtPixel = m_spritePriorities[plotCoord];
+				if ((spritePriority > priorityAtPixel) && !isObjWindow)
+					continue;
 
 				int paletteAddr = 0x200;
 				if (!hiColor)
@@ -597,9 +602,13 @@ void PPU::drawSprites()
 				uint16_t col = ((colHigh << 8) | colLow);
 
 				uint32_t res = col16to32(col);
-				//plotCoord += (VCOUNT * 240);
-				m_spritePriorities[plotCoord] = spritePriority;	//todo: check for sprite-sprite priority
-				m_spriteLineBuffer[plotCoord] = res;
+				if (isObjWindow)
+					m_objWindowMask[plotCoord] = 1;
+				else
+				{
+					m_spritePriorities[plotCoord] = spritePriority;	//todo: check for sprite-sprite priority
+					m_spriteLineBuffer[plotCoord] = res;
+				}
 				//m_renderBuffer[plotCoord] = res;
 			}
 		}
@@ -624,7 +633,8 @@ bool PPU::getPointDrawable(int x, int y, int backgroundLayer, bool obj)
 {
 	bool window0Enabled = ((DISPCNT >> 13) & 0b1);
 	bool window1Enabled = ((DISPCNT >> 14) & 0b1);
-	if (!(window0Enabled || window1Enabled))		//drawable if neither window enabled
+	bool objWindowEnabled = ((DISPCNT >> 15) & 0b1) && ((DISPCNT >> 12) & 0b1);
+	if (!(window0Enabled || window1Enabled || objWindowEnabled))		//drawable if neither window enabled
 		return true;
 	bool drawable = false;
 	//todo: obj window
@@ -668,9 +678,27 @@ bool PPU::getPointDrawable(int x, int y, int backgroundLayer, bool obj)
 		else
 		{
 			if (obj)
+				drawable |= ((WINOUT >> 4) & 0b1);
+			else
+				drawable |= ((WINOUT >> (backgroundLayer)) & 0b1);
+		}
+	}
+	if (objWindowEnabled)
+	{
+		bool pointInWindow = m_objWindowMask[x];	//<--why does vs care about this line? x can never be above 239.
+		if (pointInWindow)
+		{
+			if (obj)
 				drawable |= ((WINOUT >> 12) & 0b1);
 			else
-				drawable |= ((WINOUT >> (backgroundLayer+8)) & 0b1);
+				drawable |= ((WINOUT >> (backgroundLayer + 8)) & 0b1);
+		}
+		else
+		{
+			if (obj)
+				drawable |= ((WINOUT >> 4) & 0b1);
+			else
+				drawable |= ((WINOUT >> (backgroundLayer)) & 0b1);
 		}
 	}
 	return drawable;
