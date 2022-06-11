@@ -443,17 +443,26 @@ void PPU::drawRotationScalingBackground(int bg)
 		yScroll = (BG3Y >> 8) & 0x7FFFF;
 		break;
 	}
-
-	int screenSize = ((ctrlReg >> 14) & 0b11);
-	if (screenSize != 1)
+	int xWrap = 256, yWrap = 256;
+	int screenSize = ((ctrlReg >> 14) & 0b11);	//could optimise this with a lut fwiw
+	switch (screenSize)
 	{
-		Logger::getInstance()->msg(LoggerSeverity::Error, "Unsupported bg size, aborting draw");
-		return;
+	case 0:
+		xWrap = 128;
+		yWrap = 128;
+		break;
+	case 2:
+		xWrap = 512;
+		yWrap = 512;
+		break;
+	case 3:
+		xWrap = 1024;
+		yWrap = 1024;
+		break;
 	}
 	uint8_t bgPriority = ctrlReg & 0b11;
 	uint32_t tileDataBaseBlock = ((ctrlReg >> 2) & 0b11);
 	uint32_t bgMapBaseBlock = ((ctrlReg >> 8) & 0x1F);
-	int xWrap = 256, yWrap = 256;
 	uint32_t fetcherY = ((VCOUNT + yScroll) % yWrap);
 	uint32_t bgMapYIdx = ((fetcherY / 8) * 32); //each row is 32 chars; in rotation/scroll each entry is 1 byte
 
