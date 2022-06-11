@@ -134,6 +134,10 @@ void PPU::VBlank()
 
 void PPU::renderMode0()
 {
+	bool objEnabled = ((DISPCNT >> 12) & 0b1);
+	if (objEnabled)
+		drawSprites();
+
 	bool bg0Enabled = ((DISPCNT >> 8) & 0b1);
 	bool bg1Enabled = ((DISPCNT >> 9) & 0b1);
 	bool bg2Enabled = ((DISPCNT >> 10) & 0b1);
@@ -159,10 +163,6 @@ void PPU::renderMode0()
 		if (bgItems[i].enabled)
 			drawBackground(bgItems[i].bgNumber);
 	}
-
-	bool objEnabled = ((DISPCNT >> 12) & 0b1);
-	if (objEnabled)
-		drawSprites();
 }
 
 void PPU::renderMode1()
@@ -172,6 +172,7 @@ void PPU::renderMode1()
 
 void PPU::renderMode2()
 {
+	drawSprites();
 	bool bg2Enabled = ((DISPCNT >> 10) & 0b1);
 	bool bg3Enabled = ((DISPCNT >> 11) & 0b1);
 	
@@ -187,7 +188,6 @@ void PPU::renderMode2()
 		drawRotationScalingBackground(3);
 	if(bg2Enabled)
 		drawRotationScalingBackground(2);
-	drawSprites();
 }
 
 void PPU::renderMode3()
@@ -254,6 +254,7 @@ void PPU::drawBackground(int bg)
 	//xScroll &= 0x1FF;
 	//yScroll &= 0x1FF;
 
+	uint8_t bgPriority = ctrlReg & 0b11;
 	uint32_t tileDataBaseBlock = ((ctrlReg >> 2) & 0b11);
 	bool hiColor = ((ctrlReg >> 7) & 0b1);
 	uint32_t bgMapBaseBlock = ((ctrlReg >> 8) & 0x1F);
@@ -276,7 +277,7 @@ void PPU::drawBackground(int bg)
 	uint32_t fetcherY = ((VCOUNT + yScroll) & yWrap);
 	if (screenSize && (fetcherY > 255))
 	{
-		fetcherY -= 255;
+		fetcherY -= 256;
 		bgMapBaseBlock += 1;	
 		if (screenSize == 3)	//not completely sure
 			bgMapBaseBlock += 1;
@@ -284,6 +285,12 @@ void PPU::drawBackground(int bg)
 	uint32_t bgMapYIdx = ((fetcherY / 8) * 32) * 2; //each row is 32 chars - each char is 2 bytes
 	for (int x = 0; x < 240; x++)
 	{
+		uint32_t plotAddr = (VCOUNT * 240) + x;
+		if (m_spritePriorities[x] <= bgPriority)
+		{
+			m_renderBuffer[plotAddr] = m_spriteLineBuffer[x];
+			continue;
+		}
 		if (!getPointDrawable(x, VCOUNT, bg, false))
 			continue;
 		int xCoord = (x + xScroll) & xWrap;
@@ -356,8 +363,7 @@ void PPU::drawBackground(int bg)
 		uint8_t colLow = m_mem->paletteRAM[paletteMemoryAddr];
 		uint8_t colHigh = m_mem->paletteRAM[paletteMemoryAddr + 1];
 		uint16_t col = ((colHigh << 8) | colLow);
-		uint32_t plotAddr = (VCOUNT * 240) + x;
-		m_bgPriorities[x] = ctrlReg & 0b11;
+		m_bgPriorities[x] = bgPriority;
 		m_renderBuffer[plotAddr] = col16to32(col);
 	}
 
@@ -387,7 +393,7 @@ void PPU::drawRotationScalingBackground(int bg)
 		Logger::getInstance()->msg(LoggerSeverity::Error, "Unsupported bg size, aborting draw");
 		return;
 	}
-
+	uint8_t bgPriority = ctrlReg & 0b11;
 	uint32_t tileDataBaseBlock = ((ctrlReg >> 2) & 0b11);
 	uint32_t bgMapBaseBlock = ((ctrlReg >> 8) & 0x1F);
 	int xWrap = 256, yWrap = 256;
@@ -396,6 +402,13 @@ void PPU::drawRotationScalingBackground(int bg)
 
 	for (int x = 0; x < 240; x++)
 	{
+		uint32_t plotAddr = (VCOUNT * 240) + x;
+		//if (true || m_spritePriorities[x] <= bgPriority)
+		if(m_spritePriorities[x] != 255)	//bad... something is wrong with bg-sprite priority in mode 2. can't figure it out
+		{
+			m_renderBuffer[plotAddr] = m_spriteLineBuffer[x];
+			continue;
+		}
 		if (!getPointDrawable(x, VCOUNT, bg, false))
 			continue;
 		int xCoord = (x + xScroll) % xWrap;
@@ -418,7 +431,6 @@ void PPU::drawRotationScalingBackground(int bg)
 		uint8_t colLow = m_mem->paletteRAM[paletteMemoryAddr];
 		uint8_t colHigh = m_mem->paletteRAM[paletteMemoryAddr + 1];
 		uint16_t col = ((colHigh << 8) | colLow);
-		uint32_t plotAddr = (VCOUNT * 240) + x;
 		m_bgPriorities[x] = 255;// ctrlReg & 0b11;
 		m_renderBuffer[plotAddr] = col16to32(col);
 
@@ -428,6 +440,9 @@ void PPU::drawRotationScalingBackground(int bg)
 void PPU::drawSprites()
 {
 	bool oneDimensionalMapping = ((DISPCNT >> 6) & 0b1);
+
+	for (int i = 0; i < 240; i++)
+		m_spritePriorities[i] = 255;
 
 	for (int i = 127; i >= 0; i--)
 	{
@@ -445,6 +460,11 @@ void PPU::drawSprites()
 		bool spriteDisabled = ((attr0 >> 9) & 0b1);	//todo: fix maybe. this isn't a disable flag if sprite is affine
 		if (spriteDisabled)
 			continue;
+
+		uint8_t objMode = (attr0 >> 10) & 0b11;
+		if (objMode == 2)						//need to implement obj window at some point
+			continue;
+
 		int spriteTop = attr0 & 0xFF;
 		if (spriteTop > 225)							//bit of a dumb hack to accommodate for when sprites are offscreen
 			spriteTop = 0 - (255 - spriteTop);
@@ -530,10 +550,10 @@ void PPU::drawSprites()
 				if (plotCoord > 239 || plotCoord < 0)
 					continue;
 
-				//let's see if a bg pixel with higher priority already exists!
-				int priorityAtPixel = m_bgPriorities[plotCoord];
-				if (spritePriority > priorityAtPixel)
-					continue;
+				//let's see if a bg pixel with higher priority already exists! (todo: check for sprite priority too)
+				//int priorityAtPixel = m_bgPriorities[plotCoord];
+				//if (spritePriority > priorityAtPixel)
+				//	continue;
 
 				int paletteAddr = 0x200;
 				if (!hiColor)
@@ -561,8 +581,10 @@ void PPU::drawSprites()
 				uint16_t col = ((colHigh << 8) | colLow);
 
 				uint32_t res = col16to32(col);
-				plotCoord += (VCOUNT * 240);
-				m_renderBuffer[plotCoord] = res;
+				//plotCoord += (VCOUNT * 240);
+				m_spritePriorities[plotCoord] = spritePriority;	//todo: check for sprite-sprite priority
+				m_spriteLineBuffer[plotCoord] = res;
+				//m_renderBuffer[plotCoord] = res;
 			}
 		}
 
@@ -588,6 +610,7 @@ bool PPU::getPointDrawable(int x, int y, int backgroundLayer, bool obj)
 	bool window1Enabled = ((DISPCNT >> 14) & 0b1);
 	if (!(window0Enabled || window1Enabled))		//drawable if neither window enabled
 		return true;
+	bool drawable = false;
 	//todo: obj window
 	//also todo: window priority. win0 has higher priority than win1, win1 has higher priority than obj window
 	if (window0Enabled)
@@ -600,16 +623,16 @@ bool PPU::getPointDrawable(int x, int y, int backgroundLayer, bool obj)
 		if (inWindow)
 		{
 			if (obj)
-				return ((WININ >> 4) & 0b1);
+				drawable = ((WININ >> 4) & 0b1);
 			else
-				return ((WININ >> backgroundLayer) & 0b1);
+				drawable = ((WININ >> backgroundLayer) & 0b1);
 		}
 		else
 		{
 			if (obj)
-				return ((WINOUT >> 4) & 0b1);
+				drawable = ((WINOUT >> 4) & 0b1);
 			else
-				return ((WINOUT >> backgroundLayer) & 0b1);
+				drawable = ((WINOUT >> backgroundLayer) & 0b1);
 		}
 	}
 	if (window1Enabled)
@@ -622,18 +645,19 @@ bool PPU::getPointDrawable(int x, int y, int backgroundLayer, bool obj)
 		if (inWindow)
 		{
 			if (obj)
-				return ((WININ >> 12) & 0b1);
+				drawable |= ((WININ >> 12) & 0b1);
 			else
-				return ((WININ >> (backgroundLayer+8)) & 0b1);
+				drawable |= ((WININ >> (backgroundLayer+8)) & 0b1);
 		}
 		else
 		{
 			if (obj)
-				return ((WINOUT >> 12) & 0b1);
+				drawable |= ((WINOUT >> 12) & 0b1);
 			else
-				return ((WINOUT >> (backgroundLayer+8)) & 0b1);
+				drawable |= ((WINOUT >> (backgroundLayer+8)) & 0b1);
 		}
 	}
+	return drawable;
 }
 
 uint32_t* PPU::getDisplayBuffer()
