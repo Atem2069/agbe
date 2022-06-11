@@ -313,14 +313,13 @@ void PPU::drawBackground(int bg)
 		uint32_t paletteMemoryAddr = 0;
 		uint32_t tileMapBaseAddress = 0;
 
+		int yMod8 = ((fetcherY & 7));
+		if (verticalFlip)
+			yMod8 = 7 - yMod8;
+
 		if (!hiColor)	//16 colors, 16 palettes
 		{
 			tileMapBaseAddress = (tileDataBaseBlock * 16384) + (tileNumber * 32);
-
-			int yMod8 = ((fetcherY&7));
-			if (verticalFlip)
-				yMod8 = 7 - yMod8;
-
 			tileMapBaseAddress += (yMod8 * 4);
 
 			//have correct row of 4 bytes - now need to get correct byte
@@ -347,9 +346,9 @@ void PPU::drawBackground(int bg)
 		{
 			//this is completely wrong !! todo: fix
 			tileMapBaseAddress = (tileDataBaseBlock * 16384) + (tileNumber * 64);
-			tileMapBaseAddress += ((VCOUNT % 8) * 8);
+			tileMapBaseAddress += ((yMod8) * 8);
 
-			int xmod8 = (x % 8);
+			int xmod8 = (xCoord & 7);
 			if (horizontalFlip)
 				xmod8 = 7 - xmod8;
 
@@ -403,7 +402,7 @@ void PPU::drawRotationScalingBackground(int bg)
 	for (int x = 0; x < 240; x++)
 	{
 		uint32_t plotAddr = (VCOUNT * 240) + x;
-		//if (true || m_spritePriorities[x] <= bgPriority)
+		//if (m_spritePriorities[x] <= bgPriority)
 		if(m_spritePriorities[x] != 255)	//bad... something is wrong with bg-sprite priority in mode 2. can't figure it out
 		{
 			m_renderBuffer[plotAddr] = m_spriteLineBuffer[x];
@@ -540,14 +539,15 @@ void PPU::drawSprites()
 
 			for (int x = 0; x < 8; x++)
 			{
-				if (!getPointDrawable(x, VCOUNT, 0, true))
-					continue;
 				int baseX = x;
 				if (flipHorizontal)
 					baseX = 7 - baseX;
 
 				int plotCoord = (xSpanTile * 8) + x + spriteLeft;
 				if (plotCoord > 239 || plotCoord < 0)
+					continue;
+
+				if (!getPointDrawable(plotCoord, VCOUNT, 0, true))
 					continue;
 
 				//let's see if a bg pixel with higher priority already exists! (todo: check for sprite priority too)
