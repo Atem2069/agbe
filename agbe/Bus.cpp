@@ -336,6 +336,8 @@ uint8_t Bus::readIO8(uint32_t address)
 		return hack_soundbias & 0xFF;
 	case 0x04000089:
 		return (hack_soundbias >> 8) & 0xFF;
+	case 0x04000135:	//hack (tie top byte of rcnt to 0x80)
+		return 0x80;
 	}
 	Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Unimplemented IO read addr={:#x}", address));
 	return 0;

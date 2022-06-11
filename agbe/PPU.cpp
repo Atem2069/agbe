@@ -174,7 +174,45 @@ void PPU::renderMode0()
 
 void PPU::renderMode1()
 {
-	Logger::getInstance()->msg(LoggerSeverity::Error, "Unsupported video mode 1");
+	bool objEnabled = ((DISPCNT >> 12) & 0b1);
+	if (objEnabled)
+		drawSprites();
+
+	bool bg0Enabled = ((DISPCNT >> 8) & 0b1);
+	bool bg1Enabled = ((DISPCNT >> 9) & 0b1);
+	bool bg2Enabled = ((DISPCNT >> 10) & 0b1);
+
+	std::array<BGSortItem, 3> bgItems;
+	bgItems[2] = { BG0CNT & 0b11,0,bg0Enabled };
+	bgItems[1] = { BG1CNT & 0b11, 1, bg1Enabled };
+	bgItems[0] = { BG2CNT & 0b11, 2, bg2Enabled };
+
+	std::sort(bgItems.begin(), bgItems.end(), BGSortItem::sortDescending);
+
+	uint16_t bd = (m_mem->paletteRAM[1] << 8) | m_mem->paletteRAM[0];
+	uint32_t backdropcol = col16to32(bd);
+	uint32_t baseAddr = (VCOUNT * 240);
+
+	for (int i = 0; i < 3; i++)	//todo: optimise. can use a single for loop and get each pixel one by one
+	{
+		if (bgItems[i].enabled)
+		{
+			if (i != 2)
+				drawBackground(bgItems[i].bgNumber);
+			else
+				drawRotationScalingBackground(bgItems[i].bgNumber);
+		}
+	}
+	for (int i = 0; i < 240; i++)
+	{
+		if (m_bgPriorities[i] == 255)
+		{
+			m_renderBuffer[baseAddr + i] = backdropcol;
+			if (m_spritePriorities[i] != 255)
+				m_renderBuffer[baseAddr + i] = m_spriteLineBuffer[i];
+		}
+		m_bgPriorities[i] = 255;
+	}
 }
 
 void PPU::renderMode2()
