@@ -151,17 +151,20 @@ void PPU::renderMode0()
 	
 	std::sort(bgItems.begin(), bgItems.end(), BGSortItem::sortDescending);
 
-	//render backdrop first (this might be kinda slow)
 	uint16_t bd = (m_mem->paletteRAM[1] << 8) | m_mem->paletteRAM[0];
 	uint32_t backdropcol = col16to32(bd);
 	uint32_t baseAddr = (VCOUNT * 240);
-	for (int i = 0; i < 240; i++)
-		m_renderBuffer[baseAddr + i] = backdropcol;
 
 	for (int i = 0; i < 4; i++)	//todo: optimise. can use a single for loop and get each pixel one by one
 	{
 		if (bgItems[i].enabled)
 			drawBackground(bgItems[i].bgNumber);
+	}
+	for (int i = 0; i < 240; i++)
+	{
+		if(m_bgPriorities[i]==255)
+			m_renderBuffer[baseAddr + i] = backdropcol;
+		m_bgPriorities[i] = 255;
 	}
 }
 
@@ -176,18 +179,25 @@ void PPU::renderMode2()
 	bool bg2Enabled = ((DISPCNT >> 10) & 0b1);
 	bool bg3Enabled = ((DISPCNT >> 11) & 0b1);
 	
-	//render backdrop first (this might be kinda slow)
 	uint16_t bd = (m_mem->paletteRAM[1] << 8) | m_mem->paletteRAM[0];
 	uint32_t backdropcol = col16to32(bd);
 	uint32_t baseAddr = (VCOUNT * 240);
-	for (int i = 0; i < 240; i++)
-		m_renderBuffer[baseAddr + i] = backdropcol;
-
 	//todo: priority
 	if(bg3Enabled)
 		drawRotationScalingBackground(3);
 	if(bg2Enabled)
 		drawRotationScalingBackground(2);
+	for (int i = 0; i < 240; i++)
+	{
+		if (m_bgPriorities[i] == 255)
+		{
+			m_renderBuffer[baseAddr + i] = backdropcol;
+			if (m_spritePriorities[i] != 255)
+				m_renderBuffer[baseAddr + i] = m_spriteLineBuffer[i];
+		}
+		m_bgPriorities[i] = 255;
+	}
+
 }
 
 void PPU::renderMode3()
@@ -289,6 +299,7 @@ void PPU::drawBackground(int bg)
 		if (m_spritePriorities[x] <= bgPriority)
 		{
 			m_renderBuffer[plotAddr] = m_spriteLineBuffer[x];
+			m_bgPriorities[x] = 254;	//lmfao
 			continue;
 		}
 		if (!getPointDrawable(x, VCOUNT, bg, false))
@@ -406,6 +417,7 @@ void PPU::drawRotationScalingBackground(int bg)
 		if(m_spritePriorities[x] != 255)	//bad... something is wrong with bg-sprite priority in mode 2. can't figure it out
 		{
 			m_renderBuffer[plotAddr] = m_spriteLineBuffer[x];
+			m_bgPriorities[x] = 254;	//dumb hack :P
 			continue;
 		}
 		if (!getPointDrawable(x, VCOUNT, bg, false))
@@ -430,7 +442,7 @@ void PPU::drawRotationScalingBackground(int bg)
 		uint8_t colLow = m_mem->paletteRAM[paletteMemoryAddr];
 		uint8_t colHigh = m_mem->paletteRAM[paletteMemoryAddr + 1];
 		uint16_t col = ((colHigh << 8) | colLow);
-		m_bgPriorities[x] = 255;// ctrlReg & 0b11;
+		m_bgPriorities[x] = bgPriority;
 		m_renderBuffer[plotAddr] = col16to32(col);
 
 	}
