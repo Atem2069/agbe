@@ -481,7 +481,9 @@ void PPU::drawRotationScalingBackground(int bg)
 		}
 		if (!getPointDrawable(x, VCOUNT, bg, false))
 			continue;
-		int xCoord = std::abs((x + xScroll) % xWrap);
+		int xCoord = ((x + xScroll) % xWrap);
+		if (xCoord < 0)
+			xCoord = (xWrap - 1) + xCoord;	//hmm...
 
 		uint32_t bgMapAddr = (bgMapBaseBlock * 2048) + bgMapYIdx;
 		bgMapAddr += (xCoord/8);
@@ -575,6 +577,8 @@ void PPU::drawSprites()
 		uint8_t priorityBits = ((attr2 >> 10) & 0b11);
 		uint8_t paletteNumber = ((attr2 >> 12) & 0xF);
 		bool hiColor = ((attr0 >> 13) & 0b1);
+		if (hiColor)
+			rowPitch *= 2;
 		//if (hiColor)
 		//	std::cout << "sprite can't render! unsupported mode!!" << '\n';
 
@@ -598,7 +602,7 @@ void PPU::drawSprites()
 		}
 		else
 		{
-			objBase += ((tileId&~0b1) * 32);
+			objBase += ((tileId) * 32);
 			objBase += (yOffsetIntoSprite * 8);
 		}
 
