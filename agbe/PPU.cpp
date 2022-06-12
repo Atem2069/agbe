@@ -832,6 +832,10 @@ uint8_t PPU::readIO(uint32_t address)
 		return WINOUT & 0xFF;
 	case 0x0400004B:
 		return ((WINOUT >> 8) & 0xFF);
+	case 0x04000052:
+		return BLDALPHA & 0xFF;
+	case 0x04000053:
+		return ((BLDALPHA >> 8) & 0xFF);
 	}
 
 	Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Unknown PPU IO register read {:#x}", address));
@@ -1010,6 +1014,12 @@ void PPU::writeIO(uint32_t address, uint8_t value)
 		break;
 	case 0x0400003F:
 		BG3Y &= 0x00FFFFFF; BG3Y |= (value << 24);
+		break;
+	case 0x04000052:
+		BLDALPHA &= 0xFF00; BLDALPHA |= value;
+		break;
+	case 0x04000053:
+		BLDALPHA &= 0xFF; BLDALPHA |= (value << 8);
 		break;
 	default:
 		break;

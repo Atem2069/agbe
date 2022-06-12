@@ -103,4 +103,6 @@ private:
 	uint32_t BG2Y = {};
 	uint32_t BG3X = {};
 	uint32_t BG3Y = {};
+	uint16_t BLDCNT = {};
+	uint16_t BLDALPHA = {};
 };
