@@ -481,7 +481,7 @@ void PPU::drawRotationScalingBackground(int bg)
 		}
 		if (!getPointDrawable(x, VCOUNT, bg, false))
 			continue;
-		int xCoord = (x + xScroll) % xWrap;
+		int xCoord = std::abs((x + xScroll) % xWrap);
 
 		uint32_t bgMapAddr = (bgMapBaseBlock * 2048) + bgMapYIdx;
 		bgMapAddr += (xCoord/8);

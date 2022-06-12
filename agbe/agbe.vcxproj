@@ -164,6 +164,7 @@
     <ClCompile Include="Config.cpp" />
     <ClCompile Include="Display.cpp" />
     <ClCompile Include="EEPROM.cpp" />
+    <ClCompile Include="Flash.cpp" />
     <ClCompile Include="GBA.cpp" />
     <ClCompile Include="GuiRenderer.cpp" />
     <ClCompile Include="Input.cpp" />
@@ -188,6 +189,7 @@
     <ClInclude Include="Config.h" />
     <ClInclude Include="Display.h" />
     <ClInclude Include="EEPROM.h" />
+    <ClInclude Include="Flash.h" />
     <ClInclude Include="GBA.h" />
     <ClInclude Include="GBAMem.h" />
     <ClInclude Include="GuiRenderer.h" />

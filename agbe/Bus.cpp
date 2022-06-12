@@ -9,6 +9,7 @@ Bus::Bus(std::vector<uint8_t> BIOS, std::vector<uint8_t> cartData, std::shared_p
 	m_mem = std::make_shared<GBAMem>();
 	m_timer = std::make_shared<Timer>(m_interruptManager);
 	m_eeprom = std::make_shared<EEPROM>();
+	m_flash = std::make_shared<Flash>();
 	m_ppu->registerMemory(m_mem);
 	if (BIOS.size() != 16384)
 	{
@@ -25,6 +26,11 @@ Bus::Bus(std::vector<uint8_t> BIOS, std::vector<uint8_t> cartData, std::shared_p
 		m_dmaChannels[i] = {};
 	memcpy(m_mem->BIOS, &BIOS[0], BIOS.size());
 	memcpy(m_mem->ROM, &cartData[0], cartData.size());	//ROM seems to be mirrored if size <= 16mb. should add later (classic nes might rely on it?)
+
+	const auto romAsString = std::string_view(reinterpret_cast<const char*>(m_mem->ROM), 32 * 1024 * 1024);
+	if (romAsString.find("FLASH") != std::string_view::npos)
+		isFlash = true;
+
 }
 
 Bus::~Bus()
@@ -74,6 +80,8 @@ uint8_t Bus::read8(uint32_t address, bool doTick)
 	case 8: case 9: case 0xA: case 0xB: case 0xC: case 0xD:	//need to do this better (different waitstates will have different timings)
 		return m_mem->ROM[address & 0x01FFFFFF];
 	case 0xE:
+		if (isFlash)
+			return m_flash->read(address);
 		return m_mem->SRAM[address & 0xFFFF];
 	}
 
@@ -118,6 +126,11 @@ void Bus::write8(uint32_t address, uint8_t value, bool doTick)
 		Logger::getInstance()->msg(LoggerSeverity::Error, "Tried writing to ROM - ignoring");
 		break;
 	case 0xE:
+		if (isFlash)
+		{
+			m_flash->write(address,value);
+			break;
+		}
 		m_mem->SRAM[address & 0xFFFF] = value;
 		break;
 	default:

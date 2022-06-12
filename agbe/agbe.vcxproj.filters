@@ -22,6 +22,12 @@
     <Filter Include="imgui">
       <UniqueIdentifier>{4123a153-d457-4652-ab36-274962c720f8}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Header Files\Backup memory">
+      <UniqueIdentifier>{68d96967-c04b-4af7-9b7d-81fc77b14469}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Backup memory">
+      <UniqueIdentifier>{c4d6a425-6062-43a6-a29d-0b310abed83b}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
@@ -96,8 +102,11 @@
     <ClCompile Include="Timer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="Flash.cpp">
+      <Filter>Source Files\Backup memory</Filter>
+    </ClCompile>
     <ClCompile Include="EEPROM.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Backup memory</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -170,8 +179,11 @@
     <ClInclude Include="Timer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="Flash.h">
+      <Filter>Header Files\Backup memory</Filter>
+    </ClInclude>
     <ClInclude Include="EEPROM.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Backup memory</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

@@ -7,6 +7,7 @@
 #include "InterruptManager.h"
 #include"Timer.h"
 #include"EEPROM.h"
+#include"Flash.h"
 
 #include<iostream>
 
@@ -58,10 +59,12 @@ private:
 	std::shared_ptr<Input> m_input;
 	std::shared_ptr<Timer> m_timer;
 	std::shared_ptr<EEPROM> m_eeprom;
+	std::shared_ptr<Flash> m_flash;
 
 	DMAChannel m_dmaChannels[4];
 	uint16_t WAITCNT = 0;
 	uint16_t hack_soundbias = 0;
+	bool isFlash = false;
 
 	bool biosLockout = false;
 	bool dmaInProgress = false;
