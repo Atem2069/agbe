@@ -52,8 +52,8 @@ uint8_t Bus::read8(uint32_t address, bool doTick)
 	case 0: case 1:
 		if ((address >= 0x4000) || biosLockout)
 		{
-			Logger::getInstance()->msg(LoggerSeverity::Error, "Open bus BIOS read");
-			return 0;
+			//Logger::getInstance()->msg(LoggerSeverity::Error, "Open bus BIOS read");
+			return 0xFF;
 		}
 		return m_mem->BIOS[address & 0x3FFF];
 	case 2:
