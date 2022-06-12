@@ -148,10 +148,10 @@ void PPU::renderMode0()
 	bool bg3Enabled = ((DISPCNT >> 11) & 0b1);
 
 	std::array<BGSortItem, 4> bgItems;
-	bgItems[3] = { BG0CNT & 0b11,0,bg0Enabled };
-	bgItems[2]={BG1CNT & 0b11, 1, bg1Enabled};
-	bgItems[1]={BG2CNT & 0b11, 2, bg2Enabled};
-	bgItems[0] = { BG3CNT & 0b11, 3, bg3Enabled };
+	bgItems[3] = { BG0CNT & 0b11,0,bg0Enabled,false };
+	bgItems[2]={BG1CNT & 0b11, 1, bg1Enabled,false};
+	bgItems[1]={BG2CNT & 0b11, 2, bg2Enabled,false};
+	bgItems[0] = { BG3CNT & 0b11, 3, bg3Enabled,false };
 	
 	std::sort(bgItems.begin(), bgItems.end(), BGSortItem::sortDescending);
 
@@ -187,9 +187,9 @@ void PPU::renderMode1()
 	bool bg2Enabled = ((DISPCNT >> 10) & 0b1);
 
 	std::array<BGSortItem, 3> bgItems;
-	bgItems[2] = { BG0CNT & 0b11,0,bg0Enabled };
-	bgItems[1] = { BG1CNT & 0b11, 1, bg1Enabled };
-	bgItems[0] = { BG2CNT & 0b11, 2, bg2Enabled };
+	bgItems[2] = { BG0CNT & 0b11,0,bg0Enabled,false };
+	bgItems[1] = { BG1CNT & 0b11, 1, bg1Enabled,false };
+	bgItems[0] = { BG2CNT & 0b11, 2, bg2Enabled,true };
 
 	std::sort(bgItems.begin(), bgItems.end(), BGSortItem::sortDescending);
 
@@ -201,7 +201,7 @@ void PPU::renderMode1()
 	{
 		if (bgItems[i].enabled)
 		{
-			if (i != 2)
+			if (!bgItems[i].affine)
 				drawBackground(bgItems[i].bgNumber);
 			else
 				drawRotationScalingBackground(bgItems[i].bgNumber);

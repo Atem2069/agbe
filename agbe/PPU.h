@@ -12,6 +12,7 @@ struct BGSortItem
 	int priorityBits;
 	int bgNumber;
 	bool enabled;
+	bool affine;
 	static bool sortDescending(const BGSortItem& lhs, const BGSortItem& rhs)	//sort by decreasing priority
 	{
 		return lhs.priorityBits > rhs.priorityBits;
