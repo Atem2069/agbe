@@ -130,6 +130,7 @@ void PPU::VBlank()
 		{
 			setVBlankFlag(false);
 			inVBlank = false;
+			shouldSyncVideo = true;
 			VCOUNT = 0;
 		}
 	}
@@ -435,9 +436,9 @@ void PPU::drawRotationScalingBackground(int bg)
 		xScroll = (BG2X >> 8) & 0x7FFFF;	//dumb hack (shift out fractional portion). todo - fix
 		yScroll = (BG2Y >> 8) & 0x7FFFF;
 		if ((BG2X >> 27) & 0b1)
-			xScroll = -xScroll;
+			xScroll |= 0xFFFF1000;
 		if ((BG2Y >> 27) & 0b1)
-			yScroll = -yScroll;
+			yScroll |= 0xFFFF1000;
 		break;
 	case 3:
 		ctrlReg = BG3CNT;
@@ -488,7 +489,7 @@ void PPU::drawRotationScalingBackground(int bg)
 		uint32_t tileIdx = m_mem->VRAM[bgMapAddr];
 
 		uint32_t tileMapBaseAddress = (tileDataBaseBlock * 16384) + (tileIdx * 64);
-		tileMapBaseAddress += ((VCOUNT % 8) * 8);
+		tileMapBaseAddress += ((fetcherY % 8) * 8);
 
 		int xmod8 = (xCoord % 8);
 		tileMapBaseAddress += xmod8;
@@ -1025,5 +1026,12 @@ bool PPU::getVBlank(bool acknowledge)
 	bool res = signalVBlank;
 	if (acknowledge)
 		signalVBlank = false;
+	return res;
+}
+
+bool PPU::getShouldSync()
+{
+	bool res = shouldSyncVideo;
+	shouldSyncVideo = false;
 	return res;
 }

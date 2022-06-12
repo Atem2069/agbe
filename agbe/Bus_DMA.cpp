@@ -237,7 +237,8 @@ void Bus::doDMATransfer(int channel)
 			numWords = 0x10000;	//channel 3 has higher word count
 	}
 
-
+	if (channel == 3 && (numWords == 9))
+		std::cout << "weird eeprom?" << '\n';
 	//std::cout << "DMA src = " << std::hex << src << " dst= " << std::hex << dest << " length= " << std::hex << numWords << '\n';
 
 	uint8_t srcAddrCtrl = ((curChannel.control >> 7) & 0b11);

@@ -35,6 +35,7 @@ public:
 
 	bool getHBlank(bool acknowledge=false);
 	bool getVBlank(bool acknowledge=false);
+	bool getShouldSync();
 
 private:
 	bool registered = false;
@@ -53,6 +54,7 @@ private:
 
 	bool signalHBlank = false;
 	bool signalVBlank = false;
+	bool shouldSyncVideo = false;
 
 	void HDraw();
 	void HBlank();

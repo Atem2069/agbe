@@ -10,6 +10,7 @@
 
 #include<Windows.h>
 #include<mutex>
+#include<chrono>
 
 class GBA
 {

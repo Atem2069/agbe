@@ -12,12 +12,28 @@ GBA::~GBA()
 
 void GBA::run()
 {
+	auto lastTime = std::chrono::high_resolution_clock::now();
 	while (!m_shouldStop)
 	{
 		if (m_initialised)
 		{
 			m_cpu->step();
 			m_input->update(*m_inp);
+
+			if (m_ppu->getShouldSync())
+			{
+				auto curTime = std::chrono::high_resolution_clock::now();
+				double timeDiff = std::chrono::duration<double, std::milli>(curTime - lastTime).count();
+				double target = (280896.0) / (16777216.0);
+				double sleepTime = timeDiff - target;
+				while (sleepTime > 0)
+				{
+					timeDiff = std::chrono::duration<double, std::milli>(curTime - lastTime).count();
+					sleepTime = timeDiff - target;
+				}
+				lastTime = curTime;
+			}
+
 		}
 		if (Config::GBA.shouldReset)
 		{
