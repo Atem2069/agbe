@@ -7,6 +7,9 @@ ARM7TDMI::ARM7TDMI(std::shared_ptr<Bus> bus, std::shared_ptr<InterruptManager> i
 	CPSR = 0x1F;	//system starts in system mode
 	for (int i = 0; i < 16; i++)
 		R[i] = 0;
+
+	fillThumbInstrTable();
+
 	//R[13] = 0x03007F00;
 	//R13_irq = 0x03007FA0;
 	//R13_svc = 0x03007FE0;
@@ -26,8 +29,6 @@ void ARM7TDMI::step()
 	if (dispatchInterrupt())	//if interrupt was dispatched then fetch new opcode (dispatchInterrupt already flushes pipeline !)
 		return;
 	execute();	//no decode stage because it's inherent to 'execute' - we accommodate for the decode stage's effect anyway
-	if ((R[15] & 0b1))
-		std::cout << "crap! pc misalign" << '\n';
 	if (m_shouldFlush)
 		flushPipeline();
 	else												//essentially only advance pipeline stage if the last operation didn't cause a pipeline flush
@@ -118,51 +119,62 @@ void ARM7TDMI::execute()
 
 void ARM7TDMI::executeThumb()
 {
-	//if(R[15] > 0x080173A0)
-	//	Logger::getInstance()->msg(LoggerSeverity::Info, std::format("Execute opcode (Thumb) {:#x}. PC={:#x}", m_currentOpcode, R[15] - 4));
+	uint16_t lookup = m_currentOpcode >> 6;
+	instructionFn instr = thumbTable[lookup];
+	(this->*instr)();
+}
 
-	if ((m_currentOpcode & 0b1111'1000'0000'0000) == 0b0001'1000'0000'0000)
-		Thumb_AddSubtract();
-	else if ((m_currentOpcode & 0b1110'0000'0000'0000) == 0b0000'0000'0000'0000)
-		Thumb_MoveShiftedRegister();
-	else if ((m_currentOpcode & 0b1110'0000'0000'0000) == 0b0010'0000'0000'0000)
-		Thumb_MoveCompareAddSubtractImm();
-	else if ((m_currentOpcode & 0b1111'1100'0000'0000) == 0b0100'0000'0000'0000)
-		Thumb_ALUOperations();
-	else if ((m_currentOpcode & 0b1111'1100'0000'0000) == 0b0100'0100'0000'0000)
-		Thumb_HiRegisterOperations();
-	else if ((m_currentOpcode & 0b1111'1000'0000'0000) == 0b0100'1000'0000'0000)
-		Thumb_PCRelativeLoad();
-	else if ((m_currentOpcode & 0b1111'0010'0000'0000) == 0b0101'0000'0000'0000)
-		Thumb_LoadStoreRegisterOffset();
-	else if ((m_currentOpcode & 0b1111'0010'0000'0000) == 0b0101'0010'0000'0000)
-		Thumb_LoadStoreSignExtended();
-	else if ((m_currentOpcode & 0b1110'0000'0000'0000) == 0b0110'0000'0000'0000)
-		Thumb_LoadStoreImmediateOffset();
-	else if ((m_currentOpcode & 0b1111'0000'0000'0000) == 0b1000'0000'0000'0000)
-		Thumb_LoadStoreHalfword();
-	else if ((m_currentOpcode & 0b1111'0000'0000'0000) == 0b1001'0000'0000'0000)
-		Thumb_SPRelativeLoadStore();
-	else if ((m_currentOpcode & 0b1111'0000'0000'0000) == 0b1010'0000'0000'0000)
-		Thumb_LoadAddress();
-	else if ((m_currentOpcode & 0b1111'1111'0000'0000) == 0b1011'0000'0000'0000)
-		Thumb_AddOffsetToStackPointer();
-	else if ((m_currentOpcode & 0b1111'0110'0000'0000) == 0b1011'0100'0000'0000)
-		Thumb_PushPopRegisters();
-	else if ((m_currentOpcode & 0b1111'0000'0000'0000) == 0b1100'0000'0000'0000)
-		Thumb_MultipleLoadStore();
-	else if ((m_currentOpcode & 0b1111'1111'0000'0000) == 0b1101'1111'0000'0000)
-		Thumb_SoftwareInterrupt();
-	else if ((m_currentOpcode & 0b1111'0000'0000'0000) == 0b1101'0000'0000'0000)
-		Thumb_ConditionalBranch();
-	else if ((m_currentOpcode & 0b1111'1000'0000'0000) == 0b1110'0000'0000'0000)
-		Thumb_UnconditionalBranch();
-	else if ((m_currentOpcode & 0b1111'0000'0000'0000) == 0b1111'0000'0000'0000)
-		Thumb_LongBranchWithLink();
-	else
+void ARM7TDMI::fillThumbInstrTable()
+{
+	//if(R[15] > 0x080173A0)
+//	Logger::getInstance()->msg(LoggerSeverity::Info, std::format("Execute opcode (Thumb) {:#x}. PC={:#x}", m_currentOpcode, R[15] - 4));
+	for (uint32_t i = 0; i < 1024; i++)
 	{
-		Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Unimplemented opcode (Thumb) {:#x}. PC+4={:#x}", m_currentOpcode, R[15]));
-		throw std::runtime_error("Invalid opcode");
+		m_currentOpcode = (i << 6);
+		if ((m_currentOpcode & 0b1111'1000'0000'0000) == 0b0001'1000'0000'0000)
+			thumbTable[i] = (instructionFn)&ARM7TDMI::Thumb_AddSubtract;
+		else if ((m_currentOpcode & 0b1110'0000'0000'0000) == 0b0000'0000'0000'0000)
+			thumbTable[i]= (instructionFn)&ARM7TDMI::Thumb_MoveShiftedRegister;
+		else if ((m_currentOpcode & 0b1110'0000'0000'0000) == 0b0010'0000'0000'0000)
+			thumbTable[i] = (instructionFn)&ARM7TDMI::Thumb_MoveCompareAddSubtractImm;
+		else if ((m_currentOpcode & 0b1111'1100'0000'0000) == 0b0100'0000'0000'0000)
+			thumbTable[i] = (instructionFn)&ARM7TDMI::Thumb_ALUOperations;
+		else if ((m_currentOpcode & 0b1111'1100'0000'0000) == 0b0100'0100'0000'0000)
+			thumbTable[i] = (instructionFn)&ARM7TDMI::Thumb_HiRegisterOperations;
+		else if ((m_currentOpcode & 0b1111'1000'0000'0000) == 0b0100'1000'0000'0000)
+			thumbTable[i] = (instructionFn)&ARM7TDMI::Thumb_PCRelativeLoad;
+		else if ((m_currentOpcode & 0b1111'0010'0000'0000) == 0b0101'0000'0000'0000)
+			thumbTable[i] = (instructionFn)&ARM7TDMI::Thumb_LoadStoreRegisterOffset;
+		else if ((m_currentOpcode & 0b1111'0010'0000'0000) == 0b0101'0010'0000'0000)
+			thumbTable[i] = (instructionFn)&ARM7TDMI::Thumb_LoadStoreSignExtended;
+		else if ((m_currentOpcode & 0b1110'0000'0000'0000) == 0b0110'0000'0000'0000)
+			thumbTable[i] = (instructionFn)&ARM7TDMI::Thumb_LoadStoreImmediateOffset;
+		else if ((m_currentOpcode & 0b1111'0000'0000'0000) == 0b1000'0000'0000'0000)
+			thumbTable[i] = (instructionFn)&ARM7TDMI::Thumb_LoadStoreHalfword;
+		else if ((m_currentOpcode & 0b1111'0000'0000'0000) == 0b1001'0000'0000'0000)
+			thumbTable[i] = (instructionFn)&ARM7TDMI::Thumb_SPRelativeLoadStore;
+		else if ((m_currentOpcode & 0b1111'0000'0000'0000) == 0b1010'0000'0000'0000)
+			thumbTable[i] = (instructionFn)&ARM7TDMI::Thumb_LoadAddress;
+		else if ((m_currentOpcode & 0b1111'1111'0000'0000) == 0b1011'0000'0000'0000)
+			thumbTable[i] = (instructionFn)&ARM7TDMI::Thumb_AddOffsetToStackPointer;
+		else if ((m_currentOpcode & 0b1111'0110'0000'0000) == 0b1011'0100'0000'0000)
+			thumbTable[i] = (instructionFn)&ARM7TDMI::Thumb_PushPopRegisters;
+		else if ((m_currentOpcode & 0b1111'0000'0000'0000) == 0b1100'0000'0000'0000)
+			thumbTable[i] = (instructionFn)&ARM7TDMI::Thumb_MultipleLoadStore;
+		else if ((m_currentOpcode & 0b1111'1111'0000'0000) == 0b1101'1111'0000'0000)
+			thumbTable[i] = (instructionFn)&ARM7TDMI::Thumb_SoftwareInterrupt;
+		else if ((m_currentOpcode & 0b1111'0000'0000'0000) == 0b1101'0000'0000'0000)
+			thumbTable[i] = (instructionFn)&ARM7TDMI::Thumb_ConditionalBranch;
+		else if ((m_currentOpcode & 0b1111'1000'0000'0000) == 0b1110'0000'0000'0000)
+			thumbTable[i] = (instructionFn)&ARM7TDMI::Thumb_UnconditionalBranch;
+		else if ((m_currentOpcode & 0b1111'0000'0000'0000) == 0b1111'0000'0000'0000)
+			thumbTable[i] = (instructionFn)&ARM7TDMI::Thumb_LongBranchWithLink;
+		else
+		{
+			thumbTable[i] = (instructionFn)&ARM7TDMI::ARM_Undefined;	//meh. good enough?
+			//Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Unimplemented opcode (Thumb) {:#x}. PC+4={:#x}", m_currentOpcode, R[15]));
+			//throw std::runtime_error("Invalid opcode");
+		}
 	}
 }
 

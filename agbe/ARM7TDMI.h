@@ -19,6 +19,7 @@ struct Pipeline
 	uint32_t opcode;
 };
 
+
 class ARM7TDMI
 {
 public:
@@ -49,6 +50,8 @@ private:
 	void flushPipeline();
 
 	void executeThumb();
+
+	void fillThumbInstrTable();
 
 	bool dispatchInterrupt();
 
@@ -113,6 +116,9 @@ private:
 	void Thumb_SoftwareInterrupt();
 	void Thumb_UnconditionalBranch();
 	void Thumb_LongBranchWithLink();
+
+	typedef void(ARM7TDMI::*instructionFn)();
+	instructionFn thumbTable[8192];
 
 	//Barrel shifter ops
 	uint32_t LSL(uint32_t val, int shiftAmount, int& carry);
