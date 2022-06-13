@@ -19,6 +19,13 @@ struct BGSortItem
 	}
 };
 
+enum class PPUState
+{
+	HDraw,
+	HBlank,
+	VBlank
+};
+
 class PPU
 {
 public:
@@ -49,6 +56,8 @@ private:
 	uint8_t m_spritePriorities[240] = {};
 	uint32_t m_spriteLineBuffer[240] = {};
 	uint8_t m_objWindowMask[240] = {};
+
+	PPUState m_state = {};
 
 	uint32_t m_lineCycles = 0;
 	bool inVBlank = false;

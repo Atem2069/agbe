@@ -10,6 +10,8 @@ PPU::PPU(std::shared_ptr<InterruptManager> interruptManager)
 		m_renderBuffer[pageIdx][i] = i;
 	for (int i = 0; i < 240; i++)
 		m_bgPriorities[i] = 255;
+
+	m_state = PPUState::HDraw;
 }
 
 PPU::~PPU()
@@ -32,21 +34,23 @@ void PPU::step()
 	}
 	m_lineCycles += 1;
 
-	if (inVBlank)
+	switch (m_state)
 	{
-		VBlank();
-		return;
-	}
-
-	if (m_lineCycles > 960)	//961-1232=hblank
+	case PPUState::HDraw:
+		HDraw();
+		break;
+	case PPUState::HBlank:
 		HBlank();
-	else
-		HDraw();            //1-960=hdraw
+		break;
+	case PPUState::VBlank:
+		VBlank();
+		break;
+	}
 }
 
 void PPU::HDraw()
 {
-	if (m_lineCycles == 959)
+	if (m_lineCycles == 960)
 	{
 		uint8_t mode = DISPCNT & 0b111;
 		switch (mode)
@@ -69,17 +73,16 @@ void PPU::HDraw()
 		case 5:
 			break;
 		}
+
+		m_state = PPUState::HBlank;
+		signalHBlank = true;
+		if (((DISPSTAT >> 4) & 0b1))
+			m_interruptManager->requestInterrupt(InterruptType::HBlank);
 	}
 }
 
 void PPU::HBlank()
 {
-	if (m_lineCycles == 961)
-	{
-		signalHBlank = true;
-		if (((DISPSTAT >> 4) & 0b1))
-			m_interruptManager->requestInterrupt(InterruptType::HBlank);
-	}
 	//todo: check timing of when exactly hblank flag/interrupt set
 	setHBlankFlag(true);
 
@@ -111,7 +114,11 @@ void PPU::HBlank()
 			//memcpy(m_displayBuffer, m_renderBuffer, 240 * 160 * sizeof(uint32_t));
 			pageIdx = !pageIdx;
 
+			m_state = PPUState::VBlank;
+
 		}
+		else
+			m_state = PPUState::HDraw;
 	}
 }
 
@@ -132,6 +139,7 @@ void PPU::VBlank()
 			inVBlank = false;
 			shouldSyncVideo = true;
 			VCOUNT = 0;
+			m_state = PPUState::HDraw;
 		}
 	}
 }
