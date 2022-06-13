@@ -108,6 +108,9 @@
     <ClCompile Include="EEPROM.cpp">
       <Filter>Source Files\Backup memory</Filter>
     </ClCompile>
+    <ClCompile Include="Scheduler.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Logger.h">
@@ -184,6 +187,9 @@
     </ClInclude>
     <ClInclude Include="EEPROM.h">
       <Filter>Header Files\Backup memory</Filter>
+    </ClInclude>
+    <ClInclude Include="Scheduler.h">
+      <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
