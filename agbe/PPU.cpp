@@ -98,6 +98,8 @@ void PPU::HBlank()
 		if ((DISPSTAT >> 5) & 0b1)
 			m_interruptManager->requestInterrupt(InterruptType::VCount);
 	}
+	else
+		setVCounterFlag(false);
 
 	if (VCOUNT == 160)
 	{
@@ -158,6 +160,17 @@ void PPU::VBlank()
 	}
 	else
 	{
+
+		uint16_t vcountCmp = ((DISPSTAT >> 8) & 0xFF);
+		if ((VCOUNT & 0xFF) == vcountCmp)
+		{
+			setVCounterFlag(true);
+			if ((DISPSTAT >> 5) & 0b1)
+				m_interruptManager->requestInterrupt(InterruptType::VCount);
+		}
+		else
+			setVCounterFlag(false);
+
 		expectedNextTimeStamp = (schedTimestamp + 960) - timeDiff;
 		m_scheduler->addEvent(Event::PPU, &PPU::onSchedulerEvent, (void*)this, expectedNextTimeStamp);
 	}
