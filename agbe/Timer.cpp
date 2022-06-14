@@ -81,6 +81,7 @@ void Timer::writeIO(uint32_t address, uint8_t value)
 
 void Timer::calculateNextOverflow(int timerIdx)
 {
+	m_timers[timerIdx].initialClock = m_timers[timerIdx].clock;
 	uint64_t tickThreshold = 1;
 	uint8_t timerPrescaler = ((m_timers[timerIdx].CNT_H & 0b11));
 	switch (timerPrescaler)
@@ -126,7 +127,7 @@ void Timer::setCurrentClock(int idx)
 	uint64_t differenceInClocks = curTime - timerStart;
 	differenceInClocks /= tickThreshold;
 
-	m_timers[idx].clock += differenceInClocks;
+	m_timers[idx].clock = m_timers[idx].initialClock + differenceInClocks;
 }
 
 void Timer::onSchedulerEvent(void* context)

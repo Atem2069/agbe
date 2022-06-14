@@ -8,6 +8,7 @@ struct TimerRegister
 {
 	uint16_t CNT_L;
 	uint16_t CNT_H;
+	uint16_t initialClock;
 	uint16_t clock;
 	uint64_t timeActivated;
 	uint64_t overflowTime;
