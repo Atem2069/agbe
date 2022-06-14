@@ -1,7 +1,8 @@
 #include"Timer.h"
 
-Timer::Timer(std::shared_ptr<InterruptManager> interruptManager)
+Timer::Timer(std::shared_ptr<InterruptManager> interruptManager, std::shared_ptr<Scheduler> scheduler)
 {
+	m_scheduler = scheduler;
 	m_interruptManager = interruptManager;
 	for (int i = 0; i < 4; i++)	//clear timer io registers
 		m_timers[i] = {};
@@ -12,47 +13,26 @@ Timer::~Timer()
 
 }
 
-void Timer::step()
+void Timer::event()
 {
+	uint64_t curTimestamp = m_scheduler->getCurrentTimestamp();
 	for (int i = 0; i < 4; i++)
 	{
 		bool timerEnabled = ((m_timers[i].CNT_H >> 7) & 0b1);
 		if (!timerEnabled)
 			continue;
-		if ((m_timers[i].CNT_H >> 2) & 0b1)
-			std::cout << "cascade not supported!!" << '\n';
 
-		m_timers[i].ticksSinceLastClock++;
-
-		int tickThreshold = 1;
-		uint8_t timerPrescaler = ((m_timers[i].CNT_H & 0b11));
-		switch (timerPrescaler)
+		if (m_timers[i].overflowTime <= curTimestamp)
 		{
-		case 1:
-			tickThreshold = 64; break;
-		case 2:
-			tickThreshold = 256; break;
-		case 3:
-			tickThreshold = 1024; break;
-		}
-
-		if (m_timers[i].ticksSinceLastClock >= tickThreshold)
-		{
-			m_timers[i].ticksSinceLastClock = 0;	//hmm, if prescaler changes while running what happens? might mess this up
-			if (m_timers[i].clock == 65535)	//overflow
+			bool doIrq = ((m_timers[i].CNT_H >> 6) & 0b1);
+			if (doIrq)
 			{
-				bool doIrq = ((m_timers[i].CNT_H >> 6) & 0b1);
-				if (doIrq)
-				{
-					InterruptType intLut[4] = { InterruptType::Timer0,InterruptType::Timer1,InterruptType::Timer2,InterruptType::Timer3 };
-					m_interruptManager->requestInterrupt(intLut[i]);
-				}
-				m_timers[i].clock = m_timers[i].CNT_L;	//load in reload value
+				InterruptType intLut[4] = { InterruptType::Timer0,InterruptType::Timer1,InterruptType::Timer2,InterruptType::Timer3 };
+				m_interruptManager->requestInterrupt(intLut[i]);
 			}
-			else
-				m_timers[i].clock++;
+			m_timers[i].clock = m_timers[i].CNT_L;
+			calculateNextOverflow(i);
 		}
-
 	}
 }
 
@@ -63,8 +43,10 @@ uint8_t Timer::readIO(uint32_t address)
 	switch (addrOffset)
 	{
 	case 0:
+		setCurrentClock(timerIdx);
 		return m_timers[timerIdx].clock & 0xFF;
 	case 1:
+		setCurrentClock(timerIdx);
 		return (m_timers[timerIdx].clock >> 8) & 0xFF;
 	case 2:
 		return m_timers[timerIdx].CNT_H & 0xFF;
@@ -92,6 +74,63 @@ void Timer::writeIO(uint32_t address, uint8_t value)
 		if (!timerWasEnabled && newTimerEnabled)				//reload timer value if timer is going to be enabled
 			m_timers[timerIdx].clock = m_timers[timerIdx].CNT_L;
 		m_timers[timerIdx].CNT_H &= 0xFF00; m_timers[timerIdx].CNT_H |= value;
+		calculateNextOverflow(timerIdx);
 		break;
 	}
+}
+
+void Timer::calculateNextOverflow(int timerIdx)
+{
+	uint64_t tickThreshold = 1;
+	uint8_t timerPrescaler = ((m_timers[timerIdx].CNT_H & 0b11));
+	switch (timerPrescaler)
+	{
+	case 1:
+		tickThreshold = 64; break;
+	case 2:
+		tickThreshold = 256; break;
+	case 3:
+		tickThreshold = 1024; break;
+	}
+	uint64_t ticksTillOverflow = (65536 - m_timers[timerIdx].clock) * tickThreshold;
+
+	Event timerEventType = Event::TIMER0;
+	switch (timerIdx)
+	{
+	case 1: timerEventType = Event::TIMER1; break;
+	case 2: timerEventType = Event::TIMER2; break;
+	case 3:timerEventType = Event::TIMER3; break;
+	}
+
+	m_scheduler->addEvent(timerEventType, &Timer::onSchedulerEvent, (void*)this, m_scheduler->getCurrentTimestamp() + ticksTillOverflow);
+	m_timers[timerIdx].timeActivated = m_scheduler->getCurrentTimestamp();
+	m_timers[timerIdx].overflowTime = m_timers[timerIdx].timeActivated + ticksTillOverflow;
+}
+
+void Timer::setCurrentClock(int idx)
+{
+	uint64_t tickThreshold = 1;
+	uint8_t timerPrescaler = ((m_timers[idx].CNT_H & 0b11));
+	switch (timerPrescaler)
+	{
+	case 1:
+		tickThreshold = 64; break;
+	case 2:
+		tickThreshold = 256; break;
+	case 3:
+		tickThreshold = 1024; break;
+	}
+
+	uint64_t timerStart = m_timers[idx].timeActivated;
+	uint64_t curTime = m_scheduler->getCurrentTimestamp();
+	uint64_t differenceInClocks = curTime - timerStart;
+	differenceInClocks /= tickThreshold;
+
+	m_timers[idx].clock += differenceInClocks;
+}
+
+void Timer::onSchedulerEvent(void* context)
+{
+	Timer* thisPtr = (Timer*)context;
+	thisPtr->event();
 }

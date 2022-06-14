@@ -8,7 +8,7 @@ Bus::Bus(std::vector<uint8_t> BIOS, std::vector<uint8_t> cartData, std::shared_p
 	m_input = input;
 
 	m_mem = std::make_shared<GBAMem>();
-	m_timer = std::make_shared<Timer>(m_interruptManager);
+	m_timer = std::make_shared<Timer>(m_interruptManager,m_scheduler);
 	m_eeprom = std::make_shared<EEPROM>();
 	m_flash = std::make_shared<Flash>();
 	m_ppu->registerMemory(m_mem);
@@ -44,8 +44,6 @@ void Bus::tick()
 {
 	//todo: tick other components
 	//m_ppu->step();
-	m_scheduler->tick(1);	//todo: move
-	m_timer->step();
 	if(!dmaInProgress)
 		checkDMAChannels();	//check if we need to dma (todo: check hblank,vblank)
 }
@@ -54,7 +52,8 @@ uint8_t Bus::read8(uint32_t address, bool doTick)
 {
 	if (doTick)
 		tick();
-	uint8_t page = (address >> 24) & 0xFF;
+	uint8_t page = (address >> 24) & 0xF;
+	m_scheduler->tick(timingTable816[page]);
 	switch (page)
 	{
 	case 0: case 1:
@@ -93,9 +92,11 @@ uint8_t Bus::read8(uint32_t address, bool doTick)
 
 void Bus::write8(uint32_t address, uint8_t value, bool doTick)
 {
+	m_scheduler->tick(1);	//todo: move
 	if (doTick)
 		tick();
-	uint8_t page = (address >> 24) & 0xFF;
+	uint8_t page = (address >> 24) & 0xF;
+	m_scheduler->tick(timingTable816[page]);
 	switch (page)
 	{
 	case 0: case 1:
@@ -148,8 +149,8 @@ uint16_t Bus::read16(uint32_t address, bool doTick)
 		tick();
 	}
 	address &= 0xFFFFFFFE;
-	uint8_t page = (address >> 24) & 0xFF;
-
+	uint8_t page = (address >> 24) & 0xF;
+	m_scheduler->tick(timingTable816[page]);
 	switch (page)
 	{
 	case 0: case 1:
@@ -194,7 +195,8 @@ void Bus::write16(uint32_t address, uint16_t value, bool doTick)
 		tick();
 	}
 	address &= 0xFFFFFFFE;
-	uint8_t page = (address >> 24) & 0xFF;
+	uint8_t page = (address >> 24) & 0xF;
+	m_scheduler->tick(timingTable816[page]);
 	switch (page)
 	{
 	case 0: case 1:
@@ -240,8 +242,8 @@ uint32_t Bus::read32(uint32_t address, bool doTick)
 	if (doTick)
 		tick();
 	address &= 0xFFFFFFFC;
-	uint8_t page = (address >> 24) & 0xFF;
-
+	uint8_t page = (address >> 24) & 0xF;
+	m_scheduler->tick(timingTable32[page]);
 	switch (page)
 	{
 	case 0: case 1:
@@ -282,7 +284,8 @@ void Bus::write32(uint32_t address, uint32_t value, bool doTick)
 	if (doTick)
 		tick();
 	address &= 0xFFFFFFFC;
-	uint8_t page = (address >> 24) & 0xFF;
+	uint8_t page = (address >> 24) & 0xF;
+	m_scheduler->tick(timingTable32[page]);
 	switch (page)
 	{
 	case 0: case 1:

@@ -84,4 +84,14 @@ private:
 	void DMARegWrite(uint32_t address, uint8_t value);
 	void checkDMAChannels();
 	void doDMATransfer(int channel);
+
+	//copied from powerlated :P. doesn't take into account varying WAITCNT settings
+	int timingTable816[16] =
+	{
+		1,1,3,1,1,1,1,1,2,2,2,2,2,2,2,2
+	};
+	int timingTable32[16] =
+	{
+		1,1,6,1,1,2,2,1,4,4,4,4,4,4,8,8
+	};
 };

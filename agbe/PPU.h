@@ -6,6 +6,7 @@
 #include"Scheduler.h"
 
 #include<array>
+#include<Windows.h>
 
 //this isn't a great approach to bg priority !!
 struct BGSortItem
@@ -35,8 +36,6 @@ public:
 	~PPU();
 
 	void registerMemory(std::shared_ptr<GBAMem> mem);
-
-	void step();
 
 	uint32_t* getDisplayBuffer();
 

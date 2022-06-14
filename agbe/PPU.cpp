@@ -27,29 +27,6 @@ void PPU::registerMemory(std::shared_ptr<GBAMem> mem)
 	m_mem = mem;
 }
 
-void PPU::step()
-{
-	if (!registered)
-	{
-		Logger::getInstance()->msg(LoggerSeverity::Error, "No memory source registered! Cannot render");
-		return;
-	}
-	m_lineCycles += 1;
-
-	switch (m_state)
-	{
-	case PPUState::HDraw:
-		HDraw();
-		break;
-	case PPUState::HBlank:
-		HBlank();
-		break;
-	case PPUState::VBlank:
-		VBlank();
-		break;
-	}
-}
-
 void PPU::eventHandler()
 {
 	uint64_t schedTimestamp = m_scheduler->getCurrentTimestamp();
@@ -133,7 +110,6 @@ void PPU::HBlank()
 
 		//copy display buf over
 		//memcpy(m_displayBuffer, m_renderBuffer, 240 * 160 * sizeof(uint32_t));
-		pageIdx = !pageIdx;
 
 		m_state = PPUState::VBlank;
 		expectedNextTimeStamp = (schedTimestamp + 1232) - timeDiff;
@@ -156,12 +132,14 @@ void PPU::VBlank()
 	//	setHBlankFlag(true);
 	setHBlankFlag(false);
 	m_lineCycles = 0;
+	m_state=PPUState::VBlank;
 
 	VCOUNT++;
 	if (VCOUNT == 228)		//go back to drawing
 	{
 		setVBlankFlag(false);
 		inVBlank = false;
+		pageIdx = !pageIdx;
 		shouldSyncVideo = true;
 		VCOUNT = 0;
 		m_state = PPUState::HDraw;
