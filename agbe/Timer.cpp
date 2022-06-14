@@ -69,18 +69,37 @@ void Timer::writeIO(uint32_t address, uint8_t value)
 		m_timers[timerIdx].CNT_L &= 0xFF; m_timers[timerIdx].CNT_L |= ((value << 8));
 		break;
 	case 2:
+		uint16_t oldControlBits = m_timers[timerIdx].CNT_H;
 		bool timerWasEnabled = ((m_timers[timerIdx].CNT_H) >> 7) & 0b1;
 		bool newTimerEnabled = ((value >> 7) & 0b1);
-		if (!timerWasEnabled && newTimerEnabled)				//reload timer value if timer is going to be enabled
-			m_timers[timerIdx].clock = m_timers[timerIdx].CNT_L;
+
+		uint8_t newPrescalerBits = value & 0b11;
+		uint8_t timerPrescaleBits = oldControlBits & 0b11;
+		if (timerWasEnabled && !newTimerEnabled)
+			setCurrentClock(timerIdx);
+		if (timerWasEnabled && newTimerEnabled && (newPrescalerBits != timerPrescaleBits))
+		{
+			setCurrentClock(timerIdx);
+			m_timers[timerIdx].timeActivated = m_scheduler->getCurrentTimestamp();
+			m_timers[timerIdx].CNT_H &= 0xFF00; m_timers[timerIdx].CNT_H |= value;
+			calculateNextOverflow(timerIdx);
+		}
+
 		m_timers[timerIdx].CNT_H &= 0xFF00; m_timers[timerIdx].CNT_H |= value;
-		calculateNextOverflow(timerIdx);
+		if (!timerWasEnabled && newTimerEnabled)				//reload timer value if timer is going to be enabled
+		{
+			m_timers[timerIdx].clock = m_timers[timerIdx].CNT_L;
+			calculateNextOverflow(timerIdx);
+		}
 		break;
 	}
 }
 
 void Timer::calculateNextOverflow(int timerIdx)
 {
+	bool timerEnabled = (m_timers[timerIdx].CNT_H >> 7) & 0b1;
+	if (!timerEnabled)
+		return;
 	m_timers[timerIdx].initialClock = m_timers[timerIdx].clock;
 	uint64_t tickThreshold = 1;
 	uint8_t timerPrescaler = ((m_timers[timerIdx].CNT_H & 0b11));
@@ -103,8 +122,8 @@ void Timer::calculateNextOverflow(int timerIdx)
 	case 3:timerEventType = Event::TIMER3; break;
 	}
 
-	m_scheduler->addEvent(timerEventType, &Timer::onSchedulerEvent, (void*)this, m_scheduler->getCurrentTimestamp() + ticksTillOverflow);
-	m_timers[timerIdx].timeActivated = m_scheduler->getCurrentTimestamp();
+	m_scheduler->addEvent(timerEventType, &Timer::onSchedulerEvent, (void*)this, m_scheduler->getCurrentTimestamp() + ticksTillOverflow+1);
+	m_timers[timerIdx].timeActivated = m_scheduler->getCurrentTimestamp()+1;
 	m_timers[timerIdx].overflowTime = m_timers[timerIdx].timeActivated + ticksTillOverflow;
 }
 

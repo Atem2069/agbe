@@ -31,6 +31,12 @@ void GuiRenderer::render()
 				ImGui::MenuItem("Exit", nullptr, nullptr);
 				ImGui::EndMenu();
 			}
+			if (ImGui::BeginMenu("Debug"))
+			{
+				m_menuItemSelected = true;
+				ImGui::MenuItem("Disable vid sync", nullptr, &Config::GBA.disableVideoSync);
+				ImGui::EndMenu();
+			}
 		}
 		ImGui::EndMainMenuBar();
 	}

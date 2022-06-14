@@ -20,7 +20,7 @@ void GBA::run()
 			m_cpu->step();
 			m_input->update(*m_inp);
 
-			if (m_ppu->getShouldSync())
+			if (!Config::GBA.disableVideoSync && m_ppu->getShouldSync())
 			{
 				auto curTime = std::chrono::high_resolution_clock::now();
 				double timeDiff = std::chrono::duration<double, std::milli>(curTime - lastTime).count();
