@@ -3,6 +3,7 @@
 #include"Logger.h"
 #include"GBAMem.h"
 #include"InterruptManager.h"
+#include"Scheduler.h"
 
 #include<array>
 
@@ -23,13 +24,14 @@ enum class PPUState
 {
 	HDraw,
 	HBlank,
-	VBlank
+	VBlank,
+	VBlankHBlank
 };
 
 class PPU
 {
 public:
-	PPU(std::shared_ptr<InterruptManager> interruptManager);
+	PPU(std::shared_ptr<InterruptManager> interruptManager, std::shared_ptr<Scheduler> scheduler);
 	~PPU();
 
 	void registerMemory(std::shared_ptr<GBAMem> mem);
@@ -45,10 +47,13 @@ public:
 	bool getVBlank(bool acknowledge=false);
 	bool getShouldSync();
 
+	static void onSchedulerEvent(void* context);
+
 private:
 	bool registered = false;
 	std::shared_ptr<GBAMem> m_mem;
 	std::shared_ptr<InterruptManager> m_interruptManager;
+	std::shared_ptr<Scheduler> m_scheduler;
 	uint32_t m_renderBuffer[2][240 * 160];	//currently being rendered
 	bool pageIdx = false;
 	//uint32_t m_displayBuffer[240 * 160]; //buffer the display gets
@@ -65,6 +70,9 @@ private:
 	bool signalHBlank = false;
 	bool signalVBlank = false;
 	bool shouldSyncVideo = false;
+
+	void eventHandler();
+	uint64_t expectedNextTimeStamp = 0;
 
 	void HDraw();
 	void HBlank();

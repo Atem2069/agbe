@@ -1,7 +1,8 @@
 #include"Bus.h"
 
-Bus::Bus(std::vector<uint8_t> BIOS, std::vector<uint8_t> cartData, std::shared_ptr<InterruptManager> interruptManager, std::shared_ptr<PPU> ppu, std::shared_ptr<Input> input)
+Bus::Bus(std::vector<uint8_t> BIOS, std::vector<uint8_t> cartData, std::shared_ptr<InterruptManager> interruptManager, std::shared_ptr<PPU> ppu, std::shared_ptr<Input> input, std::shared_ptr<Scheduler> scheduler)
 {
+	m_scheduler = scheduler;
 	m_interruptManager = interruptManager;
 	m_ppu = ppu;
 	m_input = input;
@@ -42,7 +43,8 @@ Bus::~Bus()
 void Bus::tick()
 {
 	//todo: tick other components
-	m_ppu->step();
+	//m_ppu->step();
+	m_scheduler->tick(1);	//todo: move
 	m_timer->step();
 	if(!dmaInProgress)
 		checkDMAChannels();	//check if we need to dma (todo: check hblank,vblank)

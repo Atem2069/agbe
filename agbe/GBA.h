@@ -7,6 +7,7 @@
 #include"Input.h"
 #include"InterruptManager.h"
 #include"Config.h"
+#include"Scheduler.h"
 
 #include<Windows.h>
 #include<mutex>
@@ -29,7 +30,7 @@ private:
 	std::shared_ptr<ARM7TDMI> m_cpu;
 	std::shared_ptr<PPU> m_ppu;
 	std::shared_ptr<Input> m_input;
-
+	std::shared_ptr<Scheduler> m_scheduler;
 	std::shared_ptr<InputState> m_inp;
 
 	bool m_shouldStop = false;

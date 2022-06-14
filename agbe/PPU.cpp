@@ -1,7 +1,8 @@
 #include"PPU.h"
 
-PPU::PPU(std::shared_ptr<InterruptManager> interruptManager)
+PPU::PPU(std::shared_ptr<InterruptManager> interruptManager, std::shared_ptr<Scheduler> scheduler)
 {
+	m_scheduler = scheduler;
 	m_interruptManager = interruptManager;
 	VCOUNT = 0;
 	inVBlank = false;
@@ -12,6 +13,7 @@ PPU::PPU(std::shared_ptr<InterruptManager> interruptManager)
 		m_bgPriorities[i] = 255;
 
 	m_state = PPUState::HDraw;
+	m_scheduler->addEvent(Event::PPU, &PPU::onSchedulerEvent, (void*)this, 960);	//960 cycles from now, do hdraw for vcount=0
 }
 
 PPU::~PPU()
@@ -48,99 +50,129 @@ void PPU::step()
 	}
 }
 
+void PPU::eventHandler()
+{
+	uint64_t schedTimestamp = m_scheduler->getCurrentTimestamp();
+	uint64_t timeDiff = schedTimestamp - expectedNextTimeStamp;
+
+	switch (m_state)
+	{
+	case PPUState::HDraw:
+		HDraw();
+		m_state = PPUState::HBlank;
+		expectedNextTimeStamp = (schedTimestamp + 272) - timeDiff;
+		m_scheduler->addEvent(Event::PPU, &PPU::onSchedulerEvent, (void*)this, expectedNextTimeStamp);
+		break;
+	case PPUState::HBlank:
+		HBlank();
+		break;
+	case PPUState::VBlank:
+		VBlank();
+		break;
+	}
+}
+
 void PPU::HDraw()
 {
-	if (m_lineCycles == 960)
+	uint8_t mode = DISPCNT & 0b111;
+	switch (mode)
 	{
-		uint8_t mode = DISPCNT & 0b111;
-		switch (mode)
-		{
-		case 0:
-			renderMode0();
-			break;
-		case 1:
-			renderMode1();
-			break;
-		case 2:
-			renderMode2();
-			break;
-		case 3:
-			renderMode3();
-			break;
-		case 4:
-			renderMode4();
-			break;
-		case 5:
-			break;
-		}
-
-		m_state = PPUState::HBlank;
-		signalHBlank = true;
-		if (((DISPSTAT >> 4) & 0b1))
-			m_interruptManager->requestInterrupt(InterruptType::HBlank);
+	case 0:
+		renderMode0();
+		break;
+	case 1:
+		renderMode1();
+		break;
+	case 2:
+		renderMode2();
+		break;
+	case 3:
+		renderMode3();
+		break;
+	case 4:
+		renderMode4();
+		break;
+	case 5:
+		break;
 	}
+
+	//todo: check timing of hblank flag
+	signalHBlank = true;
+	setHBlankFlag(true);
+	if (((DISPSTAT >> 4) & 0b1))
+		m_interruptManager->requestInterrupt(InterruptType::HBlank);
 }
 
 void PPU::HBlank()
 {
+	uint64_t schedTimestamp = m_scheduler->getCurrentTimestamp();
+	uint64_t timeDiff = schedTimestamp - expectedNextTimeStamp;
 	//todo: check timing of when exactly hblank flag/interrupt set
-	setHBlankFlag(true);
 
-	if (m_lineCycles == 1232)
+	setHBlankFlag(false);
+	m_lineCycles = 0;
+
+	VCOUNT++;
+
+	uint16_t vcountCmp = ((DISPSTAT >> 8) & 0xFF);
+	if ((VCOUNT & 0xFF) == vcountCmp)
+		{
+		setVCounterFlag(true);
+		if ((DISPSTAT >> 5) & 0b1)
+			m_interruptManager->requestInterrupt(InterruptType::VCount);
+	}
+
+	if (VCOUNT == 160)
 	{
-		setHBlankFlag(false);
-		m_lineCycles = 0;
+		setVBlankFlag(true);
+		inVBlank = true;
+		signalVBlank = true;
 
-		VCOUNT++;
+		if (((DISPSTAT >> 3) & 0b1))
+			m_interruptManager->requestInterrupt(InterruptType::VBlank);
 
-		uint16_t vcountCmp = ((DISPSTAT >> 8) & 0xFF);
-		if ((VCOUNT & 0xFF) == vcountCmp)
-		{
-			setVCounterFlag(true);
-			if ((DISPSTAT >> 5) & 0b1)
-				m_interruptManager->requestInterrupt(InterruptType::VCount);
-		}
+		//copy display buf over
+		//memcpy(m_displayBuffer, m_renderBuffer, 240 * 160 * sizeof(uint32_t));
+		pageIdx = !pageIdx;
 
-		if (VCOUNT == 160)
-		{
-			setVBlankFlag(true);
-			inVBlank = true;
-			signalVBlank = true;
-
-			if (((DISPSTAT >> 3) & 0b1))
-				m_interruptManager->requestInterrupt(InterruptType::VBlank);
-
-			//copy display buf over
-			//memcpy(m_displayBuffer, m_renderBuffer, 240 * 160 * sizeof(uint32_t));
-			pageIdx = !pageIdx;
-
-			m_state = PPUState::VBlank;
-
-		}
-		else
-			m_state = PPUState::HDraw;
+		m_state = PPUState::VBlank;
+		expectedNextTimeStamp = (schedTimestamp + 1232) - timeDiff;
+		m_scheduler->addEvent(Event::PPU, &PPU::onSchedulerEvent, (void*)this, expectedNextTimeStamp);
+	}
+	else
+	{
+		expectedNextTimeStamp = (schedTimestamp + 960) - timeDiff;
+		m_scheduler->addEvent(Event::PPU, &PPU::onSchedulerEvent, (void*)this, expectedNextTimeStamp);
+		m_state = PPUState::HDraw;
 	}
 }
 
 void PPU::VBlank()
 {
+	uint64_t schedTimestamp = m_scheduler->getCurrentTimestamp();
+	uint64_t timeDiff = schedTimestamp - expectedNextTimeStamp;
 	setVBlankFlag(true);
-	if (m_lineCycles > 960)
-		setHBlankFlag(true);
-	if (m_lineCycles == 1232)
-	{
-		setHBlankFlag(false);
-		m_lineCycles = 0;
+	//if (m_lineCycles > 960)
+	//	setHBlankFlag(true);
+	setHBlankFlag(false);
+	m_lineCycles = 0;
 
-		VCOUNT++;
-		if (VCOUNT == 228)		//go back to drawing
-		{
-			setVBlankFlag(false);
-			inVBlank = false;
-			shouldSyncVideo = true;
-			VCOUNT = 0;
-			m_state = PPUState::HDraw;
-		}
+	VCOUNT++;
+	if (VCOUNT == 228)		//go back to drawing
+	{
+		setVBlankFlag(false);
+		inVBlank = false;
+		shouldSyncVideo = true;
+		VCOUNT = 0;
+		m_state = PPUState::HDraw;
+
+		expectedNextTimeStamp = (schedTimestamp + 960) - timeDiff;
+		m_scheduler->addEvent(Event::PPU, &PPU::onSchedulerEvent, (void*)this, expectedNextTimeStamp);
+	}
+	else
+	{
+		expectedNextTimeStamp = (schedTimestamp + 1232) - timeDiff;
+		m_scheduler->addEvent(Event::PPU, &PPU::onSchedulerEvent, (void*)this, expectedNextTimeStamp);
 	}
 }
 
@@ -1056,4 +1088,10 @@ bool PPU::getShouldSync()
 	bool res = shouldSyncVideo;
 	shouldSyncVideo = false;
 	return res;
+}
+
+void PPU::onSchedulerEvent(void* context)
+{
+	PPU* thisPtr = (PPU*)context;
+	thisPtr->eventHandler();
 }

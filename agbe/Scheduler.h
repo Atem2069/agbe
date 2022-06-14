@@ -14,12 +14,12 @@ struct SchedulerEntry
 
 enum class Event
 {
-	PPU,
-	TIMER0,
-	TIMER1,
-	TIMER2,
-	TIMER3,
-	DMA
+	PPU=0,
+	TIMER0=1,
+	TIMER1=2,
+	TIMER2=3,
+	TIMER3=4,
+	DMA=5
 };
 
 class Scheduler
@@ -35,5 +35,6 @@ public:
 private:
 	bool getEntryAtTimestamp(SchedulerEntry& entry);
 	uint64_t timestamp;
-	SchedulerEntry entries[5];	//todo: add moree stuff to scheduler
+	SchedulerEntry entries[6];	//todo: add moree stuff to scheduler
+	const int NUM_ENTRIES = 6;
 };

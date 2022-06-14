@@ -8,6 +8,7 @@
 #include"Timer.h"
 #include"EEPROM.h"
 #include"Flash.h"
+#include"Scheduler.h"
 
 #include<iostream>
 
@@ -23,7 +24,7 @@ struct DMAChannel
 class Bus
 {
 public:
-	Bus(std::vector<uint8_t> BIOS, std::vector<uint8_t> cartData, std::shared_ptr<InterruptManager> interruptManager, std::shared_ptr<PPU> ppu, std::shared_ptr<Input> input);
+	Bus(std::vector<uint8_t> BIOS, std::vector<uint8_t> cartData, std::shared_ptr<InterruptManager> interruptManager, std::shared_ptr<PPU> ppu, std::shared_ptr<Input> input, std::shared_ptr<Scheduler> scheduler);
 	~Bus();
 
 	void tick();	//inaccurate but tick 1 cycle per memory access
@@ -53,6 +54,7 @@ public:
 
 
 private:
+	std::shared_ptr<Scheduler> m_scheduler;
 	std::shared_ptr<GBAMem> m_mem;
 	std::shared_ptr<InterruptManager> m_interruptManager;
 	std::shared_ptr<PPU> m_ppu;
