@@ -65,6 +65,7 @@ private:
 
 	uint32_t m_lineCycles = 0;
 	bool inVBlank = false;
+	bool vblank_setHblankBit = false;
 
 	bool signalHBlank = false;
 	bool signalVBlank = false;

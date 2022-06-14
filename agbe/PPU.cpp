@@ -93,7 +93,7 @@ void PPU::HBlank()
 
 	uint16_t vcountCmp = ((DISPSTAT >> 8) & 0xFF);
 	if ((VCOUNT & 0xFF) == vcountCmp)
-		{
+	{
 		setVCounterFlag(true);
 		if ((DISPSTAT >> 5) & 0b1)
 			m_interruptManager->requestInterrupt(InterruptType::VCount);
@@ -112,7 +112,7 @@ void PPU::HBlank()
 		//memcpy(m_displayBuffer, m_renderBuffer, 240 * 160 * sizeof(uint32_t));
 
 		m_state = PPUState::VBlank;
-		expectedNextTimeStamp = (schedTimestamp + 1232) - timeDiff;
+		expectedNextTimeStamp = (schedTimestamp + 960) - timeDiff;
 		m_scheduler->addEvent(Event::PPU, &PPU::onSchedulerEvent, (void*)this, expectedNextTimeStamp);
 	}
 	else
@@ -130,10 +130,19 @@ void PPU::VBlank()
 	setVBlankFlag(true);
 	//if (m_lineCycles > 960)
 	//	setHBlankFlag(true);
-	setHBlankFlag(false);
 	m_lineCycles = 0;
 	m_state=PPUState::VBlank;
 
+	if (!vblank_setHblankBit)
+	{
+		setHBlankFlag(true);
+		vblank_setHblankBit = true;
+		expectedNextTimeStamp = (schedTimestamp + 272) - timeDiff;
+		m_scheduler->addEvent(Event::PPU, &PPU::onSchedulerEvent, (void*)this, expectedNextTimeStamp);
+		return;
+	}
+	vblank_setHblankBit = false;
+	setHBlankFlag(false);
 	VCOUNT++;
 	if (VCOUNT == 228)		//go back to drawing
 	{
@@ -149,7 +158,7 @@ void PPU::VBlank()
 	}
 	else
 	{
-		expectedNextTimeStamp = (schedTimestamp + 1232) - timeDiff;
+		expectedNextTimeStamp = (schedTimestamp + 960) - timeDiff;
 		m_scheduler->addEvent(Event::PPU, &PPU::onSchedulerEvent, (void*)this, expectedNextTimeStamp);
 	}
 }

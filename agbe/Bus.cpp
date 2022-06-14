@@ -92,7 +92,6 @@ uint8_t Bus::read8(uint32_t address, bool doTick)
 
 void Bus::write8(uint32_t address, uint8_t value, bool doTick)
 {
-	m_scheduler->tick(1);	//todo: move
 	if (doTick)
 		tick();
 	uint8_t page = (address >> 24) & 0xF;
