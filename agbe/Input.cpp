@@ -45,6 +45,12 @@ void Input::writeIORegister(uint32_t address, uint8_t value)
 	//Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Unimplemented joypad write {:#x}", address));
 }
 
+void Input::reschedule()
+{
+	m_scheduler->addEvent(Event::Input, &Input::onSchedulerEvent, (void*)this, 280896);
+	lastEventTime = 280896;
+}
+
 void Input::onSchedulerEvent(void* context)
 {
 	Input* thisptr = (Input*)context;

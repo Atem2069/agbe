@@ -78,6 +78,7 @@ void GBA::m_destroy()
 	m_bus.reset();
 	m_cpu.reset();
 	m_scheduler->invalidateAll();
+	m_input->reschedule();
 }
 
 void GBA::m_initialise()

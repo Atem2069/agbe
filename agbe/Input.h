@@ -38,6 +38,7 @@ public:
 
 	uint8_t readIORegister(uint32_t address);
 	void writeIORegister(uint32_t address, uint8_t value);
+	void reschedule();
 	static void onSchedulerEvent(void* context);
 
 private:
