@@ -25,8 +25,11 @@ void GBA::run()
 				auto curTime = std::chrono::high_resolution_clock::now();
 				double timeDiff = std::chrono::duration<double, std::milli>(curTime - lastTime).count();
 				double target = ((280896.0) / (16777216.0)) * 1000;
-				if(timeDiff>0 && timeDiff <= target)
-					Sleep(target - timeDiff);
+				while (timeDiff < target)
+				{
+					curTime = std::chrono::high_resolution_clock::now();
+					timeDiff = std::chrono::duration<double, std::milli>(curTime - lastTime).count();
+				}
 				lastTime = curTime;
 			}
 
