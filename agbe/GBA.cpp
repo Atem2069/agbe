@@ -20,15 +20,19 @@ void GBA::run()
 			m_cpu->step();
 			m_input->update(*m_inp);
 
-			if (!Config::GBA.disableVideoSync && m_ppu->getShouldSync())
+			if (m_ppu->getShouldSync())
 			{
 				auto curTime = std::chrono::high_resolution_clock::now();
 				double timeDiff = std::chrono::duration<double, std::milli>(curTime - lastTime).count();
-				double target = ((280896.0) / (16777216.0)) * 1000;
-				while (timeDiff < target)
+				Config::GBA.fps = 1.0 / (timeDiff/1000);
+				if (!Config::GBA.disableVideoSync)
 				{
-					curTime = std::chrono::high_resolution_clock::now();
-					timeDiff = std::chrono::duration<double, std::milli>(curTime - lastTime).count();
+					double target = ((280896.0) / (16777216.0)) * 1000;
+					while (timeDiff < target)
+					{
+						curTime = std::chrono::high_resolution_clock::now();
+						timeDiff = std::chrono::duration<double, std::milli>(curTime - lastTime).count();
+					}
 				}
 				lastTime = curTime;
 			}

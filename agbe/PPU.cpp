@@ -37,7 +37,7 @@ void PPU::eventHandler()
 	case PPUState::HDraw:
 		HDraw();
 		m_state = PPUState::HBlank;
-		expectedNextTimeStamp = (schedTimestamp + 272) - timeDiff;
+		expectedNextTimeStamp = (schedTimestamp + 46) - timeDiff;
 		m_scheduler->addEvent(Event::PPU, &PPU::onSchedulerEvent, (void*)this, expectedNextTimeStamp);
 		break;
 	case PPUState::HBlank:
@@ -75,7 +75,6 @@ void PPU::HDraw()
 
 	//todo: check timing of hblank flag
 	signalHBlank = true;
-	setHBlankFlag(true);
 	if (((DISPSTAT >> 4) & 0b1))
 		m_interruptManager->requestInterrupt(InterruptType::HBlank);
 }
@@ -85,6 +84,17 @@ void PPU::HBlank()
 	uint64_t schedTimestamp = m_scheduler->getCurrentTimestamp();
 	uint64_t timeDiff = schedTimestamp - expectedNextTimeStamp;
 	//todo: check timing of when exactly hblank flag/interrupt set
+
+	if (!hblank_flagSet)	//now set hblank flag, at cycle 1006!
+	{
+		hblank_flagSet = true;
+		setHBlankFlag(true);
+		expectedNextTimeStamp = (schedTimestamp + 226) - timeDiff;
+		m_scheduler->addEvent(Event::PPU, &PPU::onSchedulerEvent, (void*)this, expectedNextTimeStamp);
+		return;
+	}
+
+	hblank_flagSet = false;
 
 	setHBlankFlag(false);
 	m_lineCycles = 0;
@@ -114,6 +124,9 @@ void PPU::HBlank()
 		//memcpy(m_displayBuffer, m_renderBuffer, 240 * 160 * sizeof(uint32_t));
 
 		m_state = PPUState::VBlank;
+		expectedNextTimeStamp = (schedTimestamp + 1006) - timeDiff;
+		m_scheduler->addEvent(Event::PPU, &PPU::onSchedulerEvent, (void*)this, expectedNextTimeStamp);
+		return;
 	}
 	else
 		m_state = PPUState::HDraw;
@@ -136,7 +149,7 @@ void PPU::VBlank()
 	{
 		setHBlankFlag(true);
 		vblank_setHblankBit = true;
-		expectedNextTimeStamp = (schedTimestamp + 272) - timeDiff;
+		expectedNextTimeStamp = (schedTimestamp + 226) - timeDiff;
 		m_scheduler->addEvent(Event::PPU, &PPU::onSchedulerEvent, (void*)this, expectedNextTimeStamp);
 		return;
 	}
@@ -152,6 +165,8 @@ void PPU::VBlank()
 		shouldSyncVideo = true;
 		VCOUNT = 0;
 		m_state = PPUState::HDraw;
+		expectedNextTimeStamp = (schedTimestamp + 960) - timeDiff;
+		m_scheduler->addEvent(Event::PPU, &PPU::onSchedulerEvent, (void*)this, expectedNextTimeStamp);
 	}
 	else
 	{
@@ -166,10 +181,9 @@ void PPU::VBlank()
 		}
 		else
 			setVCounterFlag(false);
+		expectedNextTimeStamp = (schedTimestamp + 1006) - timeDiff;
+		m_scheduler->addEvent(Event::PPU, &PPU::onSchedulerEvent, (void*)this, expectedNextTimeStamp);
 	}
-
-	expectedNextTimeStamp = (schedTimestamp + 960) - timeDiff;
-	m_scheduler->addEvent(Event::PPU, &PPU::onSchedulerEvent, (void*)this, expectedNextTimeStamp);
 
 }
 
