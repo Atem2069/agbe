@@ -20,6 +20,7 @@ int main()
 
 	inputState = std::make_shared<InputState>();
 	m_gba = std::make_shared<GBA>();
+	m_gba->registerInput(inputState);
 	std::thread m_workerThread(&emuWorkerThread);
 
 	while (!m_display.getShouldClose())
@@ -54,7 +55,6 @@ int main()
 void emuWorkerThread()
 {
 	Logger::getInstance()->msg(LoggerSeverity::Info, "Entered worker thread!!");
-	m_gba->registerInput(inputState);
 	m_gba->run();
 
 	Logger::getInstance()->msg(LoggerSeverity::Info, "Exited worker thread!!");

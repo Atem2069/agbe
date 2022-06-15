@@ -2,9 +2,7 @@
 
 Scheduler::Scheduler()
 {
-	timestamp = 0;
-	for (int i = 0; i < NUM_ENTRIES; i++)
-		entries[i].enabled = false;
+	invalidateAll();
 }
 
 Scheduler::~Scheduler()
@@ -58,4 +56,11 @@ bool Scheduler::getEntryAtTimestamp(SchedulerEntry& entry)
 	}
 
 	return false;
+}
+
+void Scheduler::invalidateAll()
+{
+	timestamp = 0;
+	for (int i = 0; i < NUM_ENTRIES; i++)
+		entries[i].enabled = false;
 }

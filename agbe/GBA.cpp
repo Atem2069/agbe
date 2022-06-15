@@ -2,6 +2,8 @@
 
 GBA::GBA()
 {
+	m_scheduler = std::make_shared<Scheduler>();
+	m_input = std::make_shared<Input>(m_scheduler);
 	m_initialise();
 }
 
@@ -18,7 +20,6 @@ void GBA::run()
 		if (m_initialised)
 		{
 			m_cpu->step();
-			m_input->update(*m_inp);
 
 			if (m_ppu->getShouldSync())
 			{
@@ -65,6 +66,7 @@ void* GBA::getPPUData()
 void GBA::registerInput(std::shared_ptr<InputState> inp)
 {
 	m_inp = inp;
+	m_input->registerInput(m_inp);
 }
 
 void GBA::m_destroy()
@@ -73,9 +75,9 @@ void GBA::m_destroy()
 		return;
 
 	m_ppu.reset();
-	m_input.reset();
 	m_bus.reset();
 	m_cpu.reset();
+	m_scheduler->invalidateAll();
 }
 
 void GBA::m_initialise()
@@ -91,10 +93,8 @@ void GBA::m_initialise()
 
 	std::vector<uint8_t> biosData = readFile(biosPath.c_str());
 
-	m_scheduler = std::make_shared<Scheduler>();
 	m_interruptManager = std::make_shared<InterruptManager>();
 	m_ppu = std::make_shared<PPU>(m_interruptManager,m_scheduler);
-	m_input = std::make_shared<Input>();
 	m_bus = std::make_shared<Bus>(biosData, romData, m_interruptManager, m_ppu,m_input,m_scheduler);
 	m_cpu = std::make_shared<ARM7TDMI>(m_bus,m_interruptManager);
 

@@ -1,8 +1,11 @@
 #include"Input.h"
 
-Input::Input()
+Input::Input(std::shared_ptr<Scheduler> scheduler)
 {
-	
+	m_scheduler = scheduler;
+	m_scheduler->addEvent(Event::Input, &Input::onSchedulerEvent, (void*)this, 280896);
+	lastEventTime = 280896;
+	keyInput = 0xFFFF;
 }
 
 Input::~Input()
@@ -10,31 +13,21 @@ Input::~Input()
 
 }
 
-void Input::update(InputState newInput)
+void Input::registerInput(std::shared_ptr<InputState> inputState)
 {
-	keyInput |= 0x0FFF;	//bits 14,15 are irq bits
+	m_inputState = inputState;
+}
 
-	if (newInput.A)
-		keyInput &= ~0b1;
-	if (newInput.B)
-		keyInput &= ~0b10;
-	if (newInput.Select)
-		keyInput &= ~0b100;
-	if (newInput.Start)
-		keyInput &= ~0b1000;
-	if (newInput.Right)
-		keyInput &= ~0b10000;
-	if (newInput.Left)
-		keyInput &= ~0b100000;
-	if (newInput.Up)
-		keyInput &= ~0b1000000;
-	if (newInput.Down)
-		keyInput &= ~0b10000000;
-	if (newInput.R)
-		keyInput &= ~0b100000000;
-	if (newInput.L)
-		keyInput &= ~0b1000000000;
+void Input::event()
+{
+	uint16_t newInputState = (~(m_inputState->reg)) & 0x3FF;
+	keyInput = newInputState;
 
+	uint64_t curTime = m_scheduler->getCurrentTimestamp();
+	uint64_t diff = curTime - lastEventTime;
+
+	lastEventTime = (curTime + 280896) - diff;
+	m_scheduler->addEvent(Event::Input, &Input::onSchedulerEvent, (void*)this, lastEventTime);
 }
 
 uint8_t Input::readIORegister(uint32_t address)
@@ -50,4 +43,10 @@ uint8_t Input::readIORegister(uint32_t address)
 void Input::writeIORegister(uint32_t address, uint8_t value)
 {
 	//Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Unimplemented joypad write {:#x}", address));
+}
+
+void Input::onSchedulerEvent(void* context)
+{
+	Input* thisptr = (Input*)context;
+	thisptr->event();
 }
