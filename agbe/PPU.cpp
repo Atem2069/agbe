@@ -114,15 +114,12 @@ void PPU::HBlank()
 		//memcpy(m_displayBuffer, m_renderBuffer, 240 * 160 * sizeof(uint32_t));
 
 		m_state = PPUState::VBlank;
-		expectedNextTimeStamp = (schedTimestamp + 960) - timeDiff;
-		m_scheduler->addEvent(Event::PPU, &PPU::onSchedulerEvent, (void*)this, expectedNextTimeStamp);
 	}
 	else
-	{
-		expectedNextTimeStamp = (schedTimestamp + 960) - timeDiff;
-		m_scheduler->addEvent(Event::PPU, &PPU::onSchedulerEvent, (void*)this, expectedNextTimeStamp);
 		m_state = PPUState::HDraw;
-	}
+
+	expectedNextTimeStamp = (schedTimestamp + 960) - timeDiff;
+	m_scheduler->addEvent(Event::PPU, &PPU::onSchedulerEvent, (void*)this, expectedNextTimeStamp);
 }
 
 void PPU::VBlank()
@@ -135,7 +132,7 @@ void PPU::VBlank()
 	m_lineCycles = 0;
 	m_state=PPUState::VBlank;
 
-	if (!vblank_setHblankBit)
+	if (!vblank_setHblankBit)	//handle first part of line, up until hblank
 	{
 		setHBlankFlag(true);
 		vblank_setHblankBit = true;
@@ -143,7 +140,8 @@ void PPU::VBlank()
 		m_scheduler->addEvent(Event::PPU, &PPU::onSchedulerEvent, (void*)this, expectedNextTimeStamp);
 		return;
 	}
-	vblank_setHblankBit = false;
+
+	vblank_setHblankBit = false;	//end of vblank for current line
 	setHBlankFlag(false);
 	VCOUNT++;
 	if (VCOUNT == 228)		//go back to drawing
@@ -154,13 +152,11 @@ void PPU::VBlank()
 		shouldSyncVideo = true;
 		VCOUNT = 0;
 		m_state = PPUState::HDraw;
-
-		expectedNextTimeStamp = (schedTimestamp + 960) - timeDiff;
-		m_scheduler->addEvent(Event::PPU, &PPU::onSchedulerEvent, (void*)this, expectedNextTimeStamp);
 	}
 	else
 	{
-
+		if (VCOUNT == 227)			//set vblank flag false on last line of vblank (if applicable)
+			setVBlankFlag(false);
 		uint16_t vcountCmp = ((DISPSTAT >> 8) & 0xFF);
 		if ((VCOUNT & 0xFF) == vcountCmp)
 		{
@@ -170,10 +166,11 @@ void PPU::VBlank()
 		}
 		else
 			setVCounterFlag(false);
-
-		expectedNextTimeStamp = (schedTimestamp + 960) - timeDiff;
-		m_scheduler->addEvent(Event::PPU, &PPU::onSchedulerEvent, (void*)this, expectedNextTimeStamp);
 	}
+
+	expectedNextTimeStamp = (schedTimestamp + 960) - timeDiff;
+	m_scheduler->addEvent(Event::PPU, &PPU::onSchedulerEvent, (void*)this, expectedNextTimeStamp);
+
 }
 
 void PPU::renderMode0()
