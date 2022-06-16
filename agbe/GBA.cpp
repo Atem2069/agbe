@@ -3,7 +3,7 @@
 GBA::GBA()
 {
 	m_scheduler = std::make_shared<Scheduler>();
-	m_input = std::make_shared<Input>(m_scheduler);
+	m_input = std::make_shared<Input>();
 	m_scheduler->addEvent(Event::Frame, &GBA::onEvent, (void*)this, 280896);
 	expectedNextFrame = 280896;
 	m_initialise();
@@ -51,8 +51,8 @@ void GBA::frameEventHandler()
 	m_lastTime = curTime;
 
 	uint64_t curTicks = m_scheduler->getCurrentTimestamp();
-	uint64_t timeDiff = curTicks - expectedNextFrame;
-	expectedNextFrame = (curTicks + 280896) - timeDiff;
+	uint64_t tickDiff = curTicks - expectedNextFrame;
+	expectedNextFrame = (curTicks + 280896) - tickDiff;
 	m_scheduler->addEvent(Event::Frame, &GBA::onEvent, (void*)this, expectedNextFrame);
 
 	m_input->tick();
@@ -95,6 +95,7 @@ void GBA::m_destroy()
 	m_cpu.reset();
 	m_scheduler->invalidateAll();
 	m_scheduler->addEvent(Event::Frame, &GBA::onEvent, (void*)this, 280896);
+	expectedNextFrame = 280896;
 }
 
 void GBA::m_initialise()
