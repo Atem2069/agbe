@@ -24,6 +24,7 @@ public:
 
 	void* getPPUData();
 	void registerInput(std::shared_ptr<InputState> inp);
+	static void onEvent(void* context);
 private:
 	std::shared_ptr<Bus> m_bus;
 	std::shared_ptr<InterruptManager> m_interruptManager;
@@ -34,6 +35,9 @@ private:
 	std::shared_ptr<InputState> m_inp;
 
 	bool m_shouldStop = false;
+	std::chrono::steady_clock::time_point m_lastTime;
+	uint64_t expectedNextFrame = 0;
+	void frameEventHandler();
 
 	void m_destroy();
 	void m_initialise();

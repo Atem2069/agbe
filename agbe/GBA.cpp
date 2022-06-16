@@ -4,6 +4,8 @@ GBA::GBA()
 {
 	m_scheduler = std::make_shared<Scheduler>();
 	m_input = std::make_shared<Input>(m_scheduler);
+	m_scheduler->addEvent(Event::Frame, &GBA::onEvent, (void*)this, 280896);
+	expectedNextFrame = 280896;
 	m_initialise();
 }
 
@@ -15,29 +17,12 @@ GBA::~GBA()
 void GBA::run()
 {
 	auto lastTime = std::chrono::high_resolution_clock::now();
+	m_lastTime = std::chrono::high_resolution_clock::now();
 	while (!m_shouldStop)
 	{
 		if (m_initialised)
 		{
 			m_cpu->step();
-
-			if (m_ppu->getShouldSync())
-			{
-				auto curTime = std::chrono::high_resolution_clock::now();
-				double timeDiff = std::chrono::duration<double, std::milli>(curTime - lastTime).count();
-				Config::GBA.fps = 1.0 / (timeDiff/1000);
-				if (!Config::GBA.disableVideoSync)
-				{
-					double target = ((280896.0) / (16777216.0)) * 1000;
-					while (timeDiff < target)
-					{
-						curTime = std::chrono::high_resolution_clock::now();
-						timeDiff = std::chrono::duration<double, std::milli>(curTime - lastTime).count();
-					}
-				}
-				lastTime = curTime;
-			}
-
 		}
 		if (Config::GBA.shouldReset)
 		{
@@ -47,6 +32,37 @@ void GBA::run()
 			vramCopyLock.unlock();
 		}
 	}
+}
+
+void GBA::frameEventHandler()
+{
+	auto curTime = std::chrono::high_resolution_clock::now();
+	double timeDiff = std::chrono::duration<double, std::milli>(curTime - m_lastTime).count();
+	Config::GBA.fps = 1.0 / (timeDiff / 1000);
+	if (!Config::GBA.disableVideoSync)
+	{
+		double target = ((280896.0) / (16777216.0)) * 1000;
+		while (timeDiff < target)
+		{
+			curTime = std::chrono::high_resolution_clock::now();
+			timeDiff = std::chrono::duration<double, std::milli>(curTime - m_lastTime).count();
+		}
+	}
+	m_lastTime = curTime;
+
+	uint64_t curTicks = m_scheduler->getCurrentTimestamp();
+	uint64_t timeDiff = curTicks - expectedNextFrame;
+	expectedNextFrame = (curTicks + 280896) - timeDiff;
+	m_scheduler->addEvent(Event::Frame, &GBA::onEvent, (void*)this, expectedNextFrame);
+
+	m_input->tick();
+
+}
+
+void GBA::onEvent(void* context)
+{
+	GBA* thisPtr = (GBA*)context;
+	thisPtr->frameEventHandler();
 }
 
 void GBA::notifyDetach()
@@ -78,7 +94,7 @@ void GBA::m_destroy()
 	m_bus.reset();
 	m_cpu.reset();
 	m_scheduler->invalidateAll();
-	m_input->reschedule();
+	m_scheduler->addEvent(Event::Frame, &GBA::onEvent, (void*)this, 280896);
 }
 
 void GBA::m_initialise()

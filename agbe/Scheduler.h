@@ -20,7 +20,7 @@ enum class Event
 	TIMER2=3,
 	TIMER3=4,
 	DMA=5,
-	Input=6
+	Frame=6
 };
 
 class Scheduler

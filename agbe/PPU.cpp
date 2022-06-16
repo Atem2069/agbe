@@ -120,8 +120,7 @@ void PPU::HBlank()
 		if (((DISPSTAT >> 3) & 0b1))
 			m_interruptManager->requestInterrupt(InterruptType::VBlank);
 
-		//copy display buf over
-		//memcpy(m_displayBuffer, m_renderBuffer, 240 * 160 * sizeof(uint32_t));
+		pageIdx = !pageIdx;
 
 		m_state = PPUState::VBlank;
 		expectedNextTimeStamp = (schedTimestamp + 1006) - timeDiff;
@@ -161,7 +160,6 @@ void PPU::VBlank()
 	{
 		setVBlankFlag(false);
 		inVBlank = false;
-		pageIdx = !pageIdx;
 		shouldSyncVideo = true;
 		VCOUNT = 0;
 		m_state = PPUState::HDraw;

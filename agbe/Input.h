@@ -31,19 +31,15 @@ union InputState
 class Input
 {
 public:
-	Input(std::shared_ptr<Scheduler> scheduler);
+	Input();
 	~Input();
 
 	void registerInput(std::shared_ptr<InputState> inputState);
 
 	uint8_t readIORegister(uint32_t address);
 	void writeIORegister(uint32_t address, uint8_t value);
-	void reschedule();
-	static void onSchedulerEvent(void* context);
-
+	void tick();
 private:
-	void event();
-	std::shared_ptr<Scheduler> m_scheduler;
 	std::shared_ptr<InputState> m_inputState;
 	uint64_t lastEventTime = 0;
 	uint16_t keyInput = 0;
