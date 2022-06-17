@@ -224,6 +224,7 @@ void PPU::renderMode0()
 				m_renderBuffer[pageIdx][baseAddr + i] = m_spriteLineBuffer[i];
 		}
 		m_bgPriorities[i] = 255;
+		target2Pixels[i] = 0;
 	}
 }
 
@@ -267,6 +268,7 @@ void PPU::renderMode1()
 				m_renderBuffer[pageIdx][baseAddr + i] = m_spriteLineBuffer[i];
 		}
 		m_bgPriorities[i] = 255;
+		target2Pixels[i] = 0;
 	}
 }
 
@@ -293,6 +295,7 @@ void PPU::renderMode2()
 				m_renderBuffer[pageIdx][baseAddr + i] = m_spriteLineBuffer[i];
 		}
 		m_bgPriorities[i] = 255;
+		target2Pixels[i] = 0;
 	}
 
 }
