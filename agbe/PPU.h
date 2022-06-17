@@ -88,6 +88,8 @@ private:
 	void drawRotationScalingBackground(int bg);
 	void drawSprites();
 	uint16_t blendBrightness(uint16_t col, bool increase);
+	uint16_t blendAlpha(uint16_t colA, uint16_t colB);
+	uint16_t target2Pixels[240] = {};
 
 	void setVBlankFlag(bool value);
 	void setHBlankFlag(bool value);

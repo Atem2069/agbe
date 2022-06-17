@@ -335,6 +335,7 @@ void PPU::drawBackground(int bg)
 	uint16_t ctrlReg = 0;
 	uint32_t xScroll = 0, yScroll = 0;
 	bool isTarget1 = ((BLDCNT >> bg) & 0b1);
+	bool isTarget2 = ((BLDCNT >> (bg + 8)) & 0b1);
 	switch (bg)
 	{
 	case 0:
@@ -473,17 +474,25 @@ void PPU::drawBackground(int bg)
 		uint16_t col = ((colHigh << 8) | colLow);
 		m_bgPriorities[x] = bgPriority;
 
-		if (isTarget1 && getPointBlendable(x,VCOUNT))
+		if (getPointBlendable(x, VCOUNT))
 		{
-			uint8_t blendMode = ((BLDCNT >> 6) & 0b11);
-			switch (blendMode)
+			if (isTarget2)
+				target2Pixels[x] = col;
+			if (isTarget1)
 			{
-			case 2:
-				col = blendBrightness(col, true);
-				break;
-			case 3:
-				col = blendBrightness(col, false);
-				break;
+				uint8_t blendMode = ((BLDCNT >> 6) & 0b11);
+				switch (blendMode)
+				{
+				case 1:
+					col = blendAlpha(col, target2Pixels[x]);
+					break;
+				case 2:
+					col = blendBrightness(col, true);
+					break;
+				case 3:
+					col = blendBrightness(col, false);
+					break;
+				}
 			}
 		}
 
@@ -497,6 +506,7 @@ void PPU::drawRotationScalingBackground(int bg)
 	uint16_t ctrlReg = 0;
 	int32_t xScroll = 0, yScroll = 0;
 	bool isTarget1 = ((BLDCNT >> bg) & 0b1);
+	bool isTarget2 = ((BLDCNT >> (bg + 8)) & 0b1);
 	switch (bg)
 	{
 	case 2:
@@ -573,17 +583,25 @@ void PPU::drawRotationScalingBackground(int bg)
 		uint16_t col = ((colHigh << 8) | colLow);
 		m_bgPriorities[x] = bgPriority;
 
-		if (isTarget1 && getPointBlendable(x,VCOUNT))
+		if (getPointBlendable(x, VCOUNT))
 		{
-			uint8_t blendMode = ((BLDCNT >> 6) & 0b11);
-			switch (blendMode)
+			if (isTarget2)
+				target2Pixels[x] = col;
+			if (isTarget1)
 			{
-			case 2:
-				col = blendBrightness(col, true);
-				break;
-			case 3:
-				col = blendBrightness(col, false);
-				break;
+				uint8_t blendMode = ((BLDCNT >> 6) & 0b11);
+				switch (blendMode)
+				{
+				case 1:
+					col = blendAlpha(col, target2Pixels[x]);
+					break;
+				case 2:
+					col = blendBrightness(col, true);
+					break;
+				case 3:
+					col = blendBrightness(col, false);
+					break;
+				}
 			}
 		}
 
@@ -596,6 +614,7 @@ void PPU::drawSprites()
 {
 	bool oneDimensionalMapping = ((DISPCNT >> 6) & 0b1);
 	bool isBlendTarget1 = ((BLDCNT >> 4) & 0b1);
+	bool isBlendTarget2 = ((BLDCNT >> 12) & 0b1);
 	uint8_t blendMode = ((BLDCNT >> 6) & 0b11);
 
 	for (int i = 0; i < 240; i++)
@@ -751,16 +770,21 @@ void PPU::drawSprites()
 				{
 					m_spritePriorities[plotCoord] = spritePriority;
 
-					if (isBlendTarget1 && getPointBlendable(plotCoord, VCOUNT))
+					if (getPointBlendable(plotCoord, VCOUNT))
 					{
-						switch (blendMode)
+						if (isBlendTarget2)
+							target2Pixels[plotCoord] = col;
+						if (isBlendTarget1)
 						{
-						case 2:
-							col = blendBrightness(col, true);
-							break;
-						case 3:
-							col = blendBrightness(col, false);
-							break;
+							switch (blendMode)
+							{
+							case 2:
+								col = blendBrightness(col, true);
+								break;
+							case 3:
+								col = blendBrightness(col, false);
+								break;
+							}
 						}
 					}
 
@@ -780,7 +804,7 @@ uint16_t PPU::blendBrightness(uint16_t col, bool increase)
 	uint8_t green = (col >> 5) & 0x1F;
 	uint8_t blue = (col >> 10) & 0x1F;
 
-	uint8_t bldCoefficient = BLDY & 0xF;
+	uint8_t bldCoefficient = min(16,BLDY & 0x1F);
 
 	if (increase)
 	{
@@ -797,6 +821,31 @@ uint16_t PPU::blendBrightness(uint16_t col, bool increase)
 
 	uint16_t res = (red & 0x1F) | ((green & 0x1F) << 5) | ((blue & 0x1F) << 10);
 	return res;
+}
+
+uint16_t PPU::blendAlpha(uint16_t colA, uint16_t colB)
+{
+	//maybe a better way to do this. :P
+	uint8_t redA = (colA & 0x1F);
+	uint8_t greenA = (colA >> 5) & 0x1F;
+	uint8_t blueA = (colA >> 10) & 0x1F;
+	uint8_t bldCoeffA = min(16,BLDALPHA & 0x1F);
+	redA = (redA * bldCoeffA) / 16;
+	greenA = (greenA * bldCoeffA) / 16;
+	blueA = (blueA * bldCoeffA) / 16;
+
+	uint8_t redB = (colB & 0x1F);
+	uint8_t greenB = (colB >> 5) & 0x1F;
+	uint8_t blueB = (colB >> 10) & 0x1F;
+	uint8_t bldCoeffB = min(16,((BLDALPHA >> 8) & 0x1F));
+	redB = (redB * bldCoeffB) / 16;
+	greenB = (greenB * bldCoeffB) / 16;
+	blueB = (blueB * bldCoeffB) / 16;
+
+	redA = min(31, (redA + redB));
+	greenA = min(31, (greenA + greenB));
+	blueA = min(31, (blueA + blueB));
+	return (redA & 0x1F) | ((greenA & 0x1F) << 5) | ((blueA & 0x1F) << 10);
 }
 
 uint32_t PPU::col16to32(uint16_t col)
