@@ -27,16 +27,14 @@ public:
 	Bus(std::vector<uint8_t> BIOS, std::vector<uint8_t> cartData, std::shared_ptr<InterruptManager> interruptManager, std::shared_ptr<PPU> ppu, std::shared_ptr<Input> input, std::shared_ptr<Scheduler> scheduler);
 	~Bus();
 
-	void tick();	//inaccurate but tick 1 cycle per memory access
+	uint8_t read8(uint32_t address);
+	void write8(uint32_t address, uint8_t value);
 
-	uint8_t read8(uint32_t address, bool doTick=true);
-	void write8(uint32_t address, uint8_t value, bool doTick=true);
+	uint16_t read16(uint32_t address);
+	void write16(uint32_t address, uint16_t value);
 
-	uint16_t read16(uint32_t address, bool doTick=true);
-	void write16(uint32_t address, uint16_t value, bool doTick=true);
-
-	uint32_t read32(uint32_t address, bool doTick=true);
-	void write32(uint32_t address, uint32_t value, bool doTick=true);
+	uint32_t read32(uint32_t address);
+	void write32(uint32_t address, uint32_t value);
 
 	uint32_t fetch32(uint32_t address);
 	uint16_t fetch16(uint32_t address);
@@ -52,7 +50,8 @@ public:
 	uint32_t readIO32(uint32_t address);
 	void writeIO32(uint32_t address, uint32_t value);
 
-
+	static void DMA_VBlankCallback(void* address);
+	static void DMA_HBlankCallback(void* address);
 private:
 	std::shared_ptr<Scheduler> m_scheduler;
 	std::shared_ptr<GBAMem> m_mem;
@@ -84,6 +83,8 @@ private:
 	void DMARegWrite(uint32_t address, uint8_t value);
 	void checkDMAChannels();
 	void doDMATransfer(int channel);
+	void onVBlank();
+	void onHBlank();
 
 	//copied from powerlated :P. doesn't take into account varying WAITCNT settings
 	int timingTable816[16] =

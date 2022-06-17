@@ -42,10 +42,8 @@ public:
 	uint8_t readIO(uint32_t address);
 	void writeIO(uint32_t address, uint8_t value);
 
-	bool getHBlank(bool acknowledge=false);
-	bool getVBlank(bool acknowledge=false);
 	bool getShouldSync();
-
+	void registerDMACallbacks(callbackFn HBlank, callbackFn VBlank, void*ctx);
 	static void onSchedulerEvent(void* context);
 
 private:
@@ -68,8 +66,9 @@ private:
 	bool vblank_setHblankBit = false;
 	bool hblank_flagSet = false;
 
-	bool signalHBlank = false;
-	bool signalVBlank = false;
+	callbackFn DMAHBlankCallback = nullptr;
+	callbackFn DMAVBlankCallback = nullptr;
+	void* callbackContext = nullptr;
 	bool shouldSyncVideo = false;
 
 	void eventHandler();

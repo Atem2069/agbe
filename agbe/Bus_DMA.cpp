@@ -203,15 +203,10 @@ void Bus::checkDMAChannels()
 		{
 			//dma enabled
 			uint8_t startTiming = ((curCtrlReg >> 12) & 0b11);
-			if ((startTiming == 0) || ((startTiming==1) && m_ppu->getVBlank()) || ((startTiming==2) && m_ppu->getHBlank()))
-			{
+			if (startTiming == 0)
 				doDMATransfer(i);
-			}
 		}
 	}
-	//clear hblank/vblank flags now that we've checked all dma channels
-	m_ppu->getHBlank(true);
-	m_ppu->getVBlank(true);
 }
 
 void Bus::doDMATransfer(int channel)
@@ -249,13 +244,13 @@ void Bus::doDMATransfer(int channel)
 	{
 		if (wordTransfer)
 		{
-			uint32_t word = read32(src, false);
-			write32(dest, word, false);
+			uint32_t word = read32(src);
+			write32(dest, word);
 		}
 		else
 		{
-			uint16_t halfword = read16(src, false);
-			write16(dest, halfword, false);
+			uint16_t halfword = read16(src);
+			write16(dest, halfword);
 		}
 
 		int incrementAmount = (wordTransfer) ? 4 : 2;
@@ -302,4 +297,44 @@ void Bus::doDMATransfer(int channel)
 	if(!repeatDMA)
 		m_dmaChannels[channel].control &= 0x7FFF;	//clear DMA enable
 	dmaInProgress = false;
+}
+
+void Bus::onVBlank()
+{
+	for (int i = 0; i < 4; i++)
+	{
+		uint16_t curCtrlReg = m_dmaChannels[i].control;
+		if ((curCtrlReg >> 15) & 0b1)
+		{
+			uint8_t transferTiming = ((curCtrlReg >> 12) & 0b11);
+			if (transferTiming == 1)
+				doDMATransfer(i);
+		}
+	}
+}
+
+void Bus::onHBlank()
+{
+	for (int i = 0; i < 4; i++)
+	{
+		uint16_t curCtrlReg = m_dmaChannels[i].control;
+		if ((curCtrlReg >> 15) & 0b1)
+		{
+			uint8_t transferTiming = ((curCtrlReg >> 12) & 0b11);
+			if (transferTiming == 2)
+				doDMATransfer(i);
+		}
+	}
+}
+
+void Bus::DMA_VBlankCallback(void* context)
+{
+	Bus* thisPtr = (Bus*)context;
+	thisPtr->onVBlank();
+}
+
+void Bus::DMA_HBlankCallback(void* context)
+{
+	Bus* thisPtr = (Bus*)context;
+	thisPtr->onHBlank();
 }

@@ -74,9 +74,9 @@ void PPU::HDraw()
 	}
 
 	//todo: check timing of hblank flag
-	signalHBlank = true;
 	if (((DISPSTAT >> 4) & 0b1))
 		m_interruptManager->requestInterrupt(InterruptType::HBlank);
+	DMAHBlankCallback(callbackContext);
 }
 
 void PPU::HBlank()
@@ -115,7 +115,6 @@ void PPU::HBlank()
 	{
 		setVBlankFlag(true);
 		inVBlank = true;
-		signalVBlank = true;
 
 		if (((DISPSTAT >> 3) & 0b1))
 			m_interruptManager->requestInterrupt(InterruptType::VBlank);
@@ -125,6 +124,9 @@ void PPU::HBlank()
 		m_state = PPUState::VBlank;
 		expectedNextTimeStamp = (schedTimestamp + 1006) - timeDiff;
 		m_scheduler->addEvent(Event::PPU, &PPU::onSchedulerEvent, (void*)this, expectedNextTimeStamp);
+
+		DMAVBlankCallback(callbackContext);
+
 		return;
 	}
 	else
@@ -1076,20 +1078,11 @@ void PPU::writeIO(uint32_t address, uint8_t value)
 	}
 }
 
-bool PPU::getHBlank(bool acknowledge)
+void PPU::registerDMACallbacks(callbackFn HBlankCallback, callbackFn VBlankCallback, void* ctx)
 {
-	bool res = signalHBlank;
-	if (acknowledge)
-		signalHBlank = false;
-	return res;
-}
-
-bool PPU::getVBlank(bool acknowledge)
-{
-	bool res = signalVBlank;
-	if (acknowledge)
-		signalVBlank = false;
-	return res;
+	DMAHBlankCallback = HBlankCallback;
+	DMAVBlankCallback = VBlankCallback;
+	callbackContext = ctx;
 }
 
 bool PPU::getShouldSync()
