@@ -334,6 +334,7 @@ void PPU::drawBackground(int bg)
 {
 	uint16_t ctrlReg = 0;
 	uint32_t xScroll = 0, yScroll = 0;
+	bool isTarget1 = ((BLDCNT >> bg) & 0b1);
 	switch (bg)
 	{
 	case 0:
@@ -471,6 +472,21 @@ void PPU::drawBackground(int bg)
 		uint8_t colHigh = m_mem->paletteRAM[paletteMemoryAddr + 1];
 		uint16_t col = ((colHigh << 8) | colLow);
 		m_bgPriorities[x] = bgPriority;
+
+		if (isTarget1 && getPointBlendable(x,VCOUNT))
+		{
+			uint8_t blendMode = ((BLDCNT >> 6) & 0b11);
+			switch (blendMode)
+			{
+			case 2:
+				col = blendBrightness(col, true);
+				break;
+			case 3:
+				col = blendBrightness(col, false);
+				break;
+			}
+		}
+
 		m_renderBuffer[pageIdx][plotAddr] = col16to32(col);
 	}
 
@@ -480,6 +496,7 @@ void PPU::drawRotationScalingBackground(int bg)
 {
 	uint16_t ctrlReg = 0;
 	int32_t xScroll = 0, yScroll = 0;
+	bool isTarget1 = ((BLDCNT >> bg) & 0b1);
 	switch (bg)
 	{
 	case 2:
@@ -555,6 +572,21 @@ void PPU::drawRotationScalingBackground(int bg)
 		uint8_t colHigh = m_mem->paletteRAM[paletteMemoryAddr + 1];
 		uint16_t col = ((colHigh << 8) | colLow);
 		m_bgPriorities[x] = bgPriority;
+
+		if (isTarget1 && getPointBlendable(x,VCOUNT))
+		{
+			uint8_t blendMode = ((BLDCNT >> 6) & 0b11);
+			switch (blendMode)
+			{
+			case 2:
+				col = blendBrightness(col, true);
+				break;
+			case 3:
+				col = blendBrightness(col, false);
+				break;
+			}
+		}
+
 		m_renderBuffer[pageIdx][plotAddr] = col16to32(col);
 
 	}
@@ -563,6 +595,8 @@ void PPU::drawRotationScalingBackground(int bg)
 void PPU::drawSprites()
 {
 	bool oneDimensionalMapping = ((DISPCNT >> 6) & 0b1);
+	bool isBlendTarget1 = ((BLDCNT >> 4) & 0b1);
+	uint8_t blendMode = ((BLDCNT >> 6) & 0b11);
 
 	for (int i = 0; i < 240; i++)
 	{
@@ -711,12 +745,26 @@ void PPU::drawSprites()
 				uint8_t colHigh = m_mem->paletteRAM[paletteAddr + 1];
 				uint16_t col = ((colHigh << 8) | colLow);
 
-				uint32_t res = col16to32(col);
 				if (isObjWindow)
 					m_objWindowMask[plotCoord] = 1;
 				else
 				{
-					m_spritePriorities[plotCoord] = spritePriority;	//todo: check for sprite-sprite priority
+					m_spritePriorities[plotCoord] = spritePriority;
+
+					if (isBlendTarget1 && getPointBlendable(plotCoord, VCOUNT))
+					{
+						switch (blendMode)
+						{
+						case 2:
+							col = blendBrightness(col, true);
+							break;
+						case 3:
+							col = blendBrightness(col, false);
+							break;
+						}
+					}
+
+					uint32_t res = col16to32(col);
 					m_spriteLineBuffer[plotCoord] = res;
 				}
 				//m_renderBuffer[plotCoord] = res;
@@ -724,6 +772,31 @@ void PPU::drawSprites()
 		}
 
 	}
+}
+
+uint16_t PPU::blendBrightness(uint16_t col, bool increase)
+{
+	uint8_t red = (col & 0x1F);
+	uint8_t green = (col >> 5) & 0x1F;
+	uint8_t blue = (col >> 10) & 0x1F;
+
+	uint8_t bldCoefficient = BLDY & 0xF;
+
+	if (increase)
+	{
+		red = red + (((31 - red) * bldCoefficient) / 16);
+		green = green + (((31 - green) * bldCoefficient) / 16);
+		blue = blue + (((31 - blue) * bldCoefficient) / 16);
+	}
+	else
+	{
+		red = red - ((red * bldCoefficient) / 16);
+		green = green - ((green * bldCoefficient) / 16);
+		blue = blue - ((blue * bldCoefficient) / 16);
+	}
+
+	uint16_t res = (red & 0x1F) | ((green & 0x1F) << 5) | ((blue & 0x1F) << 10);
+	return res;
 }
 
 uint32_t PPU::col16to32(uint16_t col)
@@ -814,6 +887,51 @@ bool PPU::getPointDrawable(int x, int y, int backgroundLayer, bool obj)
 	return drawable;
 }
 
+bool PPU::getPointBlendable(int x, int y)
+{
+	bool window0Enabled = ((DISPCNT >> 13) & 0b1);
+	bool window1Enabled = ((DISPCNT >> 14) & 0b1);
+	bool objWindowEnabled = ((DISPCNT >> 15) & 0b1) && ((DISPCNT >> 12) & 0b1);
+	if (!(window0Enabled || window1Enabled || objWindowEnabled))		//drawable if neither window enabled
+		return true;
+	bool drawable = false;
+
+	if (window0Enabled)
+	{
+		int winRight = (WIN0H & 0xFF);
+		int winLeft = ((WIN0H >> 8) & 0xFF);
+		int winBottom = (WIN0V & 0xFF) - 1;	//not sure about -1? gbateek says bottom-most plus 1
+		int winTop = ((WIN0V >> 8) & 0xFF);
+		bool inWindow = (x >= winLeft && x <= winRight && y >= winTop && y <= winBottom);
+		if (inWindow)
+			drawable = ((WININ >> 5) & 0b1);
+		else
+			drawable = ((WINOUT >> 5) & 0b1);
+	}
+	if (window1Enabled)
+	{
+		int winRight = (WIN1H & 0xFF);
+		int winLeft = ((WIN1H >> 8) & 0xFF);
+		int winBottom = (WIN1V & 0xFF) - 1;	//not sure about -1? gbateek says bottom-most plus 1
+		int winTop = ((WIN1V >> 8) & 0xFF);
+		bool inWindow = (x >= winLeft && x <= winRight && y >= winTop && y <= winBottom);
+		if (inWindow)
+			drawable = ((WININ >> 13) & 0b1);
+		else
+			drawable = ((WINOUT >> 5) & 0b1);
+	}
+	if (objWindowEnabled)
+	{
+		bool pointInWindow = m_objWindowMask[x];	//<--why does vs care about this line? x can never be above 239.
+		if (pointInWindow)
+			drawable = ((WINOUT >> 13) & 0b1);
+		else
+			drawable = ((WINOUT >> 5) & 0b1);
+	}
+	return drawable;
+
+}
+
 uint32_t* PPU::getDisplayBuffer()
 {
 	return m_renderBuffer[!pageIdx];
@@ -883,6 +1001,10 @@ uint8_t PPU::readIO(uint32_t address)
 		return WINOUT & 0xFF;
 	case 0x0400004B:
 		return ((WINOUT >> 8) & 0xFF);
+	case 0x04000050:
+		return BLDCNT & 0xFF;
+	case 0x04000051:
+		return ((BLDCNT >> 8) & 0xFF);
 	case 0x04000052:
 		return BLDALPHA & 0xFF;
 	case 0x04000053:
@@ -1066,11 +1188,20 @@ void PPU::writeIO(uint32_t address, uint8_t value)
 	case 0x0400003F:
 		BG3Y &= 0x00FFFFFF; BG3Y |= (value << 24);
 		break;
+	case 0x04000050:
+		BLDCNT &= 0xFF00; BLDCNT |= value;
+		break;
+	case 0x04000051:
+		BLDCNT &= 0xFF; BLDCNT |= (value << 8);
+		break;
 	case 0x04000052:
 		BLDALPHA &= 0xFF00; BLDALPHA |= value;
 		break;
 	case 0x04000053:
 		BLDALPHA &= 0xFF; BLDALPHA |= (value << 8);
+		break;
+	case 0x04000054:
+		BLDY = value;
 		break;
 	default:
 		break;

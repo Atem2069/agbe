@@ -87,6 +87,7 @@ private:
 	void drawBackground(int bg);
 	void drawRotationScalingBackground(int bg);
 	void drawSprites();
+	uint16_t blendBrightness(uint16_t col, bool increase);
 
 	void setVBlankFlag(bool value);
 	void setHBlankFlag(bool value);
@@ -95,6 +96,7 @@ private:
 	uint32_t col16to32(uint16_t col);
 
 	bool getPointDrawable(int x, int y, int backgroundLayer, bool obj);
+	bool getPointBlendable(int x, int y);
 
 	uint16_t DISPCNT = {};
 	uint16_t DISPSTAT = {};
@@ -123,4 +125,5 @@ private:
 	uint32_t BG3Y = {};
 	uint16_t BLDCNT = {};
 	uint16_t BLDALPHA = {};
+	uint8_t BLDY = {};
 };
