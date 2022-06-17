@@ -916,17 +916,17 @@ bool PPU::getPointBlendable(int x, int y)
 		int winTop = ((WIN1V >> 8) & 0xFF);
 		bool inWindow = (x >= winLeft && x <= winRight && y >= winTop && y <= winBottom);
 		if (inWindow)
-			drawable = ((WININ >> 13) & 0b1);
+			drawable |= ((WININ >> 13) & 0b1);
 		else
-			drawable = ((WINOUT >> 5) & 0b1);
+			drawable |= ((WINOUT >> 5) & 0b1);
 	}
 	if (objWindowEnabled)
 	{
 		bool pointInWindow = m_objWindowMask[x];	//<--why does vs care about this line? x can never be above 239.
 		if (pointInWindow)
-			drawable = ((WINOUT >> 13) & 0b1);
+			drawable |= ((WINOUT >> 13) & 0b1);
 		else
-			drawable = ((WINOUT >> 5) & 0b1);
+			drawable |= ((WINOUT >> 5) & 0b1);
 	}
 	return drawable;
 
