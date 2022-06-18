@@ -9,6 +9,7 @@
 #include"EEPROM.h"
 #include"Flash.h"
 #include"Scheduler.h"
+#include"APU.h"
 
 #include<iostream>
 
@@ -62,13 +63,13 @@ private:
 	std::shared_ptr<PPU> m_ppu;
 	std::shared_ptr<Input> m_input;
 	std::shared_ptr<Timer> m_timer;
+	std::shared_ptr<APU> m_apu;
 	std::shared_ptr<EEPROM> m_eeprom;
 	std::shared_ptr<Flash> m_flash;
 
 	DMAChannel m_dmaChannels[4];
 	uint16_t WAITCNT = 0;
 	bool shouldHalt = false;
-	uint16_t hack_soundbias = 0;
 	bool isFlash = false;
 
 	bool biosLockout = false;

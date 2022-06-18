@@ -9,6 +9,7 @@ Bus::Bus(std::vector<uint8_t> BIOS, std::vector<uint8_t> cartData, std::shared_p
 
 	m_mem = std::make_shared<GBAMem>();
 	m_timer = std::make_shared<Timer>(m_interruptManager,m_scheduler);
+	m_apu = std::make_shared<APU>();
 	m_eeprom = std::make_shared<EEPROM>();
 	m_flash = std::make_shared<Flash>();
 	m_ppu->registerMemory(m_mem);
@@ -327,6 +328,8 @@ uint8_t Bus::readIO8(uint32_t address)
 		return DMARegRead(address);
 	if (address >= 0x04000100 && address <= 0x0400010F)
 		return m_timer->readIO(address);
+	if (address >= 0x04000060 && address <= 0x040000A8)
+		return m_apu->readIO(address);
 	switch (address)
 	{
 	case 0x04000200:case 0x04000201: case 0x04000202:  case 0x04000203: case 0x04000208: case 0x04000209: case 0x0400020A: case 0x0400020B:
@@ -335,10 +338,6 @@ uint8_t Bus::readIO8(uint32_t address)
 		return WAITCNT & 0xFF;
 	case 0x04000205:
 		return ((WAITCNT >> 8) & 0xFF);
-	case 0x04000088:
-		return hack_soundbias & 0xFF;
-	case 0x04000089:
-		return (hack_soundbias >> 8) & 0xFF;
 	case 0x04000135:	//hack (tie top byte of rcnt to 0x80)
 		return 0x80;
 	}
@@ -368,6 +367,11 @@ void Bus::writeIO8(uint32_t address, uint8_t value)
 		m_timer->writeIO(address, value);
 		return;
 	}
+	if (address >= 0x04000060 && address <= 0x040000A8)
+	{
+		m_apu->writeIO(address, value);
+		return;
+	}
 	switch (address)
 	{
 	case 0x04000200:case 0x04000201: case 0x04000202:  case 0x04000203: case 0x04000208: case 0x04000209: case 0x0400020A: case 0x0400020B:
@@ -382,12 +386,6 @@ void Bus::writeIO8(uint32_t address, uint8_t value)
 		return;
 	case 0x04000301:
 		shouldHalt = true;	//probs not completely right. HALTCNT.7 has two modes (0=halt,1=stop)
-		break;
-	case 0x04000088:
-		hack_soundbias &= 0xFF00; hack_soundbias |= value;
-		break;
-	case 0x04000089:
-		hack_soundbias &= 0xFF; hack_soundbias |= (value << 8);
 		break;
 	}
 	//Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Unimplemented IO write addr={:#x}", address));
