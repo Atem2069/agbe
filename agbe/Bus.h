@@ -16,6 +16,7 @@ struct DMAChannel
 {
 	uint32_t srcAddress;
 	uint32_t destAddress;
+	uint32_t internalDest;
 	uint16_t wordCount;
 	uint16_t control;
 };

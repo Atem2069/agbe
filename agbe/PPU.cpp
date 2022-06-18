@@ -1192,6 +1192,30 @@ void PPU::writeIO(uint32_t address, uint8_t value)
 	case 0x0400004B:
 		WINOUT &= 0xFF; WINOUT |= (value << 8);
 		break;
+	case 0x04000020:
+		BG2PA &= 0xFF00; BG2PA |= value;
+		break;
+	case 0x04000021:
+		BG2PA &= 0xFF; BG2PA |= (value << 8);
+		break;
+	case 0x04000022:
+		BG2PB &= 0xFF00; BG2PB |= value;
+		break;
+	case 0x04000023:
+		BG2PB &= 0xFF; BG2PB |= (value << 8);
+		break;
+	case 0x04000024:
+		BG2PC &= 0xFF00; BG2PC |= value;
+		break;
+	case 0x04000025:
+		BG2PC &= 0xFF; BG2PC |= (value << 8);
+		break;
+	case 0x04000026:
+		BG2PD &= 0xFF00; BG2PD |= value;
+		break;
+	case 0x04000027:
+		BG2PD &= 0xFF; BG2PD |= (value << 8);
+		break;
 	case 0x04000028:
 		BG2X &= 0xFFFFFF00; BG2X |= value;
 		break;
@@ -1215,6 +1239,30 @@ void PPU::writeIO(uint32_t address, uint8_t value)
 		break;
 	case 0x0400002F:
 		BG2Y &= 0x00FFFFFF; BG2Y |= (value << 24);
+		break;
+	case 0x04000030:
+		BG3PA &= 0xFF00; BG3PA |= value;
+		break;
+	case 0x04000031:
+		BG3PA &= 0xFF; BG3PA |= (value << 8);
+		break;
+	case 0x04000032:
+		BG3PB &= 0xFF00; BG3PB |= value;
+		break;
+	case 0x04000033:
+		BG3PB &= 0xFF; BG3PB |= (value << 8);
+		break;
+	case 0x04000034:
+		BG3PC &= 0xFF00; BG3PC |= value;
+		break;
+	case 0x04000035:
+		BG3PC &= 0xFF; BG3PC |= (value << 8);
+		break;
+	case 0x04000036:
+		BG3PD &= 0xFF00; BG3PD |= value;
+		break;
+	case 0x04000037:
+		BG3PD &= 0xFF; BG3PD |= (value << 8);
 		break;
 	case 0x04000038:
 		BG3X &= 0xFFFFFF00; BG3X |= value;

@@ -65,6 +65,8 @@ void Bus::DMARegWrite(uint32_t address, uint8_t value)
 		setByteInHalfword(&(m_dmaChannels[0].control), value, 0);
 		break;
 	case 0x040000BB:
+		if ((!((m_dmaChannels[0].control >> 15) & 0b1)) && ((value >> 7) & 0b1))
+			m_dmaChannels[0].internalDest = m_dmaChannels[0].destAddress;
 		setByteInHalfword(&(m_dmaChannels[0].control), value, 1);
 		break;
 
@@ -104,6 +106,8 @@ void Bus::DMARegWrite(uint32_t address, uint8_t value)
 		setByteInHalfword(&(m_dmaChannels[1].control), value, 0);
 		break;
 	case 0x040000C7:
+		if ((!((m_dmaChannels[1].control >> 15) & 0b1)) && ((value >> 7) & 0b1))
+			m_dmaChannels[1].internalDest = m_dmaChannels[1].destAddress;
 		setByteInHalfword(&(m_dmaChannels[1].control), value, 1);
 		break;
 
@@ -144,6 +148,8 @@ void Bus::DMARegWrite(uint32_t address, uint8_t value)
 		setByteInHalfword(&(m_dmaChannels[2].control), value, 0);
 		break;
 	case 0x040000D3:
+		if ((!((m_dmaChannels[2].control >> 15) & 0b1)) && ((value >> 7) & 0b1))
+			m_dmaChannels[2].internalDest = m_dmaChannels[2].destAddress;
 		setByteInHalfword(&(m_dmaChannels[2].control), value, 1);
 		break;
 
@@ -184,6 +190,8 @@ void Bus::DMARegWrite(uint32_t address, uint8_t value)
 		setByteInHalfword(&(m_dmaChannels[3].control), value, 0);
 		break;
 	case 0x040000DF:
+		if ((!((m_dmaChannels[3].control >> 15) & 0b1)) && ((value >> 7) & 0b1))
+			m_dmaChannels[3].internalDest = m_dmaChannels[3].destAddress;
 		setByteInHalfword(&(m_dmaChannels[3].control), value, 1);
 		break;
 
@@ -222,9 +230,11 @@ void Bus::doDMATransfer(int channel)
 		destAddrMask = 0x0FFFFFFF;
 
 	uint32_t src = curChannel.srcAddress & srcAddrMask;
-	uint32_t dest = curChannel.destAddress & destAddrMask;
+	uint32_t dest = curChannel.internalDest & destAddrMask;
 
 	int numWords = curChannel.wordCount;
+	if (channel != 3)
+		numWords &= 0x3FFF;
 	if (numWords == 0)
 	{
 		numWords = 0x4000;
@@ -240,6 +250,7 @@ void Bus::doDMATransfer(int channel)
 	uint8_t dstAddrCtrl = ((curChannel.control >> 5) & 0b11);
 	bool wordTransfer = ((curChannel.control >> 10) & 0b1);
 	dmaInProgress = true;
+	bool reloadDest = false;
 	for (int i = 0; i < numWords; i++)
 	{
 		if (wordTransfer)
@@ -271,8 +282,12 @@ void Bus::doDMATransfer(int channel)
 		case 0:
 			dest += incrementAmount;
 			break;
-		case 2:
+		case 1:
 			dest -= incrementAmount;
+			break;
+		case 3:
+			dest += incrementAmount;
+			reloadDest = true;
 			break;
 		}
 
@@ -294,7 +309,13 @@ void Bus::doDMATransfer(int channel)
 	}
 
 	bool repeatDMA = ((curChannel.control >> 9) & 0b1);
-	if(!repeatDMA)
+	if (repeatDMA)
+	{
+		if (reloadDest)
+			m_dmaChannels[channel].internalDest = m_dmaChannels[channel].destAddress;
+		m_dmaChannels[channel].srcAddress = src;
+	}
+	else
 		m_dmaChannels[channel].control &= 0x7FFF;	//clear DMA enable
 	dmaInProgress = false;
 }

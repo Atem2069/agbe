@@ -125,6 +125,14 @@ private:
 	uint32_t BG2Y = {};
 	uint32_t BG3X = {};
 	uint32_t BG3Y = {};
+	uint16_t BG2PA = {};
+	uint16_t BG2PB = {};
+	uint16_t BG2PC = {};
+	uint16_t BG2PD = {};
+	uint16_t BG3PA = {};
+	uint16_t BG3PB = {};
+	uint16_t BG3PC = {};
+	uint16_t BG3PD = {};
 	uint16_t BLDCNT = {};
 	uint16_t BLDALPHA = {};
 	uint8_t BLDY = {};
