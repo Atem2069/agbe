@@ -22,6 +22,24 @@ void Scheduler::tick(uint64_t cycles)
 	}
 }
 
+void Scheduler::jumpToNextEvent()
+{
+	uint64_t lowestTimestamp = 0xFFFFFFFFFFFFFFFF;
+	int lowestEntryIdx = 0;
+	for (int i = 0; i < NUM_ENTRIES; i++)
+	{
+		if ((entries[i].timestamp < lowestTimestamp) && entries[i].enabled)
+		{
+			lowestEntryIdx = i;
+			lowestTimestamp = entries[i].timestamp;
+		}
+	}
+
+	timestamp = entries[lowestEntryIdx].timestamp;
+	entries[lowestEntryIdx].enabled = false;
+	entries[lowestEntryIdx].callback(entries[lowestEntryIdx].context);
+}
+
 uint64_t Scheduler::getCurrentTimestamp()
 {
 	return timestamp;

@@ -380,6 +380,9 @@ void Bus::writeIO8(uint32_t address, uint8_t value)
 	case 0x04000205:
 		WAITCNT &= 0xFF; WAITCNT |= (value << 8);
 		return;
+	case 0x04000301:
+		shouldHalt = true;	//probs not completely right. HALTCNT.7 has two modes (0=halt,1=stop)
+		break;
 	case 0x04000088:
 		hack_soundbias &= 0xFF00; hack_soundbias |= value;
 		break;
@@ -415,6 +418,13 @@ void Bus::writeIO32(uint32_t address, uint32_t value)
 {
 	writeIO16(address, value & 0xFFFF);
 	writeIO16(address + 2, ((value >> 16) & 0xFFFF));
+}
+
+bool Bus::getHalted()
+{
+	bool isHalted = shouldHalt;
+	shouldHalt = false;
+	return isHalted;
 }
 
 

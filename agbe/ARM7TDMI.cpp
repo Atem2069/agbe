@@ -1,9 +1,10 @@
 #include"ARM7TDMI.h"
 
-ARM7TDMI::ARM7TDMI(std::shared_ptr<Bus> bus, std::shared_ptr<InterruptManager> interruptManager)
+ARM7TDMI::ARM7TDMI(std::shared_ptr<Bus> bus, std::shared_ptr<InterruptManager> interruptManager, std::shared_ptr<Scheduler> scheduler)
 {
 	m_bus = bus;
 	m_interruptManager = interruptManager;
+	m_scheduler = scheduler;
 	CPSR = 0x1F;	//system starts in system mode
 	for (int i = 0; i < 16; i++)
 		R[i] = 0;
@@ -44,6 +45,13 @@ void ARM7TDMI::step()
 		}
 		m_pipelinePtr = ((m_pipelinePtr + 1) % 3);
 	}
+
+	if (m_bus->getHalted())
+	{
+		while (!m_interruptManager->getInterrupt())
+			m_scheduler->jumpToNextEvent();			//teleport to next event(s) until interrupt fires
+	}
+
 }
 
 void ARM7TDMI::fetch()

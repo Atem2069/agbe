@@ -39,6 +39,8 @@ public:
 	uint32_t fetch32(uint32_t address);
 	uint16_t fetch16(uint32_t address);
 
+	bool getHalted();
+
 //handle IO separately
 
 	uint8_t readIO8(uint32_t address);
@@ -64,6 +66,7 @@ private:
 
 	DMAChannel m_dmaChannels[4];
 	uint16_t WAITCNT = 0;
+	bool shouldHalt = false;
 	uint16_t hack_soundbias = 0;
 	bool isFlash = false;
 

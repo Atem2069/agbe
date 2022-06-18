@@ -114,7 +114,7 @@ void GBA::m_initialise()
 	m_interruptManager = std::make_shared<InterruptManager>();
 	m_ppu = std::make_shared<PPU>(m_interruptManager,m_scheduler);
 	m_bus = std::make_shared<Bus>(biosData, romData, m_interruptManager, m_ppu,m_input,m_scheduler);
-	m_cpu = std::make_shared<ARM7TDMI>(m_bus,m_interruptManager);
+	m_cpu = std::make_shared<ARM7TDMI>(m_bus,m_interruptManager,m_scheduler);
 
 	Logger::getInstance()->msg(LoggerSeverity::Info, "Inited GBA instance!");
 	m_initialised = true;

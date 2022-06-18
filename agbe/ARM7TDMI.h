@@ -3,6 +3,7 @@
 #include"Logger.h"
 #include"Bus.h"
 #include"InterruptManager.h"
+#include"Scheduler.h"
 
 #include<iostream>
 #include<stdexcept>
@@ -23,13 +24,14 @@ struct Pipeline
 class ARM7TDMI
 {
 public:
-	ARM7TDMI(std::shared_ptr<Bus> bus, std::shared_ptr<InterruptManager> interruptManager);
+	ARM7TDMI(std::shared_ptr<Bus> bus, std::shared_ptr<InterruptManager> interruptManager, std::shared_ptr<Scheduler> scheduler);
 	~ARM7TDMI();
 
 	void step();
 private:
 	std::shared_ptr<Bus> m_bus;
 	std::shared_ptr<InterruptManager> m_interruptManager;
+	std::shared_ptr<Scheduler> m_scheduler;
 
 	Pipeline m_pipeline[3];
 	uint8_t m_pipelinePtr = 0;

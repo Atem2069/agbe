@@ -30,6 +30,7 @@ public:
 	~Scheduler();
 
 	void tick(uint64_t cycles);
+	void jumpToNextEvent();
 	uint64_t getCurrentTimestamp();
 	void addEvent(Event type, callbackFn callback, void* context, uint64_t time);
 	void removeEvent(Event type);
