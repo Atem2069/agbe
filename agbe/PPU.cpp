@@ -113,6 +113,12 @@ void PPU::HBlank()
 
 	if (VCOUNT == 160)
 	{
+		//copy over new values to affine regs
+		BG2X = BG2X_latch;
+		BG2Y = BG2Y_latch;
+		BG3X = BG3X_latch;
+		BG3Y = BG3Y_latch;
+
 		setVBlankFlag(true);
 		inVBlank = true;
 
@@ -160,6 +166,12 @@ void PPU::VBlank()
 	VCOUNT++;
 	if (VCOUNT == 228)		//go back to drawing
 	{
+		//copy over new values to affine regs
+		BG2X = BG2X_latch;
+		BG2Y = BG2Y_latch;
+		BG3X = BG3X_latch;
+		BG3Y = BG3Y_latch;
+
 		setVBlankFlag(false);
 		inVBlank = false;
 		shouldSyncVideo = true;
@@ -297,7 +309,6 @@ void PPU::renderMode2()
 		m_bgPriorities[i] = 255;
 		target2Pixels[i] = 0;
 	}
-
 }
 
 void PPU::renderMode3()
@@ -507,24 +518,31 @@ void PPU::drawBackground(int bg)
 void PPU::drawRotationScalingBackground(int bg)
 {
 	uint16_t ctrlReg = 0;
-	int32_t xScroll = 0, yScroll = 0;
+	int32_t xRef = 0, yRef = 0;
+	int16_t pA = 0, pB = 0, pC = 0, pD = 0;
 	bool isTarget1 = ((BLDCNT >> bg) & 0b1);
 	bool isTarget2 = ((BLDCNT >> (bg + 8)) & 0b1);
 	switch (bg)
 	{
 	case 2:
 		ctrlReg = BG2CNT;
-		xScroll = (BG2X >> 8) & 0x7FFFF;	//dumb hack (shift out fractional portion). todo - fix
-		yScroll = (BG2Y >> 8) & 0x7FFFF;
+		xRef = BG2X&0xFFFFFFF;
+		yRef = BG2Y&0xFFFFFFF;
+		pA = BG2PA; pB = BG2PB; pC = BG2PC; pD = BG2PD;
 		if ((BG2X >> 27) & 0b1)
-			xScroll |= 0xFFFF1000;
+			xRef |= 0xF0000000;
 		if ((BG2Y >> 27) & 0b1)
-			yScroll |= 0xFFFF1000;
+			yRef |= 0xF0000000;
 		break;
 	case 3:
 		ctrlReg = BG3CNT;
-		xScroll = (BG3X >> 8) & 0x7FFFF;	//dumb hack (shift out fractional portion). todo - fix
-		yScroll = (BG3Y >> 8) & 0x7FFFF;
+		xRef = BG3X&0xFFFFFFF;
+		yRef = BG3Y&0xFFFFFFF;
+		pA = BG3PA; pB = BG3PB; pC = BG3PC; pD = BG3PD;
+		if ((BG3X >> 27) & 0b1)
+			xRef |= 0xF0000000;
+		if ((BG3Y >> 27) & 0b1)
+			yRef |= 0xF0000000;
 		break;
 	}
 	int xWrap = 256, yWrap = 256;
@@ -547,14 +565,15 @@ void PPU::drawRotationScalingBackground(int bg)
 	uint8_t bgPriority = ctrlReg & 0b11;
 	uint32_t tileDataBaseBlock = ((ctrlReg >> 2) & 0b11);
 	uint32_t bgMapBaseBlock = ((ctrlReg >> 8) & 0x1F);
-	uint32_t fetcherY = ((VCOUNT + yScroll) % yWrap);
-	uint32_t bgMapYIdx = ((fetcherY / 8) * 32); //each row is 32 chars; in rotation/scroll each entry is 1 byte
+	bool overflowWrap = ((ctrlReg >> 13) & 0b1);
 
 	for (int x = 0; x < 240; x++)
 	{
+		xRef += pA;
+		yRef += pC;
+
 		uint32_t plotAddr = (VCOUNT * 240) + x;
 		if (m_spritePriorities[x] <= bgPriority)
-		//if(m_spritePriorities[x] != 255)	//bad... something is wrong with bg-sprite priority in mode 2. can't figure it out
 		{
 			m_renderBuffer[pageIdx][plotAddr] = m_spriteLineBuffer[x];
 			m_bgPriorities[x] = 254;	//dumb hack :P
@@ -562,9 +581,19 @@ void PPU::drawRotationScalingBackground(int bg)
 		}
 		if (!getPointDrawable(x, VCOUNT, bg, false))
 			continue;
-		int xCoord = ((x + xScroll) % xWrap);
-		if (xCoord < 0)
-			xCoord = (xWrap - 1) + xCoord;	//hmm...
+
+		uint32_t fetcherY = yRef;
+		fetcherY >>= 8;
+		if ((fetcherY > yWrap) && !overflowWrap)
+			continue;
+		fetcherY = fetcherY % yWrap;
+		uint32_t bgMapYIdx = ((fetcherY / 8) * 32); //each row is 32 chars; in rotation/scroll each entry is 1 byte
+
+		uint32_t xCoord = xRef;
+		xCoord >>= 8;
+		if ((xCoord > xWrap) && !overflowWrap)
+			continue;
+		xCoord = xCoord % xWrap;
 
 		uint32_t bgMapAddr = (bgMapBaseBlock * 2048) + bgMapYIdx;
 		bgMapAddr += (xCoord/8);
@@ -611,6 +640,8 @@ void PPU::drawRotationScalingBackground(int bg)
 		m_renderBuffer[pageIdx][plotAddr] = col16to32(col);
 
 	}
+
+	updateAffineRegisters(bg);
 }
 
 void PPU::drawSprites()
@@ -984,6 +1015,36 @@ bool PPU::getPointBlendable(int x, int y)
 
 }
 
+void PPU::updateAffineRegisters(int bg)
+{
+	if (bg == 2)
+	{
+		int16_t dmx = BG2PB;
+		int16_t dmy = BG2PD;
+
+		if ((BG2X >> 27) & 0b1)
+			BG2X |= 0xF0000000;
+		if ((BG2Y >> 27) & 0b1)
+			BG2Y |= 0xF0000000;
+
+		BG2X = (BG2X + dmx) & 0xFFFFFFF;
+		BG2Y = (BG2Y + dmy) & 0xFFFFFFF;
+	}
+	if (bg == 3)
+	{
+		int16_t dmx = BG3PB;
+		int16_t dmy = BG3PD;
+
+		if ((BG3X >> 27) & 0b1)
+			BG3X |= 0xF0000000;
+		if ((BG3Y >> 27) & 0b1)
+			BG3Y |= 0xF0000000;
+
+		BG3X = (BG3X + dmx) & 0xFFFFFFF;
+		BG3Y = (BG3Y + dmy) & 0xFFFFFFF;
+	}
+}
+
 uint32_t* PPU::getDisplayBuffer()
 {
 	return m_renderBuffer[!pageIdx];
@@ -1217,28 +1278,28 @@ void PPU::writeIO(uint32_t address, uint8_t value)
 		BG2PD &= 0xFF; BG2PD |= (value << 8);
 		break;
 	case 0x04000028:
-		BG2X &= 0xFFFFFF00; BG2X |= value;
+		BG2X_latch &= 0xFFFFFF00; BG2X_latch |= value;
 		break;
 	case 0x04000029:
-		BG2X &= 0xFFFF00FF; BG2X |= (value << 8);
+		BG2X_latch &= 0xFFFF00FF; BG2X_latch |= (value << 8);
 		break;
 	case 0x0400002A:
-		BG2X &= 0xFF00FFFF; BG2X |= (value << 16);
+		BG2X_latch &= 0xFF00FFFF; BG2X_latch |= (value << 16);
 		break;
 	case 0x0400002B:
-		BG2X &= 0x00FFFFFF; BG2X |= (value << 24);
+		BG2X_latch &= 0x00FFFFFF; BG2X_latch |= (value << 24);
 		break;
 	case 0x0400002C:
-		BG2Y &= 0xFFFFFF00; BG2Y |= value;
+		BG2Y_latch &= 0xFFFFFF00; BG2Y_latch |= value;
 		break;
 	case 0x0400002D:
-		BG2Y &= 0xFFFF00FF; BG2Y |= (value << 8);
+		BG2Y_latch &= 0xFFFF00FF; BG2Y_latch |= (value << 8);
 		break;
 	case 0x0400002E:
-		BG2Y &= 0xFF00FFFF; BG2Y |= (value << 16);
+		BG2Y_latch &= 0xFF00FFFF; BG2Y_latch |= (value << 16);
 		break;
 	case 0x0400002F:
-		BG2Y &= 0x00FFFFFF; BG2Y |= (value << 24);
+		BG2Y_latch &= 0x00FFFFFF; BG2Y_latch |= (value << 24);
 		break;
 	case 0x04000030:
 		BG3PA &= 0xFF00; BG3PA |= value;
@@ -1265,28 +1326,28 @@ void PPU::writeIO(uint32_t address, uint8_t value)
 		BG3PD &= 0xFF; BG3PD |= (value << 8);
 		break;
 	case 0x04000038:
-		BG3X &= 0xFFFFFF00; BG3X |= value;
+		BG3X_latch &= 0xFFFFFF00; BG3X_latch |= value;
 		break;
 	case 0x04000039:
-		BG3X &= 0xFFFF00FF; BG3X |= (value << 8);
+		BG3X_latch &= 0xFFFF00FF; BG3X_latch |= (value << 8);
 		break;
 	case 0x0400003A:
-		BG3X &= 0xFF00FFFF; BG3X |= (value << 16);
+		BG3X_latch &= 0xFF00FFFF; BG3X_latch |= (value << 16);
 		break;
 	case 0x0400003B:
-		BG3X &= 0x00FFFFFF; BG3X |= (value << 24);
+		BG3X_latch &= 0x00FFFFFF; BG3X_latch |= (value << 24);
 		break;
 	case 0x0400003C:
-		BG3Y &= 0xFFFFFF00; BG3Y |= value;
+		BG3Y_latch &= 0xFFFFFF00; BG3Y_latch |= value;
 		break;
 	case 0x0400003D:
-		BG3Y &= 0xFFFF00FF; BG3Y |= (value << 8);
+		BG3Y_latch &= 0xFFFF00FF; BG3Y_latch |= (value << 8);
 		break;
 	case 0x0400003E:
-		BG3Y &= 0xFF00FFFF; BG3Y |= (value << 16);
+		BG3Y_latch &= 0xFF00FFFF; BG3Y_latch |= (value << 16);
 		break;
 	case 0x0400003F:
-		BG3Y &= 0x00FFFFFF; BG3Y |= (value << 24);
+		BG3Y_latch &= 0x00FFFFFF; BG3Y_latch |= (value << 24);
 		break;
 	case 0x04000050:
 		BLDCNT &= 0xFF00; BLDCNT |= value;

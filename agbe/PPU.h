@@ -99,6 +99,7 @@ private:
 
 	bool getPointDrawable(int x, int y, int backgroundLayer, bool obj);
 	bool getPointBlendable(int x, int y);
+	void updateAffineRegisters(int bg);
 
 	uint16_t DISPCNT = {};
 	uint16_t DISPSTAT = {};
@@ -121,18 +122,18 @@ private:
 	uint16_t WIN1V = {};
 	uint16_t WININ = {};
 	uint16_t WINOUT = {};
-	uint32_t BG2X = {};
-	uint32_t BG2Y = {};
-	uint32_t BG3X = {};
-	uint32_t BG3Y = {};
-	uint16_t BG2PA = {};
+	uint32_t BG2X = {}, BG2X_latch = {};
+	uint32_t BG2Y = {}, BG2Y_latch = {};
+	uint32_t BG3X = {}, BG3X_latch = {};
+	uint32_t BG3Y = {}, BG3Y_latch = {};
+	uint16_t BG2PA = 0x100;
 	uint16_t BG2PB = {};
 	uint16_t BG2PC = {};
-	uint16_t BG2PD = {};
-	uint16_t BG3PA = {};
+	uint16_t BG2PD = 0x100;
+	uint16_t BG3PA = 0x100;
 	uint16_t BG3PB = {};
 	uint16_t BG3PC = {};
-	uint16_t BG3PD = {};
+	uint16_t BG3PD = 0x100;
 	uint16_t BLDCNT = {};
 	uint16_t BLDALPHA = {};
 	uint8_t BLDY = {};
