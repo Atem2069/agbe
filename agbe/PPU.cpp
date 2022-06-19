@@ -166,6 +166,17 @@ void PPU::VBlank()
 	VCOUNT++;
 	if (VCOUNT == 228)		//go back to drawing
 	{
+
+		uint16_t vcountCmp = ((DISPSTAT >> 8) & 0xFF);
+		if (vcountCmp==0)
+		{
+			setVCounterFlag(true);
+			if ((DISPSTAT >> 5) & 0b1)
+				m_interruptManager->requestInterrupt(InterruptType::VCount);
+		}
+		else
+			setVCounterFlag(false);
+
 		setVBlankFlag(false);
 		inVBlank = false;
 		shouldSyncVideo = true;
