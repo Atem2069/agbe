@@ -1282,6 +1282,7 @@ void PPU::writeIO(uint32_t address, uint8_t value)
 		break;
 	case 0x0400002B:
 		BG2X_latch &= 0x00FFFFFF; BG2X_latch |= (value << 24);
+		BG2X = BG2X_latch;
 		break;
 	case 0x0400002C:
 		BG2Y_latch &= 0xFFFFFF00; BG2Y_latch |= value;
@@ -1294,6 +1295,7 @@ void PPU::writeIO(uint32_t address, uint8_t value)
 		break;
 	case 0x0400002F:
 		BG2Y_latch &= 0x00FFFFFF; BG2Y_latch |= (value << 24);
+		BG2Y = BG2Y_latch;
 		break;
 	case 0x04000030:
 		BG3PA &= 0xFF00; BG3PA |= value;
@@ -1330,6 +1332,7 @@ void PPU::writeIO(uint32_t address, uint8_t value)
 		break;
 	case 0x0400003B:
 		BG3X_latch &= 0x00FFFFFF; BG3X_latch |= (value << 24);
+		BG3X = BG3X_latch;
 		break;
 	case 0x0400003C:
 		BG3Y_latch &= 0xFFFFFF00; BG3Y_latch |= value;
@@ -1342,6 +1345,7 @@ void PPU::writeIO(uint32_t address, uint8_t value)
 		break;
 	case 0x0400003F:
 		BG3Y_latch &= 0x00FFFFFF; BG3Y_latch |= (value << 24);
+		BG3Y = BG3Y_latch;
 		break;
 	case 0x04000050:
 		BLDCNT &= 0xFF00; BLDCNT |= value;
