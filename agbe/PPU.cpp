@@ -166,12 +166,6 @@ void PPU::VBlank()
 	VCOUNT++;
 	if (VCOUNT == 228)		//go back to drawing
 	{
-		//copy over new values to affine regs
-		BG2X = BG2X_latch;
-		BG2Y = BG2Y_latch;
-		BG3X = BG3X_latch;
-		BG3Y = BG3Y_latch;
-
 		setVBlankFlag(false);
 		inVBlank = false;
 		shouldSyncVideo = true;
