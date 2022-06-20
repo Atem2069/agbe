@@ -15,23 +15,29 @@ Timer::~Timer()
 
 void Timer::event()
 {
-	uint64_t curTimestamp = m_scheduler->getCurrentTimestamp();
+	uint64_t currentTimestamp = m_scheduler->getCurrentTimestamp();
 	for (int i = 0; i < 4; i++)
 	{
-		bool timerEnabled = ((m_timers[i].CNT_H >> 7) & 0b1);
-		if (!timerEnabled)
-			continue;
-
-		if (m_timers[i].overflowTime <= curTimestamp)
+		uint8_t ctrlreg = m_timers[i].CNT_H;
+		bool timerEnabled = (ctrlreg >> 7) & 0b1;
+		if (timerEnabled)
 		{
-			bool doIrq = ((m_timers[i].CNT_H >> 6) & 0b1);
-			if (doIrq)
+			uint64_t timerOverflowTime = m_timers[i].overflowTime;
+			if (timerOverflowTime <= currentTimestamp)
 			{
-				InterruptType intLut[4] = { InterruptType::Timer0,InterruptType::Timer1,InterruptType::Timer2,InterruptType::Timer3 };
-				m_interruptManager->requestInterrupt(intLut[i]);
+				//overflowed, need to handle
+				m_timers[i].initialClock = m_timers[i].CNT_L;
+				m_timers[i].clock = m_timers[i].initialClock;
+				calculateNextOverflow(i, m_timers[i].clock);
+
+				bool doIrq = (ctrlreg >> 6) & 0b1;
+				if (doIrq)
+				{
+					InterruptType irqLUT[4] = { InterruptType::Timer0,InterruptType::Timer1,InterruptType::Timer2,InterruptType::Timer3 };
+					m_interruptManager->requestInterrupt(irqLUT[i]);
+				}
+
 			}
-			m_timers[i].clock = m_timers[i].CNT_L;
-			calculateNextOverflow(i);
 		}
 	}
 }
@@ -69,84 +75,66 @@ void Timer::writeIO(uint32_t address, uint8_t value)
 		m_timers[timerIdx].CNT_L &= 0xFF; m_timers[timerIdx].CNT_L |= ((value << 8));
 		break;
 	case 2:
-		uint16_t oldControlBits = m_timers[timerIdx].CNT_H;
-		bool timerWasEnabled = ((m_timers[timerIdx].CNT_H) >> 7) & 0b1;
-		bool newTimerEnabled = ((value >> 7) & 0b1);
-
-		uint8_t newPrescalerBits = value & 0b11;
-		uint8_t timerPrescaleBits = oldControlBits & 0b11;
-		if (timerWasEnabled && !newTimerEnabled)
-			setCurrentClock(timerIdx);
-		if (timerWasEnabled && newTimerEnabled && (newPrescalerBits != timerPrescaleBits))
-		{
-			setCurrentClock(timerIdx);
-			m_timers[timerIdx].timeActivated = m_scheduler->getCurrentTimestamp();
-			m_timers[timerIdx].CNT_H &= 0xFF00; m_timers[timerIdx].CNT_H |= value;
-			calculateNextOverflow(timerIdx);
-		}
-
+		bool timerWasEnabled = (m_timers[timerIdx].CNT_H >> 7) & 0b1;
+		bool timerNowEnabled = (value >> 7) & 0b1;
+		bool countup = ((value >> 2) & 0b1);
 		m_timers[timerIdx].CNT_H &= 0xFF00; m_timers[timerIdx].CNT_H |= value;
-		if (!timerWasEnabled && newTimerEnabled)				//reload timer value if timer is going to be enabled
+
+		if (!timerWasEnabled && timerNowEnabled && !countup)
 		{
-			m_timers[timerIdx].clock = m_timers[timerIdx].CNT_L;
-			calculateNextOverflow(timerIdx);
+			m_timers[timerIdx].initialClock = m_timers[timerIdx].CNT_L;
+			m_timers[timerIdx].clock = m_timers[timerIdx].initialClock;
+			calculateNextOverflow(timerIdx, m_timers[timerIdx].clock);
 		}
+
 		break;
 	}
 }
 
-void Timer::calculateNextOverflow(int timerIdx)
+void Timer::calculateNextOverflow(int timerIdx, uint16_t newClock)
 {
-	bool timerEnabled = (m_timers[timerIdx].CNT_H >> 7) & 0b1;
-	if (!timerEnabled)
-		return;
-	m_timers[timerIdx].initialClock = m_timers[timerIdx].clock;
-	uint64_t tickThreshold = 1;
-	uint8_t timerPrescaler = ((m_timers[timerIdx].CNT_H & 0b11));
-	switch (timerPrescaler)
-	{
-	case 1:
-		tickThreshold = 64; break;
-	case 2:
-		tickThreshold = 256; break;
-	case 3:
-		tickThreshold = 1024; break;
-	}
-	uint64_t ticksTillOverflow = (65536 - m_timers[timerIdx].clock) * tickThreshold;
+	uint8_t timerctrl = m_timers[timerIdx].CNT_H;
 
-	Event timerEventType = Event::TIMER0;
-	switch (timerIdx)
-	{
-	case 1: timerEventType = Event::TIMER1; break;
-	case 2: timerEventType = Event::TIMER2; break;
-	case 3:timerEventType = Event::TIMER3; break;
-	}
+	uint64_t cycleLut[4] = { 1, 64, 256, 1024 };
+	uint8_t prescalerSelect = (timerctrl & 0b11);
+	uint64_t prescalerCycles = cycleLut[prescalerSelect];
 
-	m_scheduler->addEvent(timerEventType, &Timer::onSchedulerEvent, (void*)this, m_scheduler->getCurrentTimestamp() + ticksTillOverflow+1);
-	m_timers[timerIdx].timeActivated = m_scheduler->getCurrentTimestamp()+1;
-	m_timers[timerIdx].overflowTime = m_timers[timerIdx].timeActivated + ticksTillOverflow;
+	uint64_t cyclesToOverflow = (65536 - newClock) * prescalerCycles;
+
+	uint64_t currentTime = m_scheduler->getCurrentTimestamp();
+	uint64_t overflowTimestamp = currentTime + cyclesToOverflow;
+
+	Event timerEventLUT[4] = { Event::TIMER0,Event::TIMER1,Event::TIMER2,Event::TIMER3 };
+	m_scheduler->addEvent(timerEventLUT[timerIdx], &Timer::onSchedulerEvent, (void*)this, overflowTimestamp);
+
+	m_timers[timerIdx].timeActivated = currentTime;
+	m_timers[timerIdx].lastUpdateTimestamp = currentTime;
+	m_timers[timerIdx].overflowTime = overflowTimestamp;
+
 }
 
 void Timer::setCurrentClock(int idx)
 {
-	uint64_t tickThreshold = 1;
-	uint8_t timerPrescaler = ((m_timers[idx].CNT_H & 0b11));
-	switch (timerPrescaler)
+	uint8_t timerctrl = m_timers[idx].CNT_H;
+
+	bool timerEnabled = ((timerctrl >> 7) & 0b1);
+	bool countup = ((timerctrl >> 2) & 0b1);
+	if (!timerEnabled || countup)	//don't predict new clock if disabled, or timer is a countup timer
+		return;
+
+	uint64_t currentTime = m_scheduler->getCurrentTimestamp();
+	uint64_t timeSinceLastCheck = m_timers[idx].lastUpdateTimestamp;
+
+	uint64_t cycleLut[4] = { 1, 64, 256, 1024 };
+	uint8_t prescalerSelect = (timerctrl & 0b11);
+	uint64_t prescalerCycles = cycleLut[prescalerSelect];
+
+	uint64_t ticksElapsed = (currentTime - timeSinceLastCheck) / prescalerCycles;
+	if (ticksElapsed > 0)
 	{
-	case 1:
-		tickThreshold = 64; break;
-	case 2:
-		tickThreshold = 256; break;
-	case 3:
-		tickThreshold = 1024; break;
+		m_timers[idx].clock += ticksElapsed;
+		m_timers[idx].lastUpdateTimestamp += (ticksElapsed * prescalerCycles);
 	}
-
-	uint64_t timerStart = m_timers[idx].timeActivated;
-	uint64_t curTime = m_scheduler->getCurrentTimestamp();
-	uint64_t differenceInClocks = curTime - timerStart;
-	differenceInClocks /= tickThreshold;
-
-	m_timers[idx].clock = m_timers[idx].initialClock + differenceInClocks;
 }
 
 void Timer::onSchedulerEvent(void* context)

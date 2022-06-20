@@ -12,6 +12,7 @@ struct TimerRegister
 	uint16_t clock;
 	uint64_t timeActivated;
 	uint64_t overflowTime;
+	uint64_t lastUpdateTimestamp;
 };
 
 class Timer
@@ -27,7 +28,7 @@ public:
 
 private:
 	void event();
-	void calculateNextOverflow(int idx);
+	void calculateNextOverflow(int timerIdx, uint16_t newClock);
 	void setCurrentClock(int idx);
 	TimerRegister m_timers[4];
 	std::shared_ptr<InterruptManager> m_interruptManager;
