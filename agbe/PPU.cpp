@@ -572,11 +572,8 @@ void PPU::drawRotationScalingBackground(int bg)
 	uint32_t bgMapBaseBlock = ((ctrlReg >> 8) & 0x1F);
 	bool overflowWrap = ((ctrlReg >> 13) & 0b1);
 
-	for (int x = 0; x < 240; x++)
+	for (int x = 0; x < 240; x++, xRef+=pA,yRef+=pC)
 	{
-		xRef += pA;
-		yRef += pC;
-
 		uint32_t plotAddr = (VCOUNT * 240) + x;
 		if (m_spritePriorities[x] <= bgPriority)
 		{
@@ -587,16 +584,14 @@ void PPU::drawRotationScalingBackground(int bg)
 		if (!getPointDrawable(x, VCOUNT, bg, false))
 			continue;
 
-		uint32_t fetcherY = yRef;
-		fetcherY >>= 8;
-		if ((fetcherY > yWrap) && !overflowWrap)
+		uint32_t fetcherY = (uint32_t)((int32_t)yRef >> 8);
+		if ((fetcherY >= yWrap) && !overflowWrap)
 			continue;
 		fetcherY = fetcherY % yWrap;
-		uint32_t bgMapYIdx = ((fetcherY / 8) * 32); //each row is 32 chars; in rotation/scroll each entry is 1 byte
+		uint32_t bgMapYIdx = ((fetcherY / 8) * (xWrap>>3)); //each row is 32 chars; in rotation/scroll each entry is 1 byte
 
-		uint32_t xCoord = xRef;
-		xCoord >>= 8;
-		if ((xCoord > xWrap) && !overflowWrap)
+		uint32_t xCoord = (uint32_t)((int32_t)xRef >> 8);
+		if ((xCoord >= xWrap) && !overflowWrap)
 			continue;
 		xCoord = xCoord % xWrap;
 
