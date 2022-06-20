@@ -83,6 +83,7 @@ private:
 	void renderMode2();
 	void renderMode3();
 	void renderMode4();
+	void renderMode5();
 
 	void drawBackground(int bg);
 	void drawRotationScalingBackground(int bg);

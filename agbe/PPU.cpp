@@ -70,6 +70,7 @@ void PPU::HDraw()
 		renderMode4();
 		break;
 	case 5:
+		renderMode5();
 		break;
 	}
 
@@ -346,6 +347,29 @@ void PPU::renderMode4()
 		uint16_t paletteData = ((paletteHigh << 8) | paletteLow);
 		uint32_t plotAddress = (VCOUNT * 240) + i;
 		m_renderBuffer[pageIdx][plotAddress] = col16to32(paletteData);
+	}
+}
+
+void PPU::renderMode5()
+{
+	uint32_t baseAddr = 0;
+	bool pageFlip = ((DISPCNT >> 4) & 0b1);
+	if (pageFlip)
+		baseAddr = 0xA000;
+	for (int i = 0; i < 240; i++)
+	{
+		uint32_t plotAddress = (VCOUNT * 240) + i;
+		if (i > 159 || VCOUNT > 127)
+		{
+			m_renderBuffer[pageIdx][plotAddress] = 0;		//<--todo: fix. this is not correct - backdrop colour used instead
+			continue;
+		}
+
+		uint32_t address = baseAddr + (VCOUNT * 320) + (i*2);
+		uint8_t colLow = m_mem->VRAM[address];
+		uint8_t colHigh = m_mem->VRAM[address + 1];
+		uint16_t col = (colHigh << 8) | colLow;
+		m_renderBuffer[pageIdx][plotAddress] = col16to32(col);
 	}
 }
 
