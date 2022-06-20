@@ -87,6 +87,7 @@ private:
 	void drawBackground(int bg);
 	void drawRotationScalingBackground(int bg);
 	void drawSprites();
+	void drawAffineSprite(int spriteIdx);
 	uint16_t blendBrightness(uint16_t col, bool increase);
 	uint16_t blendAlpha(uint16_t colA, uint16_t colB);
 	uint16_t target2Pixels[240] = {};

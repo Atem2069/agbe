@@ -670,7 +670,13 @@ void PPU::drawSprites()
 		uint16_t attr1 = ((attr1High << 8) | attr1Low);
 		uint16_t attr2 = ((attr2High << 8) | attr2Low);
 
-		bool spriteDisabled = ((attr0 >> 9) & 0b1);	//todo: fix maybe. this isn't a disable flag if sprite is affine
+		if ((attr0 >> 8) & 0b1)
+		{
+			drawAffineSprite(i);
+			continue;
+		}
+
+		bool spriteDisabled = ((attr0 >> 9) & 0b1);	
 		if (spriteDisabled)
 			continue;
 
@@ -830,6 +836,177 @@ void PPU::drawSprites()
 		}
 
 	}
+}
+
+void PPU::drawAffineSprite(int spriteIdx)
+{
+	bool oneDimensionalMapping = ((DISPCNT >> 6) & 0b1);
+	bool isBlendTarget1 = ((BLDCNT >> 4) & 0b1);
+	bool isBlendTarget2 = ((BLDCNT >> 12) & 0b1);
+	uint8_t blendMode = ((BLDCNT >> 6) & 0b11);
+
+	uint32_t spriteBase = spriteIdx * 8;	//each OAM entry is 8 bytes
+	uint8_t attr0Low = m_mem->OAM[spriteBase];
+	uint8_t attr0High = m_mem->OAM[spriteBase + 1];
+	uint8_t attr1Low = m_mem->OAM[spriteBase + 2];
+	uint8_t attr1High = m_mem->OAM[spriteBase + 3];
+	uint8_t attr2Low = m_mem->OAM[spriteBase + 4];
+	uint8_t attr2High = m_mem->OAM[spriteBase + 5];
+	uint16_t attr0 = ((attr0High << 8) | attr0Low);
+	uint16_t attr1 = ((attr1High << 8) | attr1Low);
+	uint16_t attr2 = ((attr2High << 8) | attr2Low);
+
+	uint8_t objMode = (attr0 >> 10) & 0b11;
+	bool isObjWindow = (objMode == 2);
+
+	int spriteTop = attr0 & 0xFF;
+	if (spriteTop > 225)							//bit of a dumb hack to accommodate for when sprites are offscreen
+		spriteTop = 0 - (255 - spriteTop);
+	int spriteLeft = attr1 & 0x1FF;
+	if ((spriteLeft >> 8) & 0b1)
+		spriteLeft |= 0xFFFFFF00;	//not sure maybe sign extension is okay
+	if (spriteLeft >= 240 || spriteTop > VCOUNT)	//nope. sprite is offscreen or too low
+		return;
+	int spriteBottom = 0, spriteRight = 0;
+	int rowPitch = 1;	//find out how many lines we have to 'cross' to get to next row (in 1d mapping)
+	//need to find out dimensions first to figure out whether to ignore this object
+	int shape = ((attr0 >> 14) & 0b11);
+	int size = ((attr1 >> 14) & 0b11);
+	int spritePriority = ((attr2 >> 10) & 0b11);	//used to figure out whether we should actually render the sprite
+
+	int spriteBoundsLookupId = (shape << 2) | size;
+	int spriteXBoundsLUT[12] = { 8,16,32,64,16,32,32,64,8,8,16,32 };
+	int spriteYBoundsLUT[12] = { 8,16,32,64,8,8,16,32,16,32,32,64 };
+	int xPitchLUT[12] = { 1,2,4,8,2,4,4,8,1,1,2,4 };
+
+	spriteRight = spriteLeft + spriteXBoundsLUT[spriteBoundsLookupId];
+	spriteBottom = spriteTop + spriteYBoundsLUT[spriteBoundsLookupId];
+	rowPitch = xPitchLUT[spriteBoundsLookupId];
+	if (VCOUNT >= spriteBottom)	//nope, we're past it.
+		return;
+
+	uint32_t tileId = ((attr2) & 0x3FF);
+	uint8_t priorityBits = ((attr2 >> 10) & 0b11);
+	uint8_t paletteNumber = ((attr2 >> 12) & 0xF);
+	bool hiColor = ((attr0 >> 13) & 0b1);
+	if (hiColor)
+		rowPitch *= 2;
+	int yOffsetIntoSprite = VCOUNT - spriteTop;
+	int xBase = 0;
+
+	int halfWidth = (spriteRight - spriteLeft) / 2;
+	int halfHeight = (spriteBottom - spriteTop) / 2;
+	int spriteWidth = halfWidth * 2;
+	int spriteHeight = halfHeight * 2;	//find out how big sprite is
+
+	bool doubleSize = (attr0 >> 9) & 0b1;
+
+
+	//get affine parameters
+	uint32_t parameterSelection = (attr1 >> 9) & 0x1F;
+	parameterSelection *= 0x20;
+	parameterSelection += 6;
+	int16_t PA = m_mem->OAM[parameterSelection] | ((m_mem->OAM[parameterSelection + 1]) << 8);
+	int16_t PB = m_mem->OAM[parameterSelection + 8] | ((m_mem->OAM[parameterSelection + 9]) << 8);
+	int16_t PC = m_mem->OAM[parameterSelection + 16] | ((m_mem->OAM[parameterSelection + 17]) << 8);
+	int16_t PD = m_mem->OAM[parameterSelection + 24] | ((m_mem->OAM[parameterSelection + 25]) << 8);
+	//int numXTilesToRender = (spriteRight - spriteLeft) / 8;
+	for (int x = 0; x < spriteWidth; x++)
+	{
+		int ix = (x - halfWidth);
+		int iy = (yOffsetIntoSprite - halfHeight);
+
+		uint32_t px = (int)((PA * ix + PB * iy) >> 8);
+		uint32_t py = (int)((PC * ix + PD * iy) >> 8);
+		px += halfWidth; py += halfHeight;	//not sure about this bit, but..
+		if (py > spriteHeight || px > spriteWidth)
+			continue;
+
+		uint32_t baseTileId = tileId;
+		uint32_t yCorrection = 0;
+		uint32_t yOffs = py;
+		while (yOffs >= 8)
+		{
+			yOffs -= 8;
+			if (!oneDimensionalMapping)
+				baseTileId += 32;	//add 32 to get to next tile row with 2d mapping
+			else
+				baseTileId += rowPitch; //otherwise, add the row pitch (which says how many tiles exist per row)
+		}
+		uint32_t objBaseAddress = 0x10000 + (baseTileId * 32);
+		yCorrection = (yOffs * ((hiColor) ? 8 : 4));
+
+
+		int curXSpanTile = px /8;
+		int baseX = px%8;
+		uint32_t tileMapLookupAddr = objBaseAddress + yCorrection + (curXSpanTile * ((hiColor) ? 64 : 32));
+
+		int plotCoord = x + spriteLeft;
+		if (plotCoord > 239 || plotCoord < 0)
+			continue;
+
+		if (!getPointDrawable(plotCoord, VCOUNT, 0, true) && !isObjWindow)	//not sure about the 'isObjWindow' check
+			continue;
+
+		//let's see if a bg pixel with higher priority already exists! (todo: check for sprite priority too)
+		uint8_t priorityAtPixel = m_spritePriorities[plotCoord];
+		if ((spritePriority > priorityAtPixel) && !isObjWindow)
+			continue;
+
+		int paletteAddr = 0x200;
+		if (!hiColor)
+		{
+			uint8_t tileData = m_mem->VRAM[tileMapLookupAddr + (baseX / 2)];
+			int paletteId = tileData & 0xF;
+			if (baseX & 0b1)
+				paletteId = ((tileData >> 4) & 0xF);
+
+			if (!paletteId)		//don't render if palette id == 0
+				continue;
+
+			paletteAddr += ((int)(paletteNumber) * 32) + (paletteId * 2);
+		}
+		else
+		{
+			uint8_t tileData = m_mem->VRAM[tileMapLookupAddr + baseX];
+			int paletteId = tileData;
+			if (!paletteId)
+				continue;
+			paletteAddr += (paletteId * 2);
+		}
+		uint8_t colLow = m_mem->paletteRAM[paletteAddr];
+		uint8_t colHigh = m_mem->paletteRAM[paletteAddr + 1];
+		uint16_t col = ((colHigh << 8) | colLow);
+
+		if (isObjWindow)
+			m_objWindowMask[plotCoord] = 1;
+		else
+		{
+			m_spritePriorities[plotCoord] = spritePriority;
+
+			if (getPointBlendable(plotCoord, VCOUNT))
+			{
+				if (isBlendTarget2)
+					target2Pixels[plotCoord] = col;
+				if (isBlendTarget1)
+				{
+					switch (blendMode)
+					{
+					case 2:
+						col = blendBrightness(col, true);
+						break;
+					case 3:
+						col = blendBrightness(col, false);
+						break;
+					}
+				}
+			}
+
+			uint32_t res = col16to32(col);
+			m_spriteLineBuffer[plotCoord] = res;
+		}
+	}
+
 }
 
 uint16_t PPU::blendBrightness(uint16_t col, bool increase)
