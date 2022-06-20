@@ -858,6 +858,7 @@ void PPU::drawAffineSprite(int spriteIdx)
 
 	uint8_t objMode = (attr0 >> 10) & 0b11;
 	bool isObjWindow = (objMode == 2);
+	bool doubleSize = (attr0 >> 9) & 0b1;
 
 	int spriteTop = attr0 & 0xFF;
 	if (spriteTop > 225)							//bit of a dumb hack to accommodate for when sprites are offscreen
@@ -882,7 +883,8 @@ void PPU::drawAffineSprite(int spriteIdx)
 	spriteRight = spriteLeft + spriteXBoundsLUT[spriteBoundsLookupId];
 	spriteBottom = spriteTop + spriteYBoundsLUT[spriteBoundsLookupId];
 	rowPitch = xPitchLUT[spriteBoundsLookupId];
-	if (VCOUNT >= spriteBottom)	//nope, we're past it.
+	int doubleSizeOffset = ((spriteBottom - spriteTop)) * doubleSize;
+	if (VCOUNT >= (spriteBottom+doubleSizeOffset))	//nope, we're past it.
 		return;
 
 	uint32_t tileId = ((attr2) & 0x3FF);
@@ -899,9 +901,6 @@ void PPU::drawAffineSprite(int spriteIdx)
 	int spriteWidth = halfWidth * 2;
 	int spriteHeight = halfHeight * 2;	//find out how big sprite is
 
-	bool doubleSize = (attr0 >> 9) & 0b1;
-
-
 	//get affine parameters
 	uint32_t parameterSelection = (attr1 >> 9) & 0x1F;
 	parameterSelection *= 0x20;
@@ -910,16 +909,20 @@ void PPU::drawAffineSprite(int spriteIdx)
 	int16_t PB = m_mem->OAM[parameterSelection + 8] | ((m_mem->OAM[parameterSelection + 9]) << 8);
 	int16_t PC = m_mem->OAM[parameterSelection + 16] | ((m_mem->OAM[parameterSelection + 17]) << 8);
 	int16_t PD = m_mem->OAM[parameterSelection + 24] | ((m_mem->OAM[parameterSelection + 25]) << 8);
-	//int numXTilesToRender = (spriteRight - spriteLeft) / 8;
-	for (int x = 0; x < spriteWidth; x++)
+	for (int x = 0; x < spriteWidth * ((doubleSize)?2:1); x++)
 	{
 		int ix = (x - halfWidth);
 		int iy = (yOffsetIntoSprite - halfHeight);
+		if (doubleSize)
+		{
+			ix = (x - spriteWidth);
+			iy = (yOffsetIntoSprite - spriteHeight);
+		}
 
-		uint32_t px = (int)((PA * ix + PB * iy) >> 8);
-		uint32_t py = (int)((PC * ix + PD * iy) >> 8);
+		uint32_t px = ((PA * ix + PB * iy) >> 8);
+		uint32_t py = ((PC * ix + PD * iy) >> 8);
 		px += halfWidth; py += halfHeight;	//not sure about this bit, but..
-		if (py > spriteHeight || px > spriteWidth)
+		if (py >= spriteHeight || px >= spriteWidth)
 			continue;
 
 		uint32_t baseTileId = tileId;
