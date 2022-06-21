@@ -38,13 +38,6 @@ void ARM7TDMI::step()
 		m_pipelinePtr = ((m_pipelinePtr + 1) % 3);
 	}
 	m_pipelineFlushed = false;
-
-	if (m_bus->getHalted())
-	{
-		while (!m_interruptManager->getInterrupt())
-			m_scheduler->jumpToNextEvent();			//teleport to next event(s) until interrupt fires
-	}
-
 }
 
 void ARM7TDMI::fetch()

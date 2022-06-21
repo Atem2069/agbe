@@ -385,7 +385,8 @@ void Bus::writeIO8(uint32_t address, uint8_t value)
 		WAITCNT &= 0xFF; WAITCNT |= (value << 8);
 		return;
 	case 0x04000301:
-		shouldHalt = true;	//probs not completely right. HALTCNT.7 has two modes (0=halt,1=stop)
+		while (!m_interruptManager->getInterrupt())
+			m_scheduler->jumpToNextEvent();			//teleport to next event(s) until interrupt fires
 		break;
 	}
 	//Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Unimplemented IO write addr={:#x}", address));
