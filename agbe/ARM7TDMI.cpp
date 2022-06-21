@@ -16,7 +16,7 @@ ARM7TDMI::ARM7TDMI(std::shared_ptr<Bus> bus, std::shared_ptr<InterruptManager> i
 	//R13_svc = 0x03007FE0;
 	R[15] = 0x00000000;	//start of cartridge
 	flushPipeline();
-	m_shouldFlush = 0;
+	m_pipelineFlushed = false;
 }
 
 ARM7TDMI::~ARM7TDMI()
@@ -30,21 +30,14 @@ void ARM7TDMI::step()
 	if (dispatchInterrupt())	//if interrupt was dispatched then fetch new opcode (dispatchInterrupt already flushes pipeline !)
 		return;
 	execute();	//no decode stage because it's inherent to 'execute' - we accommodate for the decode stage's effect anyway
-	if (m_shouldFlush)
-		flushPipeline();
-	else												//essentially only advance pipeline stage if the last operation didn't cause a pipeline flush
+	if(!m_pipelineFlushed)											//essentially only advance pipeline stage if the last operation didn't cause a pipeline flush
 	{
+		int incrAmountLUT[2] = { 4,2 };
 		bool thumb = (CPSR >> 5) & 0b1;	//increment pc only if pipeline not flushed
-		if (thumb)
-		{
-			R[15] += 2;
-		}
-		else
-		{
-			R[15] += 4;
-		}
+		R[15] += incrAmountLUT[thumb];
 		m_pipelinePtr = ((m_pipelinePtr + 1) % 3);
 	}
+	m_pipelineFlushed = false;
 
 	if (m_bus->getHalted())
 	{
@@ -223,7 +216,7 @@ void ARM7TDMI::flushPipeline()
 	for (int i = 0; i < 3; i++)
 		m_pipeline[i].state = PipelineState::UNFILLED;
 	m_pipelinePtr = 0;
-	m_shouldFlush = false;
+	m_pipelineFlushed = true;
 }
 
 bool ARM7TDMI::checkConditions(uint8_t code)
@@ -430,7 +423,7 @@ void ARM7TDMI::setReg(uint8_t reg, uint32_t value, bool forceUser)
 			R[14] = value;
 		break;
 	case 15:
-		m_shouldFlush = true;	//modifying PC always causes flush
+		flushPipeline();	//always flush when r15 modified
 		R[15] = value;
 		break;
 	}

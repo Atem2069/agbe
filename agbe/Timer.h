@@ -28,8 +28,8 @@ public:
 
 private:
 	void event();
-	void calculateNextOverflow(int timerIdx, uint16_t newClock);
-	void setCurrentClock(int idx);
+	void calculateNextOverflow(int timerIdx, uint64_t timeBase, bool first);
+	void setCurrentClock(int idx, uint8_t prescalerSetting);
 	TimerRegister m_timers[4];
 	std::shared_ptr<InterruptManager> m_interruptManager;
 	std::shared_ptr<Scheduler> m_scheduler;
