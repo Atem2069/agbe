@@ -425,6 +425,10 @@ void PPU::drawBackground(int bg)
 			bgMapBaseBlock += 1;
 	}
 	uint32_t bgMapYIdx = ((fetcherY / 8) * 32) * 2; //each row is 32 chars - each char is 2 bytes
+
+	uint16_t cachedTile = 0;
+	uint32_t cachedXOffs = 0xFFFFFFFF;
+
 	for (int x = 0; x < 240; x++)
 	{
 		uint32_t plotAddr = (VCOUNT * 240) + x;
@@ -443,11 +447,18 @@ void PPU::drawBackground(int bg)
 			xCoord -= 256;
 			baseBlockOffset += 1;
 		}
-		uint32_t bgMapBaseAddress = ((bgMapBaseBlock+baseBlockOffset) * 2048) + bgMapYIdx;
-		uint32_t curBgAddr = bgMapBaseAddress + (((xCoord/8)*2));
-		uint8_t tileLower = m_mem->VRAM[curBgAddr];
-		uint8_t tileHigher = m_mem->VRAM[curBgAddr + 1];
-		uint16_t tile = (((uint16_t)tileHigher << 8) | tileLower);
+		uint16_t tile = cachedTile;
+		uint32_t xTileIdx = (xCoord >> 3);
+		if (cachedXOffs != xTileIdx)
+		{
+			uint32_t bgMapBaseAddress = ((bgMapBaseBlock + baseBlockOffset) * 2048) + bgMapYIdx;
+			uint32_t curBgAddr = bgMapBaseAddress + ((xTileIdx * 2));
+			uint8_t tileLower = m_mem->VRAM[curBgAddr];
+			uint8_t tileHigher = m_mem->VRAM[curBgAddr + 1];
+			tile = (((uint16_t)tileHigher << 8) | tileLower);
+			cachedTile = tile;
+		}
+		cachedXOffs = xTileIdx;
 
 		uint32_t tileNumber = tile & 0x3FF;
 		uint32_t paletteNumber = ((tile >> 12) & 0xF);
@@ -542,6 +553,10 @@ void PPU::drawRotationScalingBackground(int bg)
 	uint32_t bgMapBaseBlock = ((ctrlReg >> 8) & 0x1F);
 	bool overflowWrap = ((ctrlReg >> 13) & 0b1);
 
+	uint32_t cachedTileIdx = 0;
+	uint32_t cachedXCoord = 0xFFFFFFFF;
+	uint32_t cachedYCoord = 0xFFFFFFFF;
+
 	for (int x = 0; x < 240; x++, xRef+=pA,yRef+=pC)
 	{
 		uint32_t plotAddr = (VCOUNT * 240) + x;
@@ -565,10 +580,16 @@ void PPU::drawRotationScalingBackground(int bg)
 			continue;
 		xCoord = xCoord % xWrap;
 
-		uint32_t bgMapAddr = (bgMapBaseBlock * 2048) + bgMapYIdx;
-		bgMapAddr += (xCoord/8);
-
-		uint32_t tileIdx = m_mem->VRAM[bgMapAddr];
+		uint32_t tileIdx = cachedTileIdx;
+		if (cachedXCoord != (xCoord>>3) || cachedYCoord != bgMapYIdx)
+		{
+			uint32_t bgMapAddr = (bgMapBaseBlock * 2048) + bgMapYIdx;
+			bgMapAddr += (xCoord>>3);
+			tileIdx = m_mem->VRAM[bgMapAddr];
+			cachedTileIdx = tileIdx;
+		}
+		cachedXCoord = (xCoord>>3);
+		cachedYCoord = bgMapYIdx;
 
 		uint32_t tileMapBaseAddress = (tileDataBaseBlock * 16384) + (tileIdx * 64);
 		tileMapBaseAddress += ((fetcherY % 8) * 8);
