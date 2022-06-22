@@ -460,51 +460,19 @@ void PPU::drawBackground(int bg)
 		if (verticalFlip)
 			yMod8 = 7 - yMod8;
 
-		if (!hiColor)	//16 colors, 16 palettes
-		{
-			tileMapBaseAddress = (tileDataBaseBlock * 16384) + (tileNumber * 32);
-			tileMapBaseAddress += (yMod8 * 4);
 
-			//have correct row of 4 bytes - now need to get correct byte
-			//hl hl hl hl
-			//(x mod 8) / 2 gives us correct byte
-			//then x mod 2 gives us the nibble 
+		uint32_t tileByteSizeLUT[2] = { 32,64 };
+		uint32_t tileRowPitchLUT[2] = { 4,8 };
 
-			int xmod8 = (xCoord & 7);
-			if (horizontalFlip)
-				xmod8 = 7 - xmod8;
-			tileMapBaseAddress += (xmod8 / 2);
+		tileMapBaseAddress = (tileDataBaseBlock * 16384) + (tileNumber * tileByteSizeLUT[hiColor]);
+		tileMapBaseAddress += (yMod8 * tileRowPitchLUT[hiColor]);
+		int xmod8 = (xCoord & 7);
+		if (horizontalFlip)
+			xmod8 = 7 - xmod8;
 
-			uint8_t tileData = m_mem->VRAM[tileMapBaseAddress];
-			int colorId = 0;
-			int stepTile = ((xmod8 & 0b1));
-			colorId = ((tileData >> (stepTile * 4)) & 0xf);	//first (even) pixel - low nibble. second (odd) pixel - high nibble
-			if (!colorId)
-				continue;
-
-			paletteMemoryAddr = paletteNumber * 32;
-			paletteMemoryAddr += (colorId * 2);
-		}
-		else		//256 colors, 1 palette
-		{
-			//this is completely wrong !! todo: fix
-			tileMapBaseAddress = (tileDataBaseBlock * 16384) + (tileNumber * 64);
-			tileMapBaseAddress += ((yMod8) * 8);
-
-			int xmod8 = (xCoord & 7);
-			if (horizontalFlip)
-				xmod8 = 7 - xmod8;
-
-			tileMapBaseAddress += xmod8;
-			uint8_t tileData = m_mem->VRAM[tileMapBaseAddress];
-			if (!tileData)
-				continue;
-			paletteMemoryAddr = (tileData * 2);
-		}
-
-		uint8_t colLow = m_mem->paletteRAM[paletteMemoryAddr];
-		uint8_t colHigh = m_mem->paletteRAM[paletteMemoryAddr + 1];
-		uint16_t col = ((colHigh << 8) | colLow);
+		uint16_t col = extractColorFromTile(tileMapBaseAddress, xmod8, hiColor, false, paletteNumber);
+		if ((col >> 15) & 0b1)
+			continue;
 		m_bgPriorities[x] = bgPriority;
 
 		if (getPointBlendable(x, VCOUNT))
@@ -604,17 +572,10 @@ void PPU::drawRotationScalingBackground(int bg)
 
 		uint32_t tileMapBaseAddress = (tileDataBaseBlock * 16384) + (tileIdx * 64);
 		tileMapBaseAddress += ((fetcherY % 8) * 8);
-
-		int xmod8 = (xCoord % 8);
-		tileMapBaseAddress += xmod8;
-		uint8_t tileData = m_mem->VRAM[tileMapBaseAddress];
-		if (!tileData)
+		uint16_t col = extractColorFromTile(tileMapBaseAddress, xCoord&7, true, false, 0);
+		if ((col >> 15) & 0b1)
 			continue;
-		uint32_t paletteMemoryAddr = (tileData * 2);
 
-		uint8_t colLow = m_mem->paletteRAM[paletteMemoryAddr];
-		uint8_t colHigh = m_mem->paletteRAM[paletteMemoryAddr + 1];
-		uint16_t col = ((colHigh << 8) | colLow);
 		m_bgPriorities[x] = bgPriority;
 
 		if (getPointBlendable(x, VCOUNT))
@@ -770,38 +731,13 @@ void PPU::drawSprites()
 				if (!getPointDrawable(plotCoord, VCOUNT, 0, true) && !isObjWindow)	//not sure about the 'isObjWindow' check
 					continue;
 
-				//let's see if a bg pixel with higher priority already exists! (todo: check for sprite priority too)
-				//int priorityAtPixel = m_bgPriorities[plotCoord];
-				//if (spritePriority > priorityAtPixel)
-				//	continue;
 				uint8_t priorityAtPixel = m_spritePriorities[plotCoord];
 				if ((spritePriority > priorityAtPixel) && !isObjWindow)
 					continue;
 
-				int paletteAddr = 0x200;
-				if (!hiColor)
-				{
-					uint8_t tileData = m_mem->VRAM[tileMapLookupAddr + (baseX / 2)];
-					int paletteId = tileData & 0xF;
-					if (baseX & 0b1)
-						paletteId = ((tileData >> 4) & 0xF);
-
-					if (!paletteId)		//don't render if palette id == 0
-						continue;
-
-					paletteAddr += ((int)(paletteNumber) * 32) + (paletteId * 2);
-				}
-				else
-				{
-					uint8_t tileData = m_mem->VRAM[tileMapLookupAddr + baseX];
-					int paletteId = tileData;
-					if (!paletteId)
-						continue;
-					paletteAddr += (paletteId * 2);
-				}
-				uint8_t colLow = m_mem->paletteRAM[paletteAddr];
-				uint8_t colHigh = m_mem->paletteRAM[paletteAddr + 1];
-				uint16_t col = ((colHigh << 8) | colLow);
+				uint16_t col = extractColorFromTile(tileMapLookupAddr, baseX, hiColor, true, paletteNumber);
+				if ((col >> 15) & 0b1)
+					continue;
 
 				if (isObjWindow)
 					m_objWindowMask[plotCoord] = 1;
@@ -961,30 +897,10 @@ void PPU::drawAffineSprite(int spriteIdx)
 		if ((spritePriority > priorityAtPixel) && !isObjWindow)
 			continue;
 
-		int paletteAddr = 0x200;
-		if (!hiColor)
-		{
-			uint8_t tileData = m_mem->VRAM[tileMapLookupAddr + (baseX / 2)];
-			int paletteId = tileData & 0xF;
-			if (baseX & 0b1)
-				paletteId = ((tileData >> 4) & 0xF);
+		uint16_t col = extractColorFromTile(tileMapLookupAddr, baseX, hiColor, true, paletteNumber);
 
-			if (!paletteId)		//don't render if palette id == 0
-				continue;
-
-			paletteAddr += ((int)(paletteNumber) * 32) + (paletteId * 2);
-		}
-		else
-		{
-			uint8_t tileData = m_mem->VRAM[tileMapLookupAddr + baseX];
-			int paletteId = tileData;
-			if (!paletteId)
-				continue;
-			paletteAddr += (paletteId * 2);
-		}
-		uint8_t colLow = m_mem->paletteRAM[paletteAddr];
-		uint8_t colHigh = m_mem->paletteRAM[paletteAddr + 1];
-		uint16_t col = ((colHigh << 8) | colLow);
+		if ((col >> 15) & 0b1)
+			continue;
 
 		if (isObjWindow)
 			m_objWindowMask[plotCoord] = 1;
@@ -1015,6 +931,43 @@ void PPU::drawAffineSprite(int spriteIdx)
 		}
 	}
 
+}
+
+uint16_t PPU::extractColorFromTile(uint32_t tileBase, uint32_t xOffset, bool hiColor, bool sprite, uint32_t palette)
+{
+	uint16_t col = 0;
+	uint32_t paletteMemoryAddr = 0;
+	if (sprite)
+		paletteMemoryAddr = 0x200;
+	if (!hiColor)
+	{
+		tileBase += (xOffset/2);
+
+		uint8_t tileData = m_mem->VRAM[tileBase];
+		int colorId = 0;
+		int stepTile = ((xOffset & 0b1)) << 2;
+		colorId = ((tileData >> stepTile) & 0xf);	//first (even) pixel - low nibble. second (odd) pixel - high nibble
+		if (!colorId)
+			return 0x8000;
+
+		paletteMemoryAddr += palette * 32;
+		paletteMemoryAddr += (colorId * 2);
+	}
+	else
+	{
+		tileBase += xOffset;
+		uint8_t tileData = m_mem->VRAM[tileBase];
+		if (!tileData)
+			return 0x8000;
+		paletteMemoryAddr += (tileData * 2);
+	}
+
+	uint8_t colLow = m_mem->paletteRAM[paletteMemoryAddr];
+	uint8_t colHigh = m_mem->paletteRAM[paletteMemoryAddr + 1];
+
+	col = (colHigh << 8) | colLow;
+
+	return col & 0x7fff;
 }
 
 uint16_t PPU::blendBrightness(uint16_t col, bool increase)
