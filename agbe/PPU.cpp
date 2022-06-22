@@ -411,20 +411,10 @@ void PPU::drawBackground(int bg)
 	bool hiColor = ((ctrlReg >> 7) & 0b1);
 	uint32_t bgMapBaseBlock = ((ctrlReg >> 8) & 0x1F);
 	int screenSize = ((ctrlReg >> 14) & 0b11);
-	int xWrap = 255, yWrap = 255;
-	switch (screenSize)
-	{
-	case 1:
-		xWrap = 511;
-		break;
-	case 2:
-		yWrap = 511;
-		break;
-	case 3:
-		xWrap = 511;
-		yWrap = 511;
-		break;
-	}
+	int xSizeLut[4] = { 255,511,255,511 };
+	int ySizeLut[4] = { 255,255,511,511 };
+	int xWrap = xSizeLut[screenSize];
+	int yWrap = ySizeLut[screenSize];
 
 	uint32_t fetcherY = ((VCOUNT + yScroll) & yWrap);
 	if (screenSize && (fetcherY > 255))
@@ -574,23 +564,11 @@ void PPU::drawRotationScalingBackground(int bg)
 			yRef |= 0xF0000000;
 		break;
 	}
-	int xWrap = 256, yWrap = 256;
-	int screenSize = ((ctrlReg >> 14) & 0b11);	//could optimise this with a lut fwiw
-	switch (screenSize)
-	{
-	case 0:
-		xWrap = 128;
-		yWrap = 128;
-		break;
-	case 2:
-		xWrap = 512;
-		yWrap = 512;
-		break;
-	case 3:
-		xWrap = 1024;
-		yWrap = 1024;
-		break;
-	}
+	int screenSize = ((ctrlReg >> 14) & 0b11);
+	int sizeLut[4] = { 128,256,512,1024 };
+	int xWrap = sizeLut[screenSize];
+	int yWrap = sizeLut[screenSize];
+
 	uint8_t bgPriority = ctrlReg & 0b11;
 	uint32_t tileDataBaseBlock = ((ctrlReg >> 2) & 0b11);
 	uint32_t bgMapBaseBlock = ((ctrlReg >> 8) & 0x1F);
@@ -675,11 +653,8 @@ void PPU::drawSprites()
 	bool isBlendTarget2 = ((BLDCNT >> 12) & 0b1);
 	uint8_t blendMode = ((BLDCNT >> 6) & 0b11);
 
-	for (int i = 0; i < 240; i++)
-	{
-		m_objWindowMask[i] = 0;
-		m_spritePriorities[i] = 255;
-	}
+	memset(m_objWindowMask, 0, 240);
+	memset(m_spritePriorities, 255, 240);
 
 	for (int i = 127; i >= 0; i--)
 	{
