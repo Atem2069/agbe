@@ -385,7 +385,7 @@ void Bus::writeIO8(uint32_t address, uint8_t value)
 		WAITCNT &= 0xFF; WAITCNT |= (value << 8);
 		return;
 	case 0x04000301:
-		while (!m_interruptManager->getInterrupt())
+		while (!m_interruptManager->getInterrupt(true))
 			m_scheduler->jumpToNextEvent();			//teleport to next event(s) until interrupt fires
 		break;
 	}

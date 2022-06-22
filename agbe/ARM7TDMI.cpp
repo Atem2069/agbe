@@ -180,7 +180,7 @@ bool ARM7TDMI::dispatchInterrupt()
 	if (irqDisabled)
 		return false;
 	
-	if (!m_interruptManager->getInterrupt())	//final check: if interrupt actually requested
+	if (!m_interruptManager->getInterrupt(false))	//final check: if interrupt actually requested
 		return false;
 
 	//std::cout << "irq dispatch" << '\n';

@@ -74,7 +74,6 @@ void PPU::HDraw()
 		break;
 	}
 
-	//todo: check timing of hblank flag
 	if (((DISPSTAT >> 4) & 0b1))
 		m_interruptManager->requestInterrupt(InterruptType::HBlank);
 	DMAHBlankCallback(callbackContext);
@@ -147,15 +146,16 @@ void PPU::VBlank()
 {
 	uint64_t schedTimestamp = m_scheduler->getCurrentTimestamp();
 	uint64_t timeDiff = schedTimestamp - expectedNextTimeStamp;
-	setVBlankFlag(true);
-	//if (m_lineCycles > 960)
-	//	setHBlankFlag(true);
 	m_lineCycles = 0;
 	m_state=PPUState::VBlank;
 
 	if (!vblank_setHblankBit)	//handle first part of line, up until hblank
 	{
 		setHBlankFlag(true);
+
+		if (((DISPSTAT >> 4) & 0b1))
+			m_interruptManager->requestInterrupt(InterruptType::HBlank);	//hblank irq also fires in vblank. however, HDMA cannot occur
+
 		vblank_setHblankBit = true;
 		expectedNextTimeStamp = (schedTimestamp + 226) - timeDiff;
 		m_scheduler->addEvent(Event::PPU, &PPU::onSchedulerEvent, (void*)this, expectedNextTimeStamp);

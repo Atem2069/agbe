@@ -40,9 +40,9 @@ void InterruptManager::requestInterrupt(InterruptType type)
 	}
 }
 
-bool InterruptManager::getInterrupt()
+bool InterruptManager::getInterrupt(bool bypassIMECheck)
 {
-	if (!IME)
+	if (!IME && !bypassIMECheck)
 		return false;
 	return IF & IE & 0b0011111111111111;	//probs a better way but oh well
 }
