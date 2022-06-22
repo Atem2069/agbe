@@ -54,8 +54,9 @@ public:
 	uint32_t readIO32(uint32_t address);
 	void writeIO32(uint32_t address, uint32_t value);
 
-	static void DMA_VBlankCallback(void* address);
-	static void DMA_HBlankCallback(void* address);
+	static void DMA_VBlankCallback(void* context);
+	static void DMA_HBlankCallback(void* context);
+	static void DMA_ImmediateCallback(void* context);
 private:
 	std::shared_ptr<Scheduler> m_scheduler;
 	std::shared_ptr<GBAMem> m_mem;
@@ -86,10 +87,11 @@ private:
 
 	uint8_t DMARegRead(uint32_t address);
 	void DMARegWrite(uint32_t address, uint8_t value);
-	void checkDMAChannels();
+	void checkDMAChannel(int idx);
 	void doDMATransfer(int channel);
 	void onVBlank();
 	void onHBlank();
+	void onImmediate();
 
 	//copied from powerlated :P. doesn't take into account varying WAITCNT settings
 	int timingTable816[16] =

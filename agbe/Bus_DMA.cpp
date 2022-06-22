@@ -68,6 +68,7 @@ void Bus::DMARegWrite(uint32_t address, uint8_t value)
 		if ((!((m_dmaChannels[0].control >> 15) & 0b1)) && ((value >> 7) & 0b1))
 			m_dmaChannels[0].internalDest = m_dmaChannels[0].destAddress;
 		setByteInHalfword(&(m_dmaChannels[0].control), value, 1);
+		checkDMAChannel(0);
 		break;
 
 	//DMA 1
@@ -109,6 +110,7 @@ void Bus::DMARegWrite(uint32_t address, uint8_t value)
 		if ((!((m_dmaChannels[1].control >> 15) & 0b1)) && ((value >> 7) & 0b1))
 			m_dmaChannels[1].internalDest = m_dmaChannels[1].destAddress;
 		setByteInHalfword(&(m_dmaChannels[1].control), value, 1);
+		checkDMAChannel(1);
 		break;
 
 
@@ -151,6 +153,7 @@ void Bus::DMARegWrite(uint32_t address, uint8_t value)
 		if ((!((m_dmaChannels[2].control >> 15) & 0b1)) && ((value >> 7) & 0b1))
 			m_dmaChannels[2].internalDest = m_dmaChannels[2].destAddress;
 		setByteInHalfword(&(m_dmaChannels[2].control), value, 1);
+		checkDMAChannel(2);
 		break;
 
 
@@ -193,27 +196,24 @@ void Bus::DMARegWrite(uint32_t address, uint8_t value)
 		if ((!((m_dmaChannels[3].control >> 15) & 0b1)) && ((value >> 7) & 0b1))
 			m_dmaChannels[3].internalDest = m_dmaChannels[3].destAddress;
 		setByteInHalfword(&(m_dmaChannels[3].control), value, 1);
+		checkDMAChannel(3);
 		break;
 
 	//default:
 	//	Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Unknown DMA Write: {#x}", address));
 	}
 
-	checkDMAChannels();
 }
 
-void Bus::checkDMAChannels()
+void Bus::checkDMAChannel(int idx)
 {
-	for (int i = 0; i < 4; i++)
+	uint16_t curCtrlReg = m_dmaChannels[idx].control;
+	if ((curCtrlReg >> 15) & 0b1)
 	{
-		uint16_t curCtrlReg = m_dmaChannels[i].control;
-		if ((curCtrlReg >> 15) & 0b1)
-		{
-			//dma enabled
-			uint8_t startTiming = ((curCtrlReg >> 12) & 0b11);
-			if (startTiming == 0)
-				doDMATransfer(i);
-		}
+		//dma enabled
+		uint8_t startTiming = ((curCtrlReg >> 12) & 0b11);
+		if (startTiming == 0)
+			m_scheduler->addEvent(Event::DMA, &Bus::DMA_ImmediateCallback, (void*)this, m_scheduler->getCurrentTimestamp() + 2);	//2 cycle delay before imm dma starts.
 	}
 }
 
@@ -348,6 +348,21 @@ void Bus::onHBlank()
 	}
 }
 
+void Bus::onImmediate()
+{
+	for (int i = 0; i < 4; i++)
+	{
+		uint16_t curCtrlReg = m_dmaChannels[i].control;
+		if ((curCtrlReg >> 15) & 0b1)
+		{
+			//dma enabled
+			uint8_t startTiming = ((curCtrlReg >> 12) & 0b11);
+			if (startTiming == 0)
+				doDMATransfer(i);
+		}
+	}
+}
+
 void Bus::DMA_VBlankCallback(void* context)
 {
 	Bus* thisPtr = (Bus*)context;
@@ -358,4 +373,10 @@ void Bus::DMA_HBlankCallback(void* context)
 {
 	Bus* thisPtr = (Bus*)context;
 	thisPtr->onHBlank();
+}
+
+void Bus::DMA_ImmediateCallback(void* context)
+{
+	Bus* thisPtr = (Bus*)context;
+	thisPtr->onImmediate();
 }

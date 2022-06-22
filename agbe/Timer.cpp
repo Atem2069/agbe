@@ -111,7 +111,7 @@ void Timer::calculateNextOverflow(int timerIdx, uint64_t timeBase, bool first)
 
 	uint64_t currentTime = timeBase;
 	if (first)
-		currentTime++;
+		currentTime+=2;
 	uint64_t overflowTimestamp = currentTime + cyclesToOverflow;
 
 	Event timerEventLUT[4] = { Event::TIMER0,Event::TIMER1,Event::TIMER2,Event::TIMER3 };
