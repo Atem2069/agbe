@@ -53,8 +53,6 @@ private:
 
 	void executeThumb();
 
-	void fillThumbInstrTable();
-
 	bool dispatchInterrupt();
 
 	uint32_t m_currentOpcode = 0;
@@ -120,7 +118,6 @@ private:
 	void Thumb_LongBranchWithLink();
 
 	typedef void(ARM7TDMI::*instructionFn)();
-	instructionFn thumbTable[8192];
 
 	//Barrel shifter ops
 	uint32_t LSL(uint32_t val, int shiftAmount, int& carry);
@@ -132,4 +129,100 @@ private:
 	//Flag setting
 	void setLogicalFlags(uint32_t result, int carry);
 	void setArithmeticFlags(uint32_t input, uint64_t operand, uint32_t result, bool addition);
+
+	static constexpr auto thumbTable = []
+	{
+		constexpr auto lutSize = 1024;
+		std::array<instructionFn, lutSize> tempLut = {};
+		uint32_t tempOpcode = 0;
+		for (uint32_t i = 0; i < 1024; i++)
+		{
+			tempOpcode = (i << 6);
+			if ((tempOpcode & 0b1111'1000'0000'0000) == 0b0001'1000'0000'0000)
+				tempLut[i] = (instructionFn)&ARM7TDMI::Thumb_AddSubtract;
+			else if ((tempOpcode & 0b1110'0000'0000'0000) == 0b0000'0000'0000'0000)
+				tempLut[i] = (instructionFn)&ARM7TDMI::Thumb_MoveShiftedRegister;
+			else if ((tempOpcode & 0b1110'0000'0000'0000) == 0b0010'0000'0000'0000)
+				tempLut[i] = (instructionFn)&ARM7TDMI::Thumb_MoveCompareAddSubtractImm;
+			else if ((tempOpcode & 0b1111'1100'0000'0000) == 0b0100'0000'0000'0000)
+				tempLut[i] = (instructionFn)&ARM7TDMI::Thumb_ALUOperations;
+			else if ((tempOpcode & 0b1111'1100'0000'0000) == 0b0100'0100'0000'0000)
+				tempLut[i] = (instructionFn)&ARM7TDMI::Thumb_HiRegisterOperations;
+			else if ((tempOpcode & 0b1111'1000'0000'0000) == 0b0100'1000'0000'0000)
+				tempLut[i] = (instructionFn)&ARM7TDMI::Thumb_PCRelativeLoad;
+			else if ((tempOpcode & 0b1111'0010'0000'0000) == 0b0101'0000'0000'0000)
+				tempLut[i] = (instructionFn)&ARM7TDMI::Thumb_LoadStoreRegisterOffset;
+			else if ((tempOpcode & 0b1111'0010'0000'0000) == 0b0101'0010'0000'0000)
+				tempLut[i] = (instructionFn)&ARM7TDMI::Thumb_LoadStoreSignExtended;
+			else if ((tempOpcode & 0b1110'0000'0000'0000) == 0b0110'0000'0000'0000)
+				tempLut[i] = (instructionFn)&ARM7TDMI::Thumb_LoadStoreImmediateOffset;
+			else if ((tempOpcode & 0b1111'0000'0000'0000) == 0b1000'0000'0000'0000)
+				tempLut[i] = (instructionFn)&ARM7TDMI::Thumb_LoadStoreHalfword;
+			else if ((tempOpcode & 0b1111'0000'0000'0000) == 0b1001'0000'0000'0000)
+				tempLut[i] = (instructionFn)&ARM7TDMI::Thumb_SPRelativeLoadStore;
+			else if ((tempOpcode & 0b1111'0000'0000'0000) == 0b1010'0000'0000'0000)
+				tempLut[i] = (instructionFn)&ARM7TDMI::Thumb_LoadAddress;
+			else if ((tempOpcode & 0b1111'1111'0000'0000) == 0b1011'0000'0000'0000)
+				tempLut[i] = (instructionFn)&ARM7TDMI::Thumb_AddOffsetToStackPointer;
+			else if ((tempOpcode & 0b1111'0110'0000'0000) == 0b1011'0100'0000'0000)
+				tempLut[i] = (instructionFn)&ARM7TDMI::Thumb_PushPopRegisters;
+			else if ((tempOpcode & 0b1111'0000'0000'0000) == 0b1100'0000'0000'0000)
+				tempLut[i] = (instructionFn)&ARM7TDMI::Thumb_MultipleLoadStore;
+			else if ((tempOpcode & 0b1111'1111'0000'0000) == 0b1101'1111'0000'0000)
+				tempLut[i] = (instructionFn)&ARM7TDMI::Thumb_SoftwareInterrupt;
+			else if ((tempOpcode & 0b1111'0000'0000'0000) == 0b1101'0000'0000'0000)
+				tempLut[i] = (instructionFn)&ARM7TDMI::Thumb_ConditionalBranch;
+			else if ((tempOpcode & 0b1111'1000'0000'0000) == 0b1110'0000'0000'0000)
+				tempLut[i] = (instructionFn)&ARM7TDMI::Thumb_UnconditionalBranch;
+			else if ((tempOpcode & 0b1111'0000'0000'0000) == 0b1111'0000'0000'0000)
+				tempLut[i] = (instructionFn)&ARM7TDMI::Thumb_LongBranchWithLink;
+			else
+			{
+				tempLut[i] = (instructionFn)&ARM7TDMI::ARM_Undefined;	//meh. good enough?
+			}
+		}
+		return tempLut;
+	}();
+	static constexpr auto armTable = []
+	{
+		constexpr auto lutSize = 4096;
+		std::array<instructionFn, lutSize> tempLut = {};
+		uint32_t tempOpcode = 0;
+		for (uint32_t i = 0; i < 4096; i++)
+		{
+			tempOpcode = ((i & 0xFF0) << 16) | ((i & 0xF) << 4);	//expand instruction so bits 20-27 contain top 8 bits of i, bits 4-7 contain lower 4 bits
+			if ((tempOpcode & 0b0000'1110'0000'0000'0000'0000'0000'0000) == 0b0000'1010'0000'0000'0000'0000'0000'0000)
+				tempLut[i] = (instructionFn)&ARM7TDMI::ARM_Branch;
+			else if ((tempOpcode & 0b0000'1111'1100'0000'0000'0000'1111'0000) == 0b0000'0000'0000'0000'0000'0000'1001'0000)
+				tempLut[i] = (instructionFn)&ARM7TDMI::ARM_Multiply;
+			else if ((tempOpcode & 0b0000'1111'1000'0000'0000'0000'1111'0000) == 0b0000'0000'1000'0000'0000'0000'1001'0000)
+				tempLut[i] = (instructionFn)&ARM7TDMI::ARM_MultiplyLong;
+			else if ((tempOpcode & 0b0000'1111'1011'0000'0000'1111'1111'0000) == 0b0000'0001'0000'0000'0000'0000'1001'0000)
+				tempLut[i] = (instructionFn)&ARM7TDMI::ARM_SingleDataSwap;
+			else if ((tempOpcode & 0b0000'1110'0100'0000'0000'1111'1001'0000) == 0b0000'0000'0000'0000'0000'0000'1001'0000)
+				tempLut[i] = (instructionFn)&ARM7TDMI::ARM_HalfwordTransferRegisterOffset;
+			else if ((tempOpcode & 0b0000'1110'0100'0000'0000'0000'1001'0000) == 0b0000'0000'0100'0000'0000'0000'1001'0000)
+				tempLut[i] = (instructionFn)&ARM7TDMI::ARM_HalfwordTransferImmediateOffset;
+			else if ((tempOpcode & 0b0000'1111'1111'0000'0000'0000'1111'0000) == 0b0000'0001'0010'0000'0000'0000'0001'0000)
+				tempLut[i] = (instructionFn)&ARM7TDMI::ARM_BranchExchange;
+			else if ((tempOpcode & 0b0000'1100'0000'0000'0000'0000'0000'0000) == 0b0000'0000'0000'0000'0000'0000'0000'0000)
+				tempLut[i] = (instructionFn)&ARM7TDMI::ARM_DataProcessing;
+			else if ((tempOpcode & 0b0000'1110'0000'0000'0000'0000'0001'0000) == 0b0000'0110'0000'0000'0000'0000'0001'0000)
+				tempLut[i] = (instructionFn)&ARM7TDMI::ARM_Undefined;
+			else if ((tempOpcode & 0b0000'1100'0000'0000'0000'0000'0000'0000) == 0b0000'0100'0000'0000'0000'0000'0000'0000)
+				tempLut[i] = (instructionFn)&ARM7TDMI::ARM_SingleDataTransfer;
+			else if ((tempOpcode & 0b0000'1110'0000'0000'0000'0000'0000'0000) == 0b0000'1000'0000'0000'0000'0000'0000'0000)
+				tempLut[i] = (instructionFn)&ARM7TDMI::ARM_BlockDataTransfer;
+			else if ((tempOpcode & 0b0000'1110'0000'0000'0000'0000'0000'0000) == 0b0000'1100'0000'0000'0000'0000'0000'0000)
+				tempLut[i] = (instructionFn)&ARM7TDMI::ARM_CoprocessorDataTransfer;
+			else if ((tempOpcode & 0b0000'1111'0000'0000'0000'0000'0001'0000) == 0b0000'1110'0000'0000'0000'0000'0000'0000)
+				tempLut[i] = (instructionFn)&ARM7TDMI::ARM_CoprocessorDataOperation;
+			else if ((tempOpcode & 0b0000'1111'0000'0000'0000'0000'0001'0000) == 0b0000'1110'0000'0000'0000'0000'0001'0000)
+				tempLut[i] = (instructionFn)&ARM7TDMI::ARM_CoprocessorDataTransfer;
+			else if ((tempOpcode & 0b0000'1111'0000'0000'0000'0000'0000'0000) == 0b0000'1111'0000'0000'0000'0000'0000'0000)
+				tempLut[i] = (instructionFn)&ARM7TDMI::ARM_SoftwareInterrupt;
+		}
+		return tempLut;
+	}();
+
 };
