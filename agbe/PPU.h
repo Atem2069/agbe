@@ -22,6 +22,17 @@ struct BG
 	}
 };
 
+union SpriteAttribute
+{
+	uint8_t attr;
+	struct
+	{
+		uint8_t priority : 6;
+		bool objWindow : 1;
+		bool transparent : 1;
+	};
+};
+
 enum class PPUState
 {
 	HDraw,
@@ -56,9 +67,8 @@ private:
 	bool pageIdx = false;
 	//uint32_t m_displayBuffer[240 * 160]; //buffer the display gets
 	uint8_t m_bgPriorities[240] = {};	//save bg priority at each pixel
-	uint8_t m_spritePriorities[240] = {};
 	uint16_t m_spriteLineBuffer[240] = {};
-	uint8_t m_objWindowMask[240] = {};
+	SpriteAttribute m_spriteAttrBuffer[240] = {};
 
 	BG m_backgroundLayers[4];
 

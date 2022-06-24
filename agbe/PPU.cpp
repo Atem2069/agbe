@@ -317,7 +317,7 @@ void PPU::composeLayers()
 	{	
 		uint16_t finalCol = backDrop;
 		bool blendAMask = false;
-		bool spriteTop = false;
+		bool opaqueSpriteTop = false;
 		uint16_t blendPixelB = 0x8000;
 		int highestPriority = 255;
 		for (int layer = 3; layer >= 0; layer--)
@@ -342,11 +342,11 @@ void PPU::composeLayers()
 		if ((DISPCNT >> 12) & 0b1 && getPointDrawable(x,VCOUNT,0,true))
 		{
 			uint16_t spritePixel = m_spriteLineBuffer[x];
-			if (!((spritePixel >> 15) & 0b1) && m_spritePriorities[x] != 255 && m_spritePriorities[x] <= highestPriority)
+			if (!((spritePixel >> 15) & 0b1) && m_spriteAttrBuffer[x].priority != 0x3F && m_spriteAttrBuffer[x].priority <= highestPriority)
 			{
-				spriteTop = true;
+				opaqueSpriteTop = !m_spriteAttrBuffer[x].transparent;
 				finalCol = spritePixel;
-				if ((BLDCNT >> 4) & 0b1)
+				if ((BLDCNT >> 4) & 0b1 || !opaqueSpriteTop)
 					blendAMask = true;
 			}
 		}
@@ -357,7 +357,7 @@ void PPU::composeLayers()
 			switch (blendMode)
 			{
 			case 1:
-				if(blendAMask && !(blendPixelB>>15) && !spriteTop)
+				if(blendAMask && !(blendPixelB>>15) && !opaqueSpriteTop)
 					finalCol = blendAlpha(finalCol, blendPixelB);
 				break;
 			case 2:
@@ -582,8 +582,7 @@ void PPU::drawSprites()
 	bool isBlendTarget2 = ((BLDCNT >> 12) & 0b1);
 	uint8_t blendMode = ((BLDCNT >> 6) & 0b11);
 
-	memset(m_objWindowMask, 0, 240);
-	memset(m_spritePriorities, 255, 240);
+	memset(m_spriteAttrBuffer, 0b00111111, 240);
 
 	for (int i = 127; i >= 0; i--)
 	{
@@ -608,7 +607,7 @@ void PPU::drawSprites()
 		if (spriteDisabled)
 			continue;
 
-		uint8_t objMode = (attr0 >> 10) & 0b11;	//have to accommodate for the other obj modes.
+		uint8_t objMode = (attr0 >> 10) & 0b11;	
 		bool isObjWindow = (objMode == 2);
 
 		int spriteTop = attr0 & 0xFF;
@@ -651,11 +650,9 @@ void PPU::drawSprites()
 		bool hiColor = ((attr0 >> 13) & 0b1);
 		if (hiColor)
 			rowPitch *= 2;
-		//if (hiColor)
-		//	std::cout << "sprite can't render! unsupported mode!!" << '\n';
 
 
-		//check y coord (ASSUMING 2D MAPPING). tiles are arranged in 32x32 (each tile is 32 bytes). so need to add offset if y too big
+		//check y coord, then adjust tile id as necessary
 		while (yOffsetIntoSprite >= 8)
 		{
 			yOffsetIntoSprite -= 8;
@@ -665,7 +662,6 @@ void PPU::drawSprites()
 				tileId += rowPitch; //otherwise, add the row pitch (which says how many tiles exist per row)
 		}
 
-		//for testing: only draw the first tile
 		uint32_t objBase = 0x10000;
 		if (!hiColor)
 		{
@@ -696,7 +692,7 @@ void PPU::drawSprites()
 				if (plotCoord > 239 || plotCoord < 0)
 					continue;
 
-				uint8_t priorityAtPixel = m_spritePriorities[plotCoord];
+				uint8_t priorityAtPixel = m_spriteAttrBuffer[plotCoord].priority;
 				if ((spritePriority > priorityAtPixel) && !isObjWindow)
 					continue;
 
@@ -705,13 +701,13 @@ void PPU::drawSprites()
 					continue;
 
 				if (isObjWindow)
-					m_objWindowMask[plotCoord] = 1;
+					m_spriteAttrBuffer[plotCoord].objWindow = 1;
 				else
 				{
-					m_spritePriorities[plotCoord] = spritePriority;
+					m_spriteAttrBuffer[plotCoord].priority = spritePriority & 0b111111;
+					m_spriteAttrBuffer[plotCoord].transparent = (objMode == 1);
 					m_spriteLineBuffer[plotCoord] = col;
 				}
-				//m_renderBuffer[plotCoord] = res;
 			}
 		}
 
@@ -741,8 +737,6 @@ void PPU::drawAffineSprite(int spriteIdx)
 	bool doubleSize = (attr0 >> 9) & 0b1;
 
 	int spriteTop = attr0 & 0xFF;
-	//if (spriteTop > 225)							//bit of a dumb hack to accommodate for when sprites are offscreen
-	//	spriteTop = 0 - (255 - spriteTop);
 	int spriteLeft = attr1 & 0x1FF;
 	if ((spriteLeft >> 8) & 0b1)
 		spriteLeft |= 0xFFFFFF00;	//not sure maybe sign extension is okay
@@ -807,7 +801,7 @@ void PPU::drawAffineSprite(int spriteIdx)
 
 		uint32_t px = ((PA * ix + PB * iy) >> 8);
 		uint32_t py = ((PC * ix + PD * iy) >> 8);
-		px += halfWidth; py += halfHeight;	//not sure about this bit, but..
+		px += halfWidth; py += halfHeight;	
 		if (py >= spriteHeight || px >= spriteWidth)
 			continue;
 
@@ -834,8 +828,7 @@ void PPU::drawAffineSprite(int spriteIdx)
 		if (plotCoord > 239 || plotCoord < 0)
 			continue;
 
-		//let's see if a bg pixel with higher priority already exists! (todo: check for sprite priority too)
-		uint8_t priorityAtPixel = m_spritePriorities[plotCoord];
+		uint8_t priorityAtPixel = m_spriteAttrBuffer[plotCoord].priority;
 		if ((spritePriority > priorityAtPixel) && !isObjWindow)
 			continue;
 
@@ -844,10 +837,11 @@ void PPU::drawAffineSprite(int spriteIdx)
 			continue;
 
 		if (isObjWindow)
-			m_objWindowMask[plotCoord] = 1;
+			m_spriteAttrBuffer[plotCoord].objWindow = 1;
 		else
 		{
-			m_spritePriorities[plotCoord] = spritePriority;
+			m_spriteAttrBuffer[plotCoord].priority = spritePriority&0b111111;
+			m_spriteAttrBuffer[plotCoord].transparent = (objMode == 1);
 			m_spriteLineBuffer[plotCoord] = col;
 		}
 	}
@@ -998,7 +992,7 @@ bool PPU::getPointDrawable(int x, int y, int backgroundLayer, bool obj)
 	}
 	if (objWindowEnabled)
 	{
-		bool pointInWindow = m_objWindowMask[x];	//<--why does vs care about this line? x can never be above 239.
+		bool pointInWindow = m_spriteAttrBuffer[x].objWindow;	//<--why does vs care about this line? x can never be above 239.
 		if (pointInWindow)
 		{
 			if (obj)
@@ -1048,7 +1042,7 @@ bool PPU::getPointBlendable(int x, int y)
 	}
 	if (objWindowEnabled)
 	{
-		bool pointInWindow = m_objWindowMask[x];	//<--why does vs care about this line? x can never be above 239.
+		bool pointInWindow = m_spriteAttrBuffer[x].objWindow;	//<--why does vs care about this line? x can never be above 239.
 		if (pointInWindow)
 			return ((WINOUT >> 13) & 0b1);
 	}
