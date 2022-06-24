@@ -9,13 +9,14 @@
 #include<Windows.h>
 
 //this isn't a great approach to bg priority !!
-struct BGSortItem
+struct BG
 {
 	int priorityBits;
 	int bgNumber;
 	bool enabled;
 	bool affine;
-	static bool sortDescending(const BGSortItem& lhs, const BGSortItem& rhs)	//sort by decreasing priority
+	uint16_t lineBuffer[240];
+	static bool sortDescending(const BG& lhs, const BG& rhs)	//sort by decreasing priority
 	{
 		return lhs.priorityBits > rhs.priorityBits;
 	}
@@ -56,8 +57,10 @@ private:
 	//uint32_t m_displayBuffer[240 * 160]; //buffer the display gets
 	uint8_t m_bgPriorities[240] = {};	//save bg priority at each pixel
 	uint8_t m_spritePriorities[240] = {};
-	uint32_t m_spriteLineBuffer[240] = {};
+	uint16_t m_spriteLineBuffer[240] = {};
 	uint8_t m_objWindowMask[240] = {};
+
+	BG m_backgroundLayers[4];
 
 	PPUState m_state = {};
 
@@ -84,6 +87,8 @@ private:
 	void renderMode3();
 	void renderMode4();
 	void renderMode5();
+
+	void composeLayers();
 
 	void drawBackground(int bg);
 	void drawRotationScalingBackground(int bg);

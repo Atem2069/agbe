@@ -211,39 +211,13 @@ void PPU::renderMode0()
 	if (objEnabled)
 		drawSprites();
 
-	bool bg0Enabled = ((DISPCNT >> 8) & 0b1);
-	bool bg1Enabled = ((DISPCNT >> 9) & 0b1);
-	bool bg2Enabled = ((DISPCNT >> 10) & 0b1);
-	bool bg3Enabled = ((DISPCNT >> 11) & 0b1);
-
-	std::array<BGSortItem, 4> bgItems;
-	bgItems[3] = { BG0CNT & 0b11,0,bg0Enabled,false };
-	bgItems[2]={BG1CNT & 0b11, 1, bg1Enabled,false};
-	bgItems[1]={BG2CNT & 0b11, 2, bg2Enabled,false};
-	bgItems[0] = { BG3CNT & 0b11, 3, bg3Enabled,false };
-	
-	std::sort(bgItems.begin(), bgItems.end(), BGSortItem::sortDescending);
-
-	uint16_t bd = (m_mem->paletteRAM[1] << 8) | m_mem->paletteRAM[0];
-	uint32_t backdropcol = col16to32(bd);
-	uint32_t baseAddr = (VCOUNT * 240);
-
 	for (int i = 0; i < 4; i++)	//todo: optimise. can use a single for loop and get each pixel one by one
 	{
-		if (bgItems[i].enabled)
-			drawBackground(bgItems[i].bgNumber);
+		if ((DISPCNT >> (8 + i)) & 0b1)
+			drawBackground(i);
 	}
-	for (int i = 0; i < 240; i++)
-	{
-		if (m_bgPriorities[i] == 255)
-		{
-			m_renderBuffer[pageIdx][baseAddr + i] = backdropcol;
-			if (m_spritePriorities[i] != 255)
-				m_renderBuffer[pageIdx][baseAddr + i] = m_spriteLineBuffer[i];
-		}
-	}
-	memset(m_bgPriorities, 255, 240);
-	memset(target2Pixels, 0, 480);
+
+	composeLayers();
 }
 
 void PPU::renderMode1()
@@ -252,69 +226,32 @@ void PPU::renderMode1()
 	if (objEnabled)
 		drawSprites();
 
-	bool bg0Enabled = ((DISPCNT >> 8) & 0b1);
-	bool bg1Enabled = ((DISPCNT >> 9) & 0b1);
-	bool bg2Enabled = ((DISPCNT >> 10) & 0b1);
-
-	std::array<BGSortItem, 3> bgItems;
-	bgItems[2] = { BG0CNT & 0b11,0,bg0Enabled,false };
-	bgItems[1] = { BG1CNT & 0b11, 1, bg1Enabled,false };
-	bgItems[0] = { BG2CNT & 0b11, 2, bg2Enabled,true };
-
-	std::sort(bgItems.begin(), bgItems.end(), BGSortItem::sortDescending);
-
-	uint16_t bd = (m_mem->paletteRAM[1] << 8) | m_mem->paletteRAM[0];
-	uint32_t backdropcol = col16to32(bd);
-	uint32_t baseAddr = (VCOUNT * 240);
-
 	for (int i = 0; i < 3; i++)	//todo: optimise. can use a single for loop and get each pixel one by one
 	{
-		if (bgItems[i].enabled)
+		if ((DISPCNT>>(8+i))&0b1)
 		{
-			if (!bgItems[i].affine)
-				drawBackground(bgItems[i].bgNumber);
+			if (i==2)
+				drawRotationScalingBackground(i);
 			else
-				drawRotationScalingBackground(bgItems[i].bgNumber);
+				drawBackground(i);
 		}
 	}
-	for (int i = 0; i < 240; i++)
-	{
-		if (m_bgPriorities[i] == 255)
-		{
-			m_renderBuffer[pageIdx][baseAddr + i] = backdropcol;
-			if (m_spritePriorities[i] != 255)
-				m_renderBuffer[pageIdx][baseAddr + i] = m_spriteLineBuffer[i];
-		}
-	}
-	memset(m_bgPriorities, 255, 240);
-	memset(target2Pixels, 0, 480);
+
+	composeLayers();
 }
 
 void PPU::renderMode2()
 {
-	drawSprites();
-	bool bg2Enabled = ((DISPCNT >> 10) & 0b1);
-	bool bg3Enabled = ((DISPCNT >> 11) & 0b1);
-	
-	uint16_t bd = (m_mem->paletteRAM[1] << 8) | m_mem->paletteRAM[0];
-	uint32_t backdropcol = col16to32(bd);
-	uint32_t baseAddr = (VCOUNT * 240);
-	//todo: priority
-	if(bg3Enabled)
-		drawRotationScalingBackground(3);
-	if(bg2Enabled)
-		drawRotationScalingBackground(2);
-	for (int i = 0; i < 240; i++)
+	bool objEnabled = ((DISPCNT >> 12) & 0b1);
+	if(objEnabled)
+		drawSprites();
+	for (int i = 2; i < 4; i++)
 	{
-		if (m_bgPriorities[i] == 255)
-		{
-			m_renderBuffer[pageIdx][baseAddr + i] = backdropcol;
-			if (m_spritePriorities[i] != 255)
-				m_renderBuffer[pageIdx][baseAddr + i] = m_spriteLineBuffer[i];
-		}
+		if ((DISPCNT >> (8 + i)) & 0b1)
+			drawRotationScalingBackground(i);
 	}
-	memset(m_bgPriorities, 255, 240);
-	memset(target2Pixels, 0, 480);
+
+	composeLayers();
 }
 
 void PPU::renderMode3()
@@ -370,6 +307,71 @@ void PPU::renderMode5()
 		uint8_t colHigh = m_mem->VRAM[address + 1];
 		uint16_t col = (colHigh << 8) | colLow;
 		m_renderBuffer[pageIdx][plotAddress] = col16to32(col);
+	}
+}
+
+void PPU::composeLayers()
+{
+	uint16_t backDrop = ((m_mem->paletteRAM[1] << 8) | m_mem->paletteRAM[0]);
+	for (int x = 0; x < 240; x++)
+	{	
+		uint16_t finalCol = backDrop;
+		bool blendAMask = false;
+		bool spriteTop = false;
+		uint16_t blendPixelB = 0x8000;
+		int highestPriority = 255;
+		for (int layer = 3; layer >= 0; layer--)
+		{
+			if (((DISPCNT >> (8 + layer)) & 0b1) && getPointDrawable(x,VCOUNT,layer,false))	//layer activated
+			{
+				uint16_t colAtLayer = m_backgroundLayers[layer].lineBuffer[x];
+				if (!((colAtLayer >> 15) & 0b1) && (m_backgroundLayers[layer].priorityBits <= highestPriority))
+				{
+					highestPriority = m_backgroundLayers[layer].priorityBits;
+					finalCol = colAtLayer;
+					if ((BLDCNT >> layer) & 0b1)
+						blendAMask = true;
+				}
+
+				if ((BLDCNT >> (layer + 8)) & 0b1)
+					blendPixelB = colAtLayer;
+
+			}
+		}
+
+		if ((DISPCNT >> 12) & 0b1 && getPointDrawable(x,VCOUNT,0,true))
+		{
+			uint16_t spritePixel = m_spriteLineBuffer[x];
+			if (!((spritePixel >> 15) & 0b1) && m_spritePriorities[x] != 255 && m_spritePriorities[x] <= highestPriority)
+			{
+				spriteTop = true;
+				finalCol = spritePixel;
+				if ((BLDCNT >> 4) & 0b1)
+					blendAMask = true;
+			}
+		}
+
+		if (getPointBlendable(x, VCOUNT))
+		{
+			uint8_t blendMode = ((BLDCNT >> 6) & 0b11);
+			switch (blendMode)
+			{
+			case 1:
+				if(blendAMask && !(blendPixelB>>15) && !spriteTop)
+					finalCol = blendAlpha(finalCol, blendPixelB);
+				break;
+			case 2:
+				if (blendAMask)
+					finalCol = blendBrightness(finalCol, true);
+				break;
+			case 3:
+				if (blendAMask)
+					finalCol = blendBrightness(finalCol, false);
+				break;
+			}
+		}
+
+		m_renderBuffer[pageIdx][(240 * VCOUNT) + x] = col16to32(finalCol);
 	}
 }
 
@@ -429,17 +431,12 @@ void PPU::drawBackground(int bg)
 	uint16_t cachedTile = 0;
 	uint32_t cachedXOffs = 0xFFFFFFFF;
 
+	m_backgroundLayers[bg].enabled = true;
+	m_backgroundLayers[bg].priorityBits = bgPriority;
+
 	for (int x = 0; x < 240; x++)
 	{
 		uint32_t plotAddr = (VCOUNT * 240) + x;
-		if (m_spritePriorities[x] <= bgPriority)
-		{
-			m_renderBuffer[pageIdx][plotAddr] = m_spriteLineBuffer[x];
-			m_bgPriorities[x] = 254;	//lmfao
-			continue;
-		}
-		if (!getPointDrawable(x, VCOUNT, bg, false))
-			continue;
 		int xCoord = (x + xScroll) & xWrap;
 		int baseBlockOffset = 0;				//x scrolling can cause new baseblock to bee selected
 		if (screenSize && (xCoord > 255))
@@ -482,33 +479,8 @@ void PPU::drawBackground(int bg)
 			xmod8 = 7 - xmod8;
 
 		uint16_t col = extractColorFromTile(tileMapBaseAddress, xmod8, hiColor, false, paletteNumber);
-		if ((col >> 15) & 0b1)
-			continue;
 		m_bgPriorities[x] = bgPriority;
-
-		if (getPointBlendable(x, VCOUNT))
-		{
-			if (isTarget2)
-				target2Pixels[x] = col;
-			if (isTarget1)
-			{
-				uint8_t blendMode = ((BLDCNT >> 6) & 0b11);
-				switch (blendMode)
-				{
-				case 1:
-					col = blendAlpha(col, target2Pixels[x]);
-					break;
-				case 2:
-					col = blendBrightness(col, true);
-					break;
-				case 3:
-					col = blendBrightness(col, false);
-					break;
-				}
-			}
-		}
-
-		m_renderBuffer[pageIdx][plotAddr] = col16to32(col);
+		m_backgroundLayers[bg].lineBuffer[x] = col;
 	}
 
 }
@@ -557,27 +529,27 @@ void PPU::drawRotationScalingBackground(int bg)
 	uint32_t cachedXCoord = 0xFFFFFFFF;
 	uint32_t cachedYCoord = 0xFFFFFFFF;
 
+	m_backgroundLayers[bg].enabled = true;
+	m_backgroundLayers[bg].priorityBits = bgPriority;
+
 	for (int x = 0; x < 240; x++, xRef+=pA,yRef+=pC)
 	{
 		uint32_t plotAddr = (VCOUNT * 240) + x;
-		if (m_spritePriorities[x] <= bgPriority)
-		{
-			m_renderBuffer[pageIdx][plotAddr] = m_spriteLineBuffer[x];
-			m_bgPriorities[x] = 254;	//dumb hack :P
-			continue;
-		}
-		if (!getPointDrawable(x, VCOUNT, bg, false))
-			continue;
-
 		uint32_t fetcherY = (uint32_t)((int32_t)yRef >> 8);
 		if ((fetcherY >= yWrap) && !overflowWrap)
+		{
+			m_backgroundLayers[bg].lineBuffer[x] = 0x8000;
 			continue;
+		}
 		fetcherY = fetcherY % yWrap;
 		uint32_t bgMapYIdx = ((fetcherY / 8) * (xWrap>>3)); //each row is 32 chars; in rotation/scroll each entry is 1 byte
 
 		uint32_t xCoord = (uint32_t)((int32_t)xRef >> 8);
 		if ((xCoord >= xWrap) && !overflowWrap)
+		{
+			m_backgroundLayers[bg].lineBuffer[x] = 0x8000;
 			continue;
+		}
 		xCoord = xCoord % xWrap;
 
 		uint32_t tileIdx = cachedTileIdx;
@@ -594,34 +566,9 @@ void PPU::drawRotationScalingBackground(int bg)
 		uint32_t tileMapBaseAddress = (tileDataBaseBlock * 16384) + (tileIdx * 64);
 		tileMapBaseAddress += ((fetcherY % 8) * 8);
 		uint16_t col = extractColorFromTile(tileMapBaseAddress, xCoord&7, true, false, 0);
-		if ((col >> 15) & 0b1)
-			continue;
 
 		m_bgPriorities[x] = bgPriority;
-
-		if (getPointBlendable(x, VCOUNT))
-		{
-			if (isTarget2)
-				target2Pixels[x] = col;
-			if (isTarget1)
-			{
-				uint8_t blendMode = ((BLDCNT >> 6) & 0b11);
-				switch (blendMode)
-				{
-				case 1:
-					col = blendAlpha(col, target2Pixels[x]);
-					break;
-				case 2:
-					col = blendBrightness(col, true);
-					break;
-				case 3:
-					col = blendBrightness(col, false);
-					break;
-				}
-			}
-		}
-
-		m_renderBuffer[pageIdx][plotAddr] = col16to32(col);
+		m_backgroundLayers[bg].lineBuffer[x] = col;
 
 	}
 
@@ -749,9 +696,6 @@ void PPU::drawSprites()
 				if (plotCoord > 239 || plotCoord < 0)
 					continue;
 
-				if (!getPointDrawable(plotCoord, VCOUNT, 0, true) && !isObjWindow)	//not sure about the 'isObjWindow' check
-					continue;
-
 				uint8_t priorityAtPixel = m_spritePriorities[plotCoord];
 				if ((spritePriority > priorityAtPixel) && !isObjWindow)
 					continue;
@@ -765,27 +709,7 @@ void PPU::drawSprites()
 				else
 				{
 					m_spritePriorities[plotCoord] = spritePriority;
-
-					if (getPointBlendable(plotCoord, VCOUNT))
-					{
-						if (isBlendTarget2)
-							target2Pixels[plotCoord] = col;
-						if (isBlendTarget1)
-						{
-							switch (blendMode)
-							{
-							case 2:
-								col = blendBrightness(col, true);
-								break;
-							case 3:
-								col = blendBrightness(col, false);
-								break;
-							}
-						}
-					}
-
-					uint32_t res = col16to32(col);
-					m_spriteLineBuffer[plotCoord] = res;
+					m_spriteLineBuffer[plotCoord] = col;
 				}
 				//m_renderBuffer[plotCoord] = res;
 			}
@@ -910,16 +834,12 @@ void PPU::drawAffineSprite(int spriteIdx)
 		if (plotCoord > 239 || plotCoord < 0)
 			continue;
 
-		if (!getPointDrawable(plotCoord, VCOUNT, 0, true) && !isObjWindow)	//not sure about the 'isObjWindow' check
-			continue;
-
 		//let's see if a bg pixel with higher priority already exists! (todo: check for sprite priority too)
 		uint8_t priorityAtPixel = m_spritePriorities[plotCoord];
 		if ((spritePriority > priorityAtPixel) && !isObjWindow)
 			continue;
 
 		uint16_t col = extractColorFromTile(tileMapLookupAddr, baseX, hiColor, true, paletteNumber);
-
 		if ((col >> 15) & 0b1)
 			continue;
 
@@ -928,27 +848,7 @@ void PPU::drawAffineSprite(int spriteIdx)
 		else
 		{
 			m_spritePriorities[plotCoord] = spritePriority;
-
-			if (getPointBlendable(plotCoord, VCOUNT))
-			{
-				if (isBlendTarget2)
-					target2Pixels[plotCoord] = col;
-				if (isBlendTarget1)
-				{
-					switch (blendMode)
-					{
-					case 2:
-						col = blendBrightness(col, true);
-						break;
-					case 3:
-						col = blendBrightness(col, false);
-						break;
-					}
-				}
-			}
-
-			uint32_t res = col16to32(col);
-			m_spriteLineBuffer[plotCoord] = res;
+			m_spriteLineBuffer[plotCoord] = col;
 		}
 	}
 
@@ -1077,13 +977,7 @@ bool PPU::getPointDrawable(int x, int y, int backgroundLayer, bool obj)
 				drawable = ((WININ >> 4) & 0b1);
 			else
 				drawable = ((WININ >> backgroundLayer) & 0b1);
-		}
-		else
-		{
-			if (obj)
-				drawable = ((WINOUT >> 4) & 0b1);
-			else
-				drawable = ((WINOUT >> backgroundLayer) & 0b1);
+			return drawable;
 		}
 	}
 	if (window1Enabled)
@@ -1099,13 +993,7 @@ bool PPU::getPointDrawable(int x, int y, int backgroundLayer, bool obj)
 				drawable |= ((WININ >> 12) & 0b1);
 			else
 				drawable |= ((WININ >> (backgroundLayer+8)) & 0b1);
-		}
-		else
-		{
-			if (obj)
-				drawable |= ((WINOUT >> 4) & 0b1);
-			else
-				drawable |= ((WINOUT >> (backgroundLayer)) & 0b1);
+			return drawable;
 		}
 	}
 	if (objWindowEnabled)
@@ -1117,15 +1005,15 @@ bool PPU::getPointDrawable(int x, int y, int backgroundLayer, bool obj)
 				drawable |= ((WINOUT >> 12) & 0b1);
 			else
 				drawable |= ((WINOUT >> (backgroundLayer + 8)) & 0b1);
-		}
-		else
-		{
-			if (obj)
-				drawable |= ((WINOUT >> 4) & 0b1);
-			else
-				drawable |= ((WINOUT >> (backgroundLayer)) & 0b1);
+			return drawable;
 		}
 	}
+
+	if (obj)
+		drawable |= ((WINOUT >> 4) & 0b1);
+	else
+		drawable |= ((WINOUT >> (backgroundLayer)) & 0b1);
+
 	return drawable;
 }
 
@@ -1146,9 +1034,7 @@ bool PPU::getPointBlendable(int x, int y)
 		int winTop = ((WIN0V >> 8) & 0xFF);
 		bool inWindow = (x >= winLeft && x <= winRight && y >= winTop && y <= winBottom);
 		if (inWindow)
-			drawable = ((WININ >> 5) & 0b1);
-		else
-			drawable = ((WINOUT >> 5) & 0b1);
+			return ((WININ >> 5) & 0b1);
 	}
 	if (window1Enabled)
 	{
@@ -1158,19 +1044,15 @@ bool PPU::getPointBlendable(int x, int y)
 		int winTop = ((WIN1V >> 8) & 0xFF);
 		bool inWindow = (x >= winLeft && x <= winRight && y >= winTop && y <= winBottom);
 		if (inWindow)
-			drawable |= ((WININ >> 13) & 0b1);
-		else
-			drawable |= ((WINOUT >> 5) & 0b1);
+			return ((WININ >> 13) & 0b1);
 	}
 	if (objWindowEnabled)
 	{
 		bool pointInWindow = m_objWindowMask[x];	//<--why does vs care about this line? x can never be above 239.
 		if (pointInWindow)
-			drawable |= ((WINOUT >> 13) & 0b1);
-		else
-			drawable |= ((WINOUT >> 5) & 0b1);
+			return ((WINOUT >> 13) & 0b1);
 	}
-	return drawable;
+	return ((WINOUT >> 5) & 0b1);
 
 }
 
