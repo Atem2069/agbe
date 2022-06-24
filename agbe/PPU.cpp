@@ -241,9 +241,9 @@ void PPU::renderMode0()
 			if (m_spritePriorities[i] != 255)
 				m_renderBuffer[pageIdx][baseAddr + i] = m_spriteLineBuffer[i];
 		}
-		m_bgPriorities[i] = 255;
-		target2Pixels[i] = 0;
 	}
+	memset(m_bgPriorities, 255, 240);
+	memset(target2Pixels, 0, 480);
 }
 
 void PPU::renderMode1()
@@ -285,9 +285,9 @@ void PPU::renderMode1()
 			if (m_spritePriorities[i] != 255)
 				m_renderBuffer[pageIdx][baseAddr + i] = m_spriteLineBuffer[i];
 		}
-		m_bgPriorities[i] = 255;
-		target2Pixels[i] = 0;
 	}
+	memset(m_bgPriorities, 255, 240);
+	memset(target2Pixels, 0, 480);
 }
 
 void PPU::renderMode2()
@@ -312,9 +312,9 @@ void PPU::renderMode2()
 			if (m_spritePriorities[i] != 255)
 				m_renderBuffer[pageIdx][baseAddr + i] = m_spriteLineBuffer[i];
 		}
-		m_bgPriorities[i] = 255;
-		target2Pixels[i] = 0;
 	}
+	memset(m_bgPriorities, 255, 240);
+	memset(target2Pixels, 0, 480);
 }
 
 void PPU::renderMode3()
