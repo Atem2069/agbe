@@ -33,6 +33,13 @@ union SpriteAttribute
 	};
 };
 
+struct OAMEntry
+{
+	uint16_t attr0;
+	uint16_t attr1;
+	uint16_t attr2;
+};
+
 enum class PPUState
 {
 	HDraw,
@@ -103,7 +110,7 @@ private:
 	void drawBackground(int bg);
 	void drawRotationScalingBackground(int bg);
 	void drawSprites();
-	void drawAffineSprite(int spriteIdx);
+	void drawAffineSprite(OAMEntry* curSpriteEntry);
 
 	uint16_t extractColorFromTile(uint32_t tileBase, uint32_t xOffset, bool hiColor, bool sprite, uint32_t palette);
 

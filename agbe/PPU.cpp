@@ -587,33 +587,26 @@ void PPU::drawSprites()
 	for (int i = 127; i >= 0; i--)
 	{
 		uint32_t spriteBase = i * 8;	//each OAM entry is 8 bytes
-		uint8_t attr0Low = m_mem->OAM[spriteBase];
-		uint8_t attr0High = m_mem->OAM[spriteBase + 1];
-		uint8_t attr1Low = m_mem->OAM[spriteBase + 2];
-		uint8_t attr1High = m_mem->OAM[spriteBase + 3];
-		uint8_t attr2Low = m_mem->OAM[spriteBase + 4];
-		uint8_t attr2High = m_mem->OAM[spriteBase + 5];
-		uint16_t attr0 = ((attr0High << 8) | attr0Low);
-		uint16_t attr1 = ((attr1High << 8) | attr1Low);
-		uint16_t attr2 = ((attr2High << 8) | attr2Low);
 
-		if ((attr0 >> 8) & 0b1)
+		OAMEntry* curSpriteEntry = (OAMEntry*)(m_mem->OAM+spriteBase);
+
+		if ((curSpriteEntry->attr0 >> 8) & 0b1)
 		{
-			drawAffineSprite(i);
+			drawAffineSprite(curSpriteEntry);
 			continue;
 		}
 
-		bool spriteDisabled = ((attr0 >> 9) & 0b1);	
+		bool spriteDisabled = ((curSpriteEntry->attr0 >> 9) & 0b1);	
 		if (spriteDisabled)
 			continue;
 
-		uint8_t objMode = (attr0 >> 10) & 0b11;	
+		uint8_t objMode = (curSpriteEntry->attr0 >> 10) & 0b11;	
 		bool isObjWindow = (objMode == 2);
 
-		int spriteTop = attr0 & 0xFF;
+		int spriteTop = curSpriteEntry->attr0 & 0xFF;
 		if (spriteTop > 225)							//bit of a dumb hack to accommodate for when sprites are offscreen
 			spriteTop = 0 - (255 - spriteTop);
-		int spriteLeft = attr1 & 0x1FF;
+		int spriteLeft = curSpriteEntry->attr1 & 0x1FF;
 		if ((spriteLeft >> 8) & 0b1)
 			spriteLeft |= 0xFFFFFF00;	//not sure maybe sign extension is okay
 		if (spriteLeft >= 240 || spriteTop > VCOUNT)	//nope. sprite is offscreen or too low
@@ -621,9 +614,9 @@ void PPU::drawSprites()
 		int spriteBottom = 0, spriteRight = 0;
 		int rowPitch = 1;	//find out how many lines we have to 'cross' to get to next row (in 1d mapping)
 		//need to find out dimensions first to figure out whether to ignore this object
-		int shape = ((attr0 >> 14) & 0b11);
-		int size = ((attr1 >> 14) & 0b11);
-		int spritePriority = ((attr2 >> 10) & 0b11);	//used to figure out whether we should actually render the sprite
+		int shape = ((curSpriteEntry->attr0 >> 14) & 0b11);
+		int size = ((curSpriteEntry->attr1 >> 14) & 0b11);
+		int spritePriority = ((curSpriteEntry->attr2 >> 10) & 0b11);	//used to figure out whether we should actually render the sprite
 
 		int spriteBoundsLookupId = (shape << 2) | size;
 		int spriteXBoundsLUT[12] ={8,16,32,64,16,32,32,64,8,8,16,32};
@@ -636,18 +629,18 @@ void PPU::drawSprites()
 		if (VCOUNT >= spriteBottom)	//nope, we're past it.
 			continue;
 
-		bool flipHorizontal = ((attr1 >> 12) & 0b1);
-		bool flipVertical = ((attr1 >> 13) & 0b1);
+		bool flipHorizontal = ((curSpriteEntry->attr1 >> 12) & 0b1);
+		bool flipVertical = ((curSpriteEntry->attr1 >> 13) & 0b1);
 
 		int spriteYSize = (spriteBottom - spriteTop);	//find out how big sprite is
 		int yOffsetIntoSprite = VCOUNT - spriteTop;
 		if (flipVertical)
 			yOffsetIntoSprite = (spriteYSize-1) - yOffsetIntoSprite;//flip y coord we're considering
 
-		uint32_t tileId = ((attr2) & 0x3FF);
-		uint8_t priorityBits = ((attr2 >> 10) & 0b11);
-		uint8_t paletteNumber = ((attr2 >> 12) & 0xF);
-		bool hiColor = ((attr0 >> 13) & 0b1);
+		uint32_t tileId = ((curSpriteEntry->attr2) & 0x3FF);
+		uint8_t priorityBits = ((curSpriteEntry->attr2 >> 10) & 0b11);
+		uint8_t paletteNumber = ((curSpriteEntry->attr2 >> 12) & 0xF);
+		bool hiColor = ((curSpriteEntry->attr0 >> 13) & 0b1);
 		if (hiColor)
 			rowPitch *= 2;
 
@@ -714,30 +707,19 @@ void PPU::drawSprites()
 	}
 }
 
-void PPU::drawAffineSprite(int spriteIdx)
+void PPU::drawAffineSprite(OAMEntry* curSpriteEntry)
 {
 	bool oneDimensionalMapping = ((DISPCNT >> 6) & 0b1);
 	bool isBlendTarget1 = ((BLDCNT >> 4) & 0b1);
 	bool isBlendTarget2 = ((BLDCNT >> 12) & 0b1);
 	uint8_t blendMode = ((BLDCNT >> 6) & 0b11);
 
-	uint32_t spriteBase = spriteIdx * 8;	//each OAM entry is 8 bytes
-	uint8_t attr0Low = m_mem->OAM[spriteBase];
-	uint8_t attr0High = m_mem->OAM[spriteBase + 1];
-	uint8_t attr1Low = m_mem->OAM[spriteBase + 2];
-	uint8_t attr1High = m_mem->OAM[spriteBase + 3];
-	uint8_t attr2Low = m_mem->OAM[spriteBase + 4];
-	uint8_t attr2High = m_mem->OAM[spriteBase + 5];
-	uint16_t attr0 = ((attr0High << 8) | attr0Low);
-	uint16_t attr1 = ((attr1High << 8) | attr1Low);
-	uint16_t attr2 = ((attr2High << 8) | attr2Low);
-
-	uint8_t objMode = (attr0 >> 10) & 0b11;
+	uint8_t objMode = (curSpriteEntry->attr0 >> 10) & 0b11;
 	bool isObjWindow = (objMode == 2);
-	bool doubleSize = (attr0 >> 9) & 0b1;
+	bool doubleSize = (curSpriteEntry->attr0 >> 9) & 0b1;
 
-	int spriteTop = attr0 & 0xFF;
-	int spriteLeft = attr1 & 0x1FF;
+	int spriteTop = curSpriteEntry->attr0 & 0xFF;
+	int spriteLeft = curSpriteEntry->attr1 & 0x1FF;
 	if ((spriteLeft >> 8) & 0b1)
 		spriteLeft |= 0xFFFFFF00;	//not sure maybe sign extension is okay
 	if (spriteLeft >= 240)	//nope. sprite is offscreen or too low
@@ -745,9 +727,9 @@ void PPU::drawAffineSprite(int spriteIdx)
 	int spriteBottom = 0, spriteRight = 0;
 	int rowPitch = 1;	//find out how many lines we have to 'cross' to get to next row (in 1d mapping)
 	//need to find out dimensions first to figure out whether to ignore this object
-	int shape = ((attr0 >> 14) & 0b11);
-	int size = ((attr1 >> 14) & 0b11);
-	int spritePriority = ((attr2 >> 10) & 0b11);	//used to figure out whether we should actually render the sprite
+	int shape = ((curSpriteEntry->attr0 >> 14) & 0b11);
+	int size = ((curSpriteEntry->attr1 >> 14) & 0b11);
+	int spritePriority = ((curSpriteEntry->attr2 >> 10) & 0b11);	//used to figure out whether we should actually render the sprite
 
 	int spriteBoundsLookupId = (shape << 2) | size;
 	int spriteXBoundsLUT[12] = { 8,16,32,64,16,32,32,64,8,8,16,32 };
@@ -767,10 +749,10 @@ void PPU::drawAffineSprite(int spriteIdx)
 	if (VCOUNT >= (spriteBottom+doubleSizeOffset))	//nope, we're past it.
 		return;
 
-	uint32_t tileId = ((attr2) & 0x3FF);
-	uint8_t priorityBits = ((attr2 >> 10) & 0b11);
-	uint8_t paletteNumber = ((attr2 >> 12) & 0xF);
-	bool hiColor = ((attr0 >> 13) & 0b1);
+	uint32_t tileId = ((curSpriteEntry->attr2) & 0x3FF);
+	uint8_t priorityBits = ((curSpriteEntry->attr2 >> 10) & 0b11);
+	uint8_t paletteNumber = ((curSpriteEntry->attr2 >> 12) & 0xF);
+	bool hiColor = ((curSpriteEntry->attr0 >> 13) & 0b1);
 	if (hiColor)
 		rowPitch *= 2;
 	int yOffsetIntoSprite = VCOUNT - spriteTop;
@@ -782,7 +764,7 @@ void PPU::drawAffineSprite(int spriteIdx)
 	int spriteHeight = halfHeight * 2;	//find out how big sprite is
 
 	//get affine parameters
-	uint32_t parameterSelection = (attr1 >> 9) & 0x1F;
+	uint32_t parameterSelection = (curSpriteEntry->attr1 >> 9) & 0x1F;
 	parameterSelection *= 0x20;
 	parameterSelection += 6;
 	int16_t PA = m_mem->OAM[parameterSelection] | ((m_mem->OAM[parameterSelection + 1]) << 8);
