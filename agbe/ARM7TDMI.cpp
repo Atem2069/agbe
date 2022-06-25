@@ -362,3 +362,19 @@ void ARM7TDMI::setSPSR(uint32_t value)
 		break;
 	}
 }
+
+int ARM7TDMI::calculateMultiplyCycles(uint32_t operand, bool accumulate, bool isSigned)
+{
+	int totalCycles = (accumulate) ? 2 : 1;	//weird, MUL is 1s+mI, MLA=1s+(m+1)I
+	//this is dumb. :P
+	if ((((operand & 0xFFFFFF00) == 0xFFFFFF00) && isSigned) || (((operand & 0xFFFFFF00) == 0)))
+		totalCycles++;
+	else if ((((operand & 0xFFFF0000) == 0xFFFF0000) && isSigned) || (((operand & 0xFFFF0000) == 0)))
+		totalCycles += 2;
+	else if ((((operand & 0xFF000000) == 0xFF000000) && isSigned) || (((operand & 0xFF000000) == 0)))
+		totalCycles += 3;
+	else
+		totalCycles += 4;
+
+	return totalCycles;
+}

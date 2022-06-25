@@ -188,6 +188,7 @@ void ARM7TDMI::Thumb_ALUOperations()
 		result = operand1 * operand2;
 		setReg(srcDestRegIdx, result);
 		setLogicalFlags(result, -1);	//hmm...
+		m_scheduler->addCycles(calculateMultiplyCycles(operand2, false, true) - 1);
 		break;
 	case 14: //BIC
 		result = operand1 & (~operand2);

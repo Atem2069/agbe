@@ -78,6 +78,8 @@ private:
 	uint32_t getSPSR();
 	void setSPSR(uint32_t value);
 
+	int calculateMultiplyCycles(uint32_t operand, bool accumulate, bool isSigned);
+
 	//ARM instruction set
 	void ARM_Branch();
 	void ARM_DataProcessing();

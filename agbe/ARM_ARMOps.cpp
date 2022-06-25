@@ -286,6 +286,9 @@ void ARM7TDMI::ARM_Multiply()
 		m_setNegativeFlag(((result >> 31) & 0b1));
 		m_setZeroFlag(result == 0);
 	}
+
+
+	m_scheduler->addCycles(calculateMultiplyCycles(operand2, accumulate,true));
 }
 
 void ARM7TDMI::ARM_MultiplyLong()
@@ -328,6 +331,8 @@ void ARM7TDMI::ARM_MultiplyLong()
 
 	setReg(destRegLoIdx, result & 0xFFFFFFFF);
 	setReg(destRegHiIdx, ((result >> 32) & 0xFFFFFFFF));
+
+	m_scheduler->addCycles(calculateMultiplyCycles(src2, accumulate, isSigned) + 1);
 }
 
 void ARM7TDMI::ARM_SingleDataSwap()
