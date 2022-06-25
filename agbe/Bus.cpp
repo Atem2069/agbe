@@ -45,7 +45,6 @@ Bus::~Bus()
 uint8_t Bus::read8(uint32_t address)
 {
 	uint8_t page = (address >> 24) & 0xF;
-	m_scheduler->addCycles(timingTable816[page]);
 	switch (page)
 	{
 	case 0: case 1:
@@ -56,6 +55,7 @@ uint8_t Bus::read8(uint32_t address)
 		}
 		return m_mem->BIOS[address & 0x3FFF];
 	case 2:
+		m_scheduler->addCycles(2);
 		return m_mem->externalWRAM[address & 0x3FFFF];
 	case 3:
 		return m_mem->internalWRAM[address & 0x7FFF];
@@ -71,8 +71,10 @@ uint8_t Bus::read8(uint32_t address)
 	case 7:
 		return m_mem->OAM[address & 0x3FF];
 	case 8: case 9: case 0xA: case 0xB: case 0xC: case 0xD:	//need to do this better (different waitstates will have different timings)
+		m_scheduler->addCycles(waitstateNonsequentialTable[((page - 8) >> 1)]);
 		return m_mem->ROM[address & 0x01FFFFFF];
 	case 0xE:
+		m_scheduler->addCycles(SRAMCycles);	//hm.
 		if (isFlash)
 			return m_flash->read(address);
 		return m_mem->SRAM[address & 0xFFFF];
@@ -85,13 +87,13 @@ uint8_t Bus::read8(uint32_t address)
 void Bus::write8(uint32_t address, uint8_t value)
 {
 	uint8_t page = (address >> 24) & 0xF;
-	m_scheduler->addCycles(timingTable816[page]);
 	switch (page)
 	{
 	case 0: case 1:
 		Logger::getInstance()->msg(LoggerSeverity::Error, "Tried to write to BIOS region");
 		break;
 	case 2:
+		m_scheduler->addCycles(2);
 		m_mem->externalWRAM[address & 0x3FFFF] = value;
 		break;
 	case 3:
@@ -115,9 +117,11 @@ void Bus::write8(uint32_t address, uint8_t value)
 		Logger::getInstance()->msg(LoggerSeverity::Error, "Ignore obj write");
 		break;
 	case 8: case 9: case 0xA: case 0xB: case 0xC: case 0xD:
+		m_scheduler->addCycles(waitstateNonsequentialTable[((page - 8) >> 1)]);
 		Logger::getInstance()->msg(LoggerSeverity::Error, "Tried writing to ROM - ignoring");
 		break;
 	case 0xE:
+		m_scheduler->addCycles(SRAMCycles);
 		if (isFlash)
 		{
 			m_flash->write(address,value);
@@ -135,7 +139,6 @@ uint16_t Bus::read16(uint32_t address)
 {
 	address &= 0xFFFFFFFE;
 	uint8_t page = (address >> 24) & 0xF;
-	m_scheduler->addCycles(timingTable816[page]);
 	switch (page)
 	{
 	case 0: case 1:
@@ -146,6 +149,7 @@ uint16_t Bus::read16(uint32_t address)
 		}
 		return getValue16(m_mem->BIOS, address & 0x3FFF, 0x3FFF);
 	case 2:
+		m_scheduler->addCycles(2);
 		return getValue16(m_mem->externalWRAM, address & 0x3FFFF, 0x3FFFF);
 	case 3:
 		return getValue16(m_mem->internalWRAM, address & 0x7FFF, 0x7FFF);
@@ -161,10 +165,12 @@ uint16_t Bus::read16(uint32_t address)
 	case 7:
 		return getValue16(m_mem->OAM, address & 0x3FF,0x3FF);
 	case 8: case 9: case 0xA: case 0xB: case 0xC: case 0xD:
+		m_scheduler->addCycles(waitstateNonsequentialTable[((page - 8) >> 1)]);
 		if (address >= 0x0D000000 && address <= 0x0DFFFFFF)		//not strictly accurate, bc not like the cart will always have eeprom
 			return m_eeprom->read(address);
 		return getValue16(m_mem->ROM, address & 0x01FFFFFF,0xFFFFFFFF);
 	case 0xE:
+		m_scheduler->addCycles(SRAMCycles);
 		Logger::getInstance()->msg(LoggerSeverity::Error, "Invalid 16-bit SRAM read");
 		return 0;
 	}
@@ -177,13 +183,13 @@ void Bus::write16(uint32_t address, uint16_t value)
 {
 	address &= 0xFFFFFFFE;
 	uint8_t page = (address >> 24) & 0xF;
-	m_scheduler->addCycles(timingTable816[page]);
 	switch (page)
 	{
 	case 0: case 1:
 		Logger::getInstance()->msg(LoggerSeverity::Error, "Tried to write to BIOS!!");
 		break;
 	case 2:
+		m_scheduler->addCycles(2);
 		setValue16(m_mem->externalWRAM, address & 0x3FFFF, 0x3FFFF, value);
 		break;
 	case 3:
@@ -204,13 +210,18 @@ void Bus::write16(uint32_t address, uint16_t value)
 	case 7:
 		setValue16(m_mem->OAM, address & 0x3FF, 0x3FF, value);
 		break;
-	case 8: case 9: case 0xA: case 0xB: case 0xC: case 0xD: case 0xE:
+	case 8: case 9: case 0xA: case 0xB: case 0xC: case 0xD:
+		m_scheduler->addCycles(waitstateNonsequentialTable[((page - 8) >> 1)]);
 		if (address >= 0x0D000000 && address <= 0x0DFFFFFF)
 		{
 			m_eeprom->write(address, value);
 			break;
 		}
 		Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Tried to write to cartridge space!!! addr={:#x}",address));
+		break;
+	case 0xE:
+		m_scheduler->addCycles(SRAMCycles);
+		Logger::getInstance()->msg(LoggerSeverity::Error, "unhandled halfword sram write");
 		break;
 	default:
 		Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Out of bounds/invalid write addr={:#x}", address));
@@ -222,7 +233,6 @@ uint32_t Bus::read32(uint32_t address)
 {
 	address &= 0xFFFFFFFC;
 	uint8_t page = (address >> 24) & 0xF;
-	m_scheduler->addCycles(timingTable32[page]);
 	switch (page)
 	{
 	case 0: case 1:
@@ -233,6 +243,7 @@ uint32_t Bus::read32(uint32_t address)
 		}
 		return getValue32(m_mem->BIOS, address & 0x3FFF,0x3FFF);
 	case 2:
+		m_scheduler->addCycles(5);	//5 bc first access is 2 waitstates, then another access happens which is 1S + 2 waitstates
 		return getValue32(m_mem->externalWRAM, address & 0x3FFFF,0x3FFFF);
 	case 3:
 		return getValue32(m_mem->internalWRAM, address & 0x7FFF,0x7FFF);
@@ -248,8 +259,10 @@ uint32_t Bus::read32(uint32_t address)
 	case 7:
 		return getValue32(m_mem->OAM, address & 0x3FF,0x3FF);
 	case 8: case 9: case 0xA: case 0xB: case 0xC: case 0xD:
+		m_scheduler->addCycles(waitstateNonsequentialTable[((page - 8) >> 1)] + waitstateSequentialTable[((page-8)>>1)]+1);	//hmm. assume always nonsequential first (not true!)
 		return getValue32(m_mem->ROM, address & 0x01FFFFFF,0xFFFFFFFF);
 	case 0xE:
+		m_scheduler->addCycles(SRAMCycles);
 		Logger::getInstance()->msg(LoggerSeverity::Error, "Invalid 32-bit SRAM read");
 		return 0;
 	}
@@ -262,13 +275,13 @@ void Bus::write32(uint32_t address, uint32_t value)
 {
 	address &= 0xFFFFFFFC;
 	uint8_t page = (address >> 24) & 0xF;
-	m_scheduler->addCycles(timingTable32[page]);
 	switch (page)
 	{
 	case 0: case 1:
 		Logger::getInstance()->msg(LoggerSeverity::Error, "Tried to write to BIOS!!");
 		break;
 	case 2:
+		m_scheduler->addCycles(5);
 		setValue32(m_mem->externalWRAM, address & 0x3FFFF, 0x3FFFF, value);
 		break;
 	case 3:
@@ -289,8 +302,13 @@ void Bus::write32(uint32_t address, uint32_t value)
 	case 7:
 		setValue32(m_mem->OAM, address & 0x3FF, 0x3FF, value);
 		break;
-	case 8: case 9: case 0xA: case 0xB: case 0xC: case 0xD: case 0xE:
+	case 8: case 9: case 0xA: case 0xB: case 0xC: case 0xD:
+		m_scheduler->addCycles(waitstateNonsequentialTable[((page - 8) >> 1)] + waitstateSequentialTable[((page - 8) >> 1)] + 1);	//hmm. assume always nonsequential first (not true!)
 		Logger::getInstance()->msg(LoggerSeverity::Error, "Tried to write to cartridge space!!!");
+		break;
+	case 0xE:
+		m_scheduler->addCycles(SRAMCycles);
+		Logger::getInstance()->msg(LoggerSeverity::Error, "unhandled word sram write");
 		break;
 	default:
 		Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Out of bounds/invalid write addr={:#x}", address));
@@ -378,11 +396,19 @@ void Bus::writeIO8(uint32_t address, uint8_t value)
 		m_interruptManager->writeIO(address,value);
 		return;
 	case 0x04000204:
-		Logger::getInstance()->msg(LoggerSeverity::Warn, "WAITCNT not properly implemented !! Timings won't be correct");
 		WAITCNT &= 0xFF00; WAITCNT |= value;
 		return;
 	case 0x04000205:
 		WAITCNT &= 0xFF; WAITCNT |= (value << 8);
+
+		waitstateNonsequentialTable[0] = nonseqLUT[((WAITCNT >> 2) & 0b11)];
+		waitstateNonsequentialTable[1] = nonseqLUT[((WAITCNT >> 5) & 0b11)];
+		waitstateNonsequentialTable[2] = nonseqLUT[((WAITCNT >> 8) & 0b11)];
+		waitstateSequentialTable[0] = ((WAITCNT >> 4) & 0b1) ? 1 : 2;
+		waitstateSequentialTable[1] = ((WAITCNT >> 7) & 0b1) ? 1 : 4;
+		waitstateSequentialTable[2] = ((WAITCNT >> 10) & 0b1) ? 1 : 8;
+		SRAMCycles = nonseqLUT[(WAITCNT & 0b11)];
+
 		return;
 	case 0x04000301:
 		while (!m_interruptManager->getInterrupt(true))

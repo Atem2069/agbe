@@ -94,12 +94,18 @@ private:
 	void onImmediate();
 
 	//copied from powerlated :P. doesn't take into account varying WAITCNT settings
-	int timingTable816[16] =
-	{
-		0,0,2,0,0,1,1,1,2,2,2,2,2,2,2,2
-	};
-	int timingTable32[16] =
-	{
-		0,0,5,0,0,2,2,1,4,4,4,4,4,4,8,8
-	};
+	//int timingTable816[16] =
+	//{
+	//	0,0,2,0,0,1,1,1,2,2,2,2,2,2,2,2
+	//};
+	//int timingTable32[16] =
+	//{
+	//	0,0,5,0,0,2,2,1,4,4,4,4,4,4,8,8
+	//};
+
+	int waitstateNonsequentialTable[3] = {3,3,3};
+	int waitstateSequentialTable[3] = { 1,1,1 };
+	int SRAMCycles = 8;
+
+	const int nonseqLUT[4] = { 4,3,2,8 };
 };
