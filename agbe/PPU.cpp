@@ -76,6 +76,11 @@ void PPU::HDraw()
 	if (((DISPSTAT >> 4) & 0b1))
 		m_interruptManager->requestInterrupt(InterruptType::HBlank);
 	DMAHBlankCallback(callbackContext);
+
+	m_backgroundLayers[0].enabled = false;
+	m_backgroundLayers[1].enabled = false;
+	m_backgroundLayers[2].enabled = false;
+	m_backgroundLayers[3].enabled = false;
 }
 
 void PPU::HBlank()
@@ -234,6 +239,7 @@ void PPU::renderMode1()
 		}
 	}
 
+
 	composeLayers();
 }
 
@@ -319,19 +325,24 @@ void PPU::composeLayers()
 		int highestPriority = 255;
 		for (int layer = 3; layer >= 0; layer--)
 		{
-			if (((DISPCNT >> (8 + layer)) & 0b1) && getPointDrawable(x,VCOUNT,layer,false))	//layer activated
+			if (m_backgroundLayers[layer].enabled && getPointDrawable(x, VCOUNT, layer, false))	//layer activated
 			{
 				uint16_t colAtLayer = m_backgroundLayers[layer].lineBuffer[x];
-				if (!((colAtLayer >> 15) & 0b1) && (m_backgroundLayers[layer].priorityBits <= highestPriority))
+				if (!((colAtLayer >> 15) & 0b1))
 				{
-					highestPriority = m_backgroundLayers[layer].priorityBits;
-					finalCol = colAtLayer;
-					if ((BLDCNT >> layer) & 0b1)
-						blendAMask = true;
-				}
+					if ((m_backgroundLayers[layer].priorityBits <= highestPriority))
+					{
+						highestPriority = m_backgroundLayers[layer].priorityBits;
+						finalCol = colAtLayer;
+						if ((BLDCNT >> layer) & 0b1)
+							blendAMask = true;
+						else
+							blendAMask = false;
+					}
 
-				if ((BLDCNT >> (layer + 8)) & 0b1)
-					blendPixelB = colAtLayer;
+					if ((BLDCNT >> (layer + 8)) & 0b1)
+						blendPixelB = colAtLayer;
+				}
 
 			}
 		}
@@ -343,7 +354,7 @@ void PPU::composeLayers()
 			{
 				opaqueSpriteTop = !m_spriteAttrBuffer[x].transparent;
 				finalCol = spritePixel;
-				if ((BLDCNT >> 4) & 0b1 || !opaqueSpriteTop)
+				if (((BLDCNT >> 4) & 0b1) || !opaqueSpriteTop)
 					blendAMask = true;
 			}
 		}
