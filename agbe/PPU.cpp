@@ -319,9 +319,12 @@ void PPU::composeLayers()
 	for (int x = 0; x < 240; x++)
 	{	
 		uint16_t finalCol = backDrop;
-		bool blendAMask = false;
+		bool blendAMask = ((BLDCNT >> 5) & 0b1);	//initially set 1st target mask to backdrop. if something displays above it, then it's disabled !
 		bool opaqueSpriteTop = false;
 		uint16_t blendPixelB = 0x8000;
+		if (((BLDCNT >> 13) & 0b1))
+			blendPixelB = backDrop;
+
 		int highestPriority = 255;
 		for (int layer = 3; layer >= 0; layer--)
 		{
@@ -334,10 +337,7 @@ void PPU::composeLayers()
 					{
 						highestPriority = m_backgroundLayers[layer].priorityBits;
 						finalCol = colAtLayer;
-						if ((BLDCNT >> layer) & 0b1)
-							blendAMask = true;
-						else
-							blendAMask = false;
+						blendAMask = ((BLDCNT >> layer) & 0b1);
 					}
 
 					if ((BLDCNT >> (layer + 8)) & 0b1)
@@ -354,8 +354,9 @@ void PPU::composeLayers()
 			{
 				opaqueSpriteTop = !m_spriteAttrBuffer[x].transparent;
 				finalCol = spritePixel;
-				if (((BLDCNT >> 4) & 0b1) || !opaqueSpriteTop)
-					blendAMask = true;
+				blendAMask = (((BLDCNT >> 4) & 0b1) || !opaqueSpriteTop);
+				//if ((BLDCNT >> 12) & 0b1)
+				//	blendPixelB = finalCol;
 			}
 		}
 
