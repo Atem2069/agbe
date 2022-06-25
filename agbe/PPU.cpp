@@ -30,14 +30,13 @@ void PPU::registerMemory(std::shared_ptr<GBAMem> mem)
 void PPU::eventHandler()
 {
 	uint64_t schedTimestamp = m_scheduler->getCurrentTimestamp();
-	uint64_t timeDiff = schedTimestamp - expectedNextTimeStamp;
 
 	switch (m_state)
 	{
 	case PPUState::HDraw:
 		HDraw();
 		m_state = PPUState::HBlank;
-		expectedNextTimeStamp = (schedTimestamp + 46) - timeDiff;
+		expectedNextTimeStamp = (schedTimestamp + 46);
 		m_scheduler->addEvent(Event::PPU, &PPU::onSchedulerEvent, (void*)this, expectedNextTimeStamp);
 		break;
 	case PPUState::HBlank:
@@ -82,14 +81,13 @@ void PPU::HDraw()
 void PPU::HBlank()
 {
 	uint64_t schedTimestamp = m_scheduler->getCurrentTimestamp();
-	uint64_t timeDiff = schedTimestamp - expectedNextTimeStamp;
 	//todo: check timing of when exactly hblank flag/interrupt set
 
 	if (!hblank_flagSet)	//now set hblank flag, at cycle 1006!
 	{
 		hblank_flagSet = true;
 		setHBlankFlag(true);
-		expectedNextTimeStamp = (schedTimestamp + 226) - timeDiff;
+		expectedNextTimeStamp = (schedTimestamp + 226);
 		m_scheduler->addEvent(Event::PPU, &PPU::onSchedulerEvent, (void*)this, expectedNextTimeStamp);
 		return;
 	}
@@ -128,7 +126,7 @@ void PPU::HBlank()
 		pageIdx = !pageIdx;
 
 		m_state = PPUState::VBlank;
-		expectedNextTimeStamp = (schedTimestamp + 1006) - timeDiff;
+		expectedNextTimeStamp = (schedTimestamp + 1006);
 		m_scheduler->addEvent(Event::PPU, &PPU::onSchedulerEvent, (void*)this, expectedNextTimeStamp);
 
 		DMAVBlankCallback(callbackContext);
@@ -138,14 +136,13 @@ void PPU::HBlank()
 	else
 		m_state = PPUState::HDraw;
 
-	expectedNextTimeStamp = (schedTimestamp + 960) - timeDiff;
+	expectedNextTimeStamp = (schedTimestamp + 960);
 	m_scheduler->addEvent(Event::PPU, &PPU::onSchedulerEvent, (void*)this, expectedNextTimeStamp);
 }
 
 void PPU::VBlank()
 {
 	uint64_t schedTimestamp = m_scheduler->getCurrentTimestamp();
-	uint64_t timeDiff = schedTimestamp - expectedNextTimeStamp;
 	m_lineCycles = 0;
 	m_state=PPUState::VBlank;
 
@@ -157,7 +154,7 @@ void PPU::VBlank()
 			m_interruptManager->requestInterrupt(InterruptType::HBlank);	//hblank irq also fires in vblank. however, HDMA cannot occur
 
 		vblank_setHblankBit = true;
-		expectedNextTimeStamp = (schedTimestamp + 226) - timeDiff;
+		expectedNextTimeStamp = (schedTimestamp + 226);
 		m_scheduler->addEvent(Event::PPU, &PPU::onSchedulerEvent, (void*)this, expectedNextTimeStamp);
 		return;
 	}
@@ -183,7 +180,7 @@ void PPU::VBlank()
 		shouldSyncVideo = true;
 		VCOUNT = 0;
 		m_state = PPUState::HDraw;
-		expectedNextTimeStamp = (schedTimestamp + 960) - timeDiff;
+		expectedNextTimeStamp = (schedTimestamp + 960);
 		m_scheduler->addEvent(Event::PPU, &PPU::onSchedulerEvent, (void*)this, expectedNextTimeStamp);
 	}
 	else
@@ -199,7 +196,7 @@ void PPU::VBlank()
 		}
 		else
 			setVCounterFlag(false);
-		expectedNextTimeStamp = (schedTimestamp + 1006) - timeDiff;
+		expectedNextTimeStamp = (schedTimestamp + 1006);
 		m_scheduler->addEvent(Event::PPU, &PPU::onSchedulerEvent, (void*)this, expectedNextTimeStamp);
 	}
 

@@ -10,15 +10,24 @@ Scheduler::~Scheduler()
 
 }
 
-void Scheduler::tick(uint64_t cycles)
+void Scheduler::addCycles(uint64_t cycles)
 {
 	timestamp += cycles;
+}
+
+void Scheduler::tick()
+{
+	uint64_t tempTimestamp = timestamp;
 	SchedulerEntry entry = {};
 	while (getEntryAtTimestamp(entry))
 	{
 		//getEntryAtTimestamp will already disable the entry, so it won't fire until re-scheduled!
-		if(entry.callback && entry.context)
+		if (entry.callback && entry.context)
+		{
+			timestamp = entry.timestamp;
 			entry.callback(entry.context);	//dereferencing nullptr? you sure vs??
+		}
+		timestamp = tempTimestamp;
 	}
 }
 

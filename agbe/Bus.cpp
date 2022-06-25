@@ -45,7 +45,7 @@ Bus::~Bus()
 uint8_t Bus::read8(uint32_t address)
 {
 	uint8_t page = (address >> 24) & 0xF;
-	m_scheduler->tick(timingTable816[page]);
+	m_scheduler->addCycles(timingTable816[page]);
 	switch (page)
 	{
 	case 0: case 1:
@@ -85,7 +85,7 @@ uint8_t Bus::read8(uint32_t address)
 void Bus::write8(uint32_t address, uint8_t value)
 {
 	uint8_t page = (address >> 24) & 0xF;
-	m_scheduler->tick(timingTable816[page]);
+	m_scheduler->addCycles(timingTable816[page]);
 	switch (page)
 	{
 	case 0: case 1:
@@ -135,7 +135,7 @@ uint16_t Bus::read16(uint32_t address)
 {
 	address &= 0xFFFFFFFE;
 	uint8_t page = (address >> 24) & 0xF;
-	m_scheduler->tick(timingTable816[page]);
+	m_scheduler->addCycles(timingTable816[page]);
 	switch (page)
 	{
 	case 0: case 1:
@@ -177,7 +177,7 @@ void Bus::write16(uint32_t address, uint16_t value)
 {
 	address &= 0xFFFFFFFE;
 	uint8_t page = (address >> 24) & 0xF;
-	m_scheduler->tick(timingTable816[page]);
+	m_scheduler->addCycles(timingTable816[page]);
 	switch (page)
 	{
 	case 0: case 1:
@@ -222,7 +222,7 @@ uint32_t Bus::read32(uint32_t address)
 {
 	address &= 0xFFFFFFFC;
 	uint8_t page = (address >> 24) & 0xF;
-	m_scheduler->tick(timingTable32[page]);
+	m_scheduler->addCycles(timingTable32[page]);
 	switch (page)
 	{
 	case 0: case 1:
@@ -262,7 +262,7 @@ void Bus::write32(uint32_t address, uint32_t value)
 {
 	address &= 0xFFFFFFFC;
 	uint8_t page = (address >> 24) & 0xF;
-	m_scheduler->tick(timingTable32[page]);
+	m_scheduler->addCycles(timingTable32[page]);
 	switch (page)
 	{
 	case 0: case 1:
