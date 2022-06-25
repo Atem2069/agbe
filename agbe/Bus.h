@@ -96,10 +96,10 @@ private:
 	//copied from powerlated :P. doesn't take into account varying WAITCNT settings
 	int timingTable816[16] =
 	{
-		1,1,3,1,1,1,1,1,2,2,2,2,2,2,2,2
+		0,0,2,0,0,1,1,1,2,2,2,2,2,2,2,2
 	};
 	int timingTable32[16] =
 	{
-		1,1,6,1,1,2,2,1,4,4,4,4,4,4,8,8
+		0,0,5,0,0,2,2,1,4,4,4,4,4,4,8,8
 	};
 };
