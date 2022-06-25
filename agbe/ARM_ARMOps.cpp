@@ -14,26 +14,11 @@ void ARM7TDMI::ARM_Branch()
 	if (link)
 		setReg(14, (oldR15 - 4) & ~0b11);	
 
+	m_scheduler->addCycles(3);
 }
 
 void ARM7TDMI::ARM_DataProcessing()
 {
-	//check if psr transfer instead (this is dumb but can probs be refactored completely)
-	/*if ((m_currentOpcode & 0b0000'1111'1011'1111'0000'1111'1111'1111) == 0b0000'0001'0000'1111'0000'0000'0000'0000)
-	{
-		ARM_PSRTransfer();
-		return;
-	}
-	if ((m_currentOpcode & 0b0000'1111'1011'1111'1111'1111'1111'0000) == 0b0000'0001'0010'1001'1111'0000'0000'0000)
-	{
-		ARM_PSRTransfer();
-		return;
-	}
-	if ((m_currentOpcode & 0b0000'1101'1011'1111'1111'0000'0000'0000) == 0b0000'0001'0010'1000'1111'0000'0000'0000)
-	{
-		ARM_PSRTransfer();
-		return;
-	}*/
 	bool immediate = ((m_currentOpcode >> 25) & 0b1);
 	uint8_t operation = ((m_currentOpcode >> 21) & 0xF);
 	bool setConditionCodes = ((m_currentOpcode >> 20) & 0b1);
@@ -75,6 +60,7 @@ void ARM7TDMI::ARM_DataProcessing()
 		int shiftAmount = 0;
 		if (shiftIsRegister)
 		{
+			m_scheduler->addCycles(1);
 			if (op2Idx == 15)	//account for R15 being 12 bytes ahead if register-specified shift amount
 				operand2 += 4;
 			if (op1Idx == 15)
@@ -189,23 +175,18 @@ void ARM7TDMI::ARM_DataProcessing()
 		break;
 	}
 
-	if (destRegIdx == 15 && setCPSR)
+	if (destRegIdx == 15)
 	{
+		m_scheduler->addCycles(2);
 		if (setCPSR)
 		{
 			uint32_t newPSR = getSPSR();
 			CPSR = newPSR;
 
 			if ((CPSR >> 5) & 0b1)
-			{
-				//std::cout << "go back to thumb!!" << '\n';
 				setReg(15, getReg(15) & ~0b1);
-			}
-			//else
-			//	std::cout << "stay in arm" << '\n';
 		}
 
-		//Logger::getInstance()->msg(LoggerSeverity::Info, "Dest reg was 15!!");
 	}
 }
 
@@ -276,6 +257,7 @@ void ARM7TDMI::ARM_PSRTransfer()
 			setReg(destReg, CPSR);
 		}
 	}
+	m_scheduler->addCycles(1);
 }
 
 void ARM7TDMI::ARM_Multiply()
@@ -374,6 +356,7 @@ void ARM7TDMI::ARM_SingleDataSwap()
 		m_bus->write32(swapAddress, srcData);
 		setReg(destRegIdx, swapVal);
 	}
+	m_scheduler->addCycles(4);
 }
 
 
@@ -390,7 +373,7 @@ void ARM7TDMI::ARM_BranchExchange()
 	{
 		setReg(15, newAddr & ~0b11);
 	}
-	//(setReg will cause a pipeline flush automatically if R15 written to, so no need here)
+	m_scheduler->addCycles(3);
 }
 
 void ARM7TDMI::ARM_HalfwordTransferRegisterOffset()
@@ -417,6 +400,8 @@ void ARM7TDMI::ARM_HalfwordTransferRegisterOffset()
 
 	if (loadStore)
 	{
+		if (srcDestRegIdx == 15)
+			m_scheduler->addCycles(2);
 		uint32_t val = 0;
 		switch (operation)
 		{
@@ -451,6 +436,7 @@ void ARM7TDMI::ARM_HalfwordTransferRegisterOffset()
 			setReg(srcDestRegIdx, val);
 			break;
 		}
+		m_scheduler->addCycles(3);
 	}
 	else						//store
 	{
@@ -472,6 +458,7 @@ void ARM7TDMI::ARM_HalfwordTransferRegisterOffset()
 			m_bus->write16(base, data & 0xFFFF);
 			break;
 		}
+		m_scheduler->addCycles(2);
 	}
 
 	if (!prePost)
@@ -484,6 +471,7 @@ void ARM7TDMI::ARM_HalfwordTransferRegisterOffset()
 
 	if (((!prePost) || (prePost && writeback)) && ((baseRegIdx != srcDestRegIdx) || (baseRegIdx == srcDestRegIdx && !loadStore)))
 		setReg(baseRegIdx, base);
+
 }
 
 void ARM7TDMI::ARM_HalfwordTransferImmediateOffset()
@@ -512,6 +500,8 @@ void ARM7TDMI::ARM_HalfwordTransferImmediateOffset()
 
 	if (loadStore)				//load
 	{
+		if (srcDestRegIdx == 15)
+			m_scheduler->addCycles(2);
 		uint32_t data = 0;
 		switch (op)
 		{
@@ -546,6 +536,7 @@ void ARM7TDMI::ARM_HalfwordTransferImmediateOffset()
 			setReg(srcDestRegIdx, data);
 			break;
 		}
+		m_scheduler->addCycles(3);
 	}
 	else						//store
 	{
@@ -567,6 +558,7 @@ void ARM7TDMI::ARM_HalfwordTransferImmediateOffset()
 			m_bus->write16(base, data & 0xFFFF);
 			break;
 		}
+		m_scheduler->addCycles(2);
 	}
 
 	if (!prePost)
@@ -633,6 +625,8 @@ void ARM7TDMI::ARM_SingleDataTransfer()
 
 	if (loadStore) //load value
 	{
+		if (destRegIdx == 15)
+			m_scheduler->addCycles(2);
 		uint32_t val = 0;
 		if (byteWord)
 		{
@@ -646,6 +640,7 @@ void ARM7TDMI::ARM_SingleDataTransfer()
 				val = std::rotr(val, (base & 3) * 8);
 		}
 		setReg(destRegIdx, val);
+		m_scheduler->addCycles(3);
 	}
 	else //store value
 	{
@@ -660,6 +655,7 @@ void ARM7TDMI::ARM_SingleDataTransfer()
 		{
 			m_bus->write32(base, val);
 		}
+		m_scheduler->addCycles(2);
 	}
 
 	if (!preIndex)
@@ -707,6 +703,7 @@ void ARM7TDMI::ARM_BlockDataTransfer()
 	}
 
 	bool baseIncluded = (r_list >> baseReg) & 0b1;
+	int transferCount = 0;
 
 	//Load-Store with an ascending stack order, Up-Down = 1
 	if ((upDown == 1) && (r_list != 0))
@@ -715,6 +712,7 @@ void ARM7TDMI::ARM_BlockDataTransfer()
 		{
 			if (r_list & (1 << x))
 			{
+				transferCount++;
 				//Increment before transfer if pre-indexing
 				if (prePost == 1) { base_addr += 4; }
 
@@ -738,6 +736,7 @@ void ARM7TDMI::ARM_BlockDataTransfer()
 			//Write back the into base register
 			if (writeBack == 1 && (!loadStore || (loadStore && !baseIncluded))) { setReg(baseReg, base_addr); }
 		}
+		m_scheduler->addCycles(transferCount + 2);	//should account for PC being loaded too!! adds 1s+1n
 	}
 
 	//Load-Store with a descending stack order, Up-Down = 0
@@ -747,6 +746,7 @@ void ARM7TDMI::ARM_BlockDataTransfer()
 		{
 			if (r_list & (1 << x))
 			{
+				transferCount++;
 				//Decrement before transfer if pre-indexing
 				if (prePost == 1) { base_addr -= 4; }
 
@@ -777,6 +777,7 @@ void ARM7TDMI::ARM_BlockDataTransfer()
 			//Write back the into base register
 			if (writeBack == 1 && (!loadStore || (loadStore && !baseIncluded))) { setReg(baseReg, base_addr); }
 		}
+		m_scheduler->addCycles((transferCount - 1) + 2);
 	}
 	else //Special case, empty RList
 	{
@@ -830,4 +831,5 @@ void ARM7TDMI::ARM_SoftwareInterrupt()
 	setSPSR(oldCPSR);			//set SPSR_svc
 	setReg(14, oldPC);			//Save old R15
 	setReg(15, 0x00000008);		//SWI entry point is 0x08
+	m_scheduler->addCycles(3);
 }

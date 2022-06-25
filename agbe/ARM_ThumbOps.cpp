@@ -21,6 +21,7 @@ void ARM7TDMI::Thumb_MoveShiftedRegister()
 
 	setLogicalFlags(result, carry);
 	setReg(destRegIdx, result);
+	m_scheduler->addCycles(1);	//not sure, but it is an 'alu op'
 }
 
 void ARM7TDMI::Thumb_AddSubtract()
@@ -55,7 +56,7 @@ void ARM7TDMI::Thumb_AddSubtract()
 		setArithmeticFlags(operand1, operand2, result, false);
 		break;
 	}
-
+	m_scheduler->addCycles(1);
 }
 
 void ARM7TDMI::Thumb_MoveCompareAddSubtractImm()
@@ -89,6 +90,7 @@ void ARM7TDMI::Thumb_MoveCompareAddSubtractImm()
 		setArithmeticFlags(operand1, offset, result, false);
 		break;
 	}
+	m_scheduler->addCycles(1);	//not sure :P
 }
 
 void ARM7TDMI::Thumb_ALUOperations()
@@ -198,6 +200,7 @@ void ARM7TDMI::Thumb_ALUOperations()
 		setLogicalFlags(result, -1);
 		break;
 	}
+	m_scheduler->addCycles(1);
 }
 
 void ARM7TDMI::Thumb_HiRegisterOperations()
@@ -247,10 +250,10 @@ void ARM7TDMI::Thumb_HiRegisterOperations()
 			operand2 &= ~0b1;
 			setReg(15, operand2);
 		}
-
+		m_scheduler->addCycles(2);
 		break;
 	}
-
+	m_scheduler->addCycles(1);
 }
 
 void ARM7TDMI::Thumb_PCRelativeLoad()
@@ -262,6 +265,7 @@ void ARM7TDMI::Thumb_PCRelativeLoad()
 
 	uint32_t val = m_bus->read32(PC + offset);
 	setReg(destRegIdx, val);
+	m_scheduler->addCycles(5);	//probs right? 1s+1n+1i for ldr, then 1s+1n for loading pc
 }
 
 void ARM7TDMI::Thumb_LoadStoreRegisterOffset()
@@ -289,6 +293,7 @@ void ARM7TDMI::Thumb_LoadStoreRegisterOffset()
 				val = std::rotr(val, (base & 3) * 8);
 			setReg(srcDestRegIdx, val);
 		}
+		m_scheduler->addCycles(3);
 	}
 	else			//store
 	{
@@ -302,6 +307,7 @@ void ARM7TDMI::Thumb_LoadStoreRegisterOffset()
 			uint32_t val = getReg(srcDestRegIdx);
 			m_bus->write32(base, val);
 		}
+		m_scheduler->addCycles(2);
 	}
 }
 
@@ -319,6 +325,7 @@ void ARM7TDMI::Thumb_LoadStoreSignExtended()
 	{
 		uint16_t val = getReg(srcDestRegIdx) & 0xFFFF;
 		m_bus->write16(addr, val);
+		m_scheduler->addCycles(2);
 	}
 	else if (op == 2)	//load halfword
 	{
@@ -326,6 +333,7 @@ void ARM7TDMI::Thumb_LoadStoreSignExtended()
 		if (addr & 0b1)
 			val = std::rotr(val, 8);
 		setReg(srcDestRegIdx, val);
+		m_scheduler->addCycles(3);
 	}
 	else if (op == 1)	//load sign extended byte
 	{
@@ -333,6 +341,7 @@ void ARM7TDMI::Thumb_LoadStoreSignExtended()
 		if (((val >> 7) & 0b1))
 			val |= 0xFFFFFF00;
 		setReg(srcDestRegIdx, val);
+		m_scheduler->addCycles(3);
 	}
 	else if (op == 3)   //load sign extended halfword
 	{
@@ -350,6 +359,7 @@ void ARM7TDMI::Thumb_LoadStoreSignExtended()
 				val |= 0xFFFFFF00;
 		}
 		setReg(srcDestRegIdx, val);
+		m_scheduler->addCycles(3);
 	}
 }
 
@@ -378,6 +388,7 @@ void ARM7TDMI::Thumb_LoadStoreImmediateOffset()
 				val = std::rotr(val, (baseAddr & 3) * 8);
 		}
 		setReg(srcDestRegIdx, val);
+		m_scheduler->addCycles(3);
 	}
 	else			//Store value to memory
 	{
@@ -386,6 +397,7 @@ void ARM7TDMI::Thumb_LoadStoreImmediateOffset()
 			m_bus->write8(baseAddr, val & 0xFF);
 		else
 			m_bus->write32(baseAddr, val);
+		m_scheduler->addCycles(2);
 	}
 
 }
@@ -408,11 +420,13 @@ void ARM7TDMI::Thumb_LoadStoreHalfword()
 		if (base & 0b1)
 			val = std::rotr(val, 8);
 		setReg(srcDestRegIdx, val);
+		m_scheduler->addCycles(3);
 	}
 	else
 	{
 		uint16_t val = getReg(srcDestRegIdx) & 0xFFFF;
 		m_bus->write16(base, val);
+		m_scheduler->addCycles(2);
 	}
 }
 
@@ -431,11 +445,13 @@ void ARM7TDMI::Thumb_SPRelativeLoadStore()
 		if (addr & 3)
 			val = std::rotr(val, (addr & 3) * 8);
 		setReg(destRegIdx, val);
+		m_scheduler->addCycles(3);
 	}
 	else
 	{
 		uint32_t val = getReg(destRegIdx);
 		m_bus->write32(addr, val);
+		m_scheduler->addCycles(2);
 	}
 }
 
@@ -459,6 +475,7 @@ void ARM7TDMI::Thumb_LoadAddress()
 		PC += offset;
 		setReg(destRegIdx, PC);
 	}
+	m_scheduler->addCycles(3);	//probs right?
 }
 
 void ARM7TDMI::Thumb_AddOffsetToStackPointer()
@@ -472,6 +489,7 @@ void ARM7TDMI::Thumb_AddOffsetToStackPointer()
 		SP += offset;
 
 	setReg(13, SP);
+	m_scheduler->addCycles(1);	//probs right?
 }
 
 void ARM7TDMI::Thumb_PushPopRegisters()
@@ -621,6 +639,7 @@ void ARM7TDMI::Thumb_ConditionalBranch()
 		return;
 
 	setReg(15, getReg(15) + offset);
+	m_scheduler->addCycles(3);
 }
 
 void ARM7TDMI::Thumb_SoftwareInterrupt()
@@ -638,6 +657,7 @@ void ARM7TDMI::Thumb_SoftwareInterrupt()
 	setSPSR(oldCPSR);			//set SPSR_svc
 	setReg(14, oldPC);			//Save old R15
 	setReg(15, 0x00000008);		//SWI entry point is 0x08
+	m_scheduler->addCycles(3);
 }
 
 void ARM7TDMI::Thumb_UnconditionalBranch()
@@ -648,6 +668,7 @@ void ARM7TDMI::Thumb_UnconditionalBranch()
 		offset |= 0xFFFFF000;
 
 	setReg(15, getReg(15) + offset);
+	m_scheduler->addCycles(3);
 }
 
 void ARM7TDMI::Thumb_LongBranchWithLink()
@@ -660,6 +681,7 @@ void ARM7TDMI::Thumb_LongBranchWithLink()
 		if (offset & 0x400000) { offset |= 0xFF800000; }
 		uint32_t res = getReg(15) + offset;
 		setReg(14, res & ~0b1);
+		m_scheduler->addCycles(1);
 	}
 	else			//H=1: leftshift by 1 and add to LR - then copy LR to PC. copy old PC (-2) to LR and set bit 0
 	{
@@ -668,5 +690,6 @@ void ARM7TDMI::Thumb_LongBranchWithLink()
 		LR += offset;
 		setReg(14, ((getReg(15) - 2) | 0b1));	//set LR to point to instruction after this one
 		setReg(15, LR);				//set PC to old LR contents (plus the offset)
+		m_scheduler->addCycles(3);
 	}
 }
