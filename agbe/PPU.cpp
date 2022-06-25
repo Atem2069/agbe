@@ -320,7 +320,7 @@ void PPU::composeLayers()
 	{	
 		uint16_t finalCol = backDrop;
 		bool blendAMask = ((BLDCNT >> 5) & 0b1);	//initially set 1st target mask to backdrop. if something displays above it, then it's disabled !
-		bool opaqueSpriteTop = false;
+		bool transparentSpriteTop = false;
 		uint16_t blendPixelB = 0x8000;
 		if (((BLDCNT >> 13) & 0b1))
 			blendPixelB = backDrop;
@@ -352,9 +352,9 @@ void PPU::composeLayers()
 			uint16_t spritePixel = m_spriteLineBuffer[x];
 			if (!((spritePixel >> 15) & 0b1) && m_spriteAttrBuffer[x].priority != 0x3F && m_spriteAttrBuffer[x].priority <= highestPriority)
 			{
-				opaqueSpriteTop = !m_spriteAttrBuffer[x].transparent;
+				transparentSpriteTop = m_spriteAttrBuffer[x].transparent;
 				finalCol = spritePixel;
-				blendAMask = (((BLDCNT >> 4) & 0b1) || !opaqueSpriteTop);
+				blendAMask = (((BLDCNT >> 4) & 0b1) || transparentSpriteTop);
 				//if ((BLDCNT >> 12) & 0b1)
 				//	blendPixelB = finalCol;
 			}
@@ -363,10 +363,12 @@ void PPU::composeLayers()
 		if (getPointBlendable(x, VCOUNT))
 		{
 			uint8_t blendMode = ((BLDCNT >> 6) & 0b11);
+			if (transparentSpriteTop)
+				blendMode = 1;
 			switch (blendMode)
 			{
 			case 1:
-				if(blendAMask && !(blendPixelB>>15) && !opaqueSpriteTop)
+				if(blendAMask && !(blendPixelB>>15))
 					finalCol = blendAlpha(finalCol, blendPixelB);
 				break;
 			case 2:
