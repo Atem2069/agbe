@@ -22,6 +22,11 @@ struct DMAChannel
 	uint16_t control;
 };
 
+struct OpenBus
+{
+	uint32_t bios;
+};
+
 
 class Bus
 {
@@ -68,6 +73,8 @@ private:
 	std::shared_ptr<EEPROM> m_eeprom;
 	std::shared_ptr<Flash> m_flash;
 
+	OpenBus m_openBusVals = {};
+
 	DMAChannel m_dmaChannels[4];
 	uint16_t WAITCNT = 0;
 	bool shouldHalt = false;
@@ -92,16 +99,6 @@ private:
 	void onVBlank();
 	void onHBlank();
 	void onImmediate();
-
-	//copied from powerlated :P. doesn't take into account varying WAITCNT settings
-	//int timingTable816[16] =
-	//{
-	//	0,0,2,0,0,1,1,1,2,2,2,2,2,2,2,2
-	//};
-	//int timingTable32[16] =
-	//{
-	//	0,0,5,0,0,2,2,1,4,4,4,4,4,4,8,8
-	//};
 
 	int waitstateNonsequentialTable[3] = {3,3,3};
 	int waitstateSequentialTable[3] = { 1,1,1 };

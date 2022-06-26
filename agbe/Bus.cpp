@@ -51,8 +51,9 @@ uint8_t Bus::read8(uint32_t address, bool seq)
 	case 0: case 1:
 		if ((address >= 0x4000) || biosLockout)
 		{
-			//Logger::getInstance()->msg(LoggerSeverity::Error, "Open bus BIOS read");
-			return 0xFF;
+			if (address <= 0x3FFF)
+				return m_openBusVals.bios;	//todo: account for the value being rotated properly
+			return 0;
 		}
 		return m_mem->BIOS[address & 0x3FFF];
 	case 2:
@@ -149,6 +150,8 @@ uint16_t Bus::read16(uint32_t address, bool seq)
 	case 0: case 1:
 		if ((address > 0x3FFF) || biosLockout)
 		{
+			if (address <= 0x3FFF)
+				return m_openBusVals.bios;	//todo: account for the value being rotated properly
 			Logger::getInstance()->msg(LoggerSeverity::Error, "Out of bounds BIOS read");
 			return 0;
 		}
@@ -247,10 +250,12 @@ uint32_t Bus::read32(uint32_t address, bool seq)
 	case 0: case 1:
 		if ((address > 0x3FFF) || biosLockout)
 		{
-			Logger::getInstance()->msg(LoggerSeverity::Error, "Out of bounds BIOS read");
+			if (address <= 0x3FFF)
+				return m_openBusVals.bios;
 			return 0;
 		}
-		return getValue32(m_mem->BIOS, address & 0x3FFF,0x3FFF);
+		m_openBusVals.bios = getValue32(m_mem->BIOS, address & 0x3FFF, 0x3FFF);
+		return m_openBusVals.bios;
 	case 2:
 		m_scheduler->addCycles(5);	//5 bc first access is 2 waitstates, then another access happens which is 1S + 2 waitstates
 		return getValue32(m_mem->externalWRAM, address & 0x3FFFF,0x3FFFF);
