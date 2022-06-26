@@ -61,6 +61,7 @@ void ARM7TDMI::ARM_DataProcessing()
 		if (shiftIsRegister)
 		{
 			m_scheduler->addCycles(1);
+			nextFetchNonsequential = true;
 			if (op2Idx == 15)	//account for R15 being 12 bytes ahead if register-specified shift amount
 				operand2 += 4;
 			if (op1Idx == 15)
@@ -291,6 +292,7 @@ void ARM7TDMI::ARM_Multiply()
 
 
 	m_scheduler->addCycles(calculateMultiplyCycles(operand2, accumulate,true));
+	nextFetchNonsequential = true;	//hm
 }
 
 void ARM7TDMI::ARM_MultiplyLong()
@@ -335,6 +337,7 @@ void ARM7TDMI::ARM_MultiplyLong()
 	setReg(destRegHiIdx, ((result >> 32) & 0xFFFFFFFF));
 
 	m_scheduler->addCycles(calculateMultiplyCycles(src2, accumulate, isSigned) + 1);
+	nextFetchNonsequential = true;
 }
 
 void ARM7TDMI::ARM_SingleDataSwap()
@@ -364,6 +367,7 @@ void ARM7TDMI::ARM_SingleDataSwap()
 		setReg(destRegIdx, swapVal);
 	}
 	m_scheduler->addCycles(4);
+	nextFetchNonsequential = true;
 }
 
 
@@ -478,7 +482,8 @@ void ARM7TDMI::ARM_HalfwordTransferRegisterOffset()
 
 	if (((!prePost) || (prePost && writeback)) && ((baseRegIdx != srcDestRegIdx) || (baseRegIdx == srcDestRegIdx && !loadStore)))
 		setReg(baseRegIdx, base);
-
+	
+	nextFetchNonsequential = true;
 }
 
 void ARM7TDMI::ARM_HalfwordTransferImmediateOffset()
@@ -578,6 +583,8 @@ void ARM7TDMI::ARM_HalfwordTransferImmediateOffset()
 
 	if (((!prePost) || (prePost && writeback)) && ((baseRegIdx != srcDestRegIdx) || (baseRegIdx == srcDestRegIdx && !loadStore)))
 		setReg(baseRegIdx, base);
+
+	nextFetchNonsequential = true;
 }
 
 void ARM7TDMI::ARM_SingleDataTransfer()
@@ -671,6 +678,8 @@ void ARM7TDMI::ARM_SingleDataTransfer()
 	{
 		setReg(baseRegIdx, base);
 	}
+
+	nextFetchNonsequential = true;
 }
 
 void ARM7TDMI::ARM_Undefined()
@@ -807,6 +816,7 @@ void ARM7TDMI::ARM_BlockDataTransfer()
 
 	// Restore old mode
 	if (psr) { CPSR |= oldMode; }
+	nextFetchNonsequential = true;
 }
 
 void ARM7TDMI::ARM_CoprocessorDataTransfer()

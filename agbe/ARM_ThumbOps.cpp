@@ -267,6 +267,7 @@ void ARM7TDMI::Thumb_PCRelativeLoad()
 	uint32_t val = m_bus->read32(PC + offset,false);
 	setReg(destRegIdx, val);
 	m_scheduler->addCycles(5);	//probs right? 1s+1n+1i for ldr, then 1s+1n for loading pc
+	nextFetchNonsequential = true;
 }
 
 void ARM7TDMI::Thumb_LoadStoreRegisterOffset()
@@ -310,6 +311,7 @@ void ARM7TDMI::Thumb_LoadStoreRegisterOffset()
 		}
 		m_scheduler->addCycles(2);
 	}
+	nextFetchNonsequential = true;
 }
 
 void ARM7TDMI::Thumb_LoadStoreSignExtended()
@@ -362,6 +364,7 @@ void ARM7TDMI::Thumb_LoadStoreSignExtended()
 		setReg(srcDestRegIdx, val);
 		m_scheduler->addCycles(3);
 	}
+	nextFetchNonsequential = true;
 }
 
 void ARM7TDMI::Thumb_LoadStoreImmediateOffset()
@@ -401,6 +404,7 @@ void ARM7TDMI::Thumb_LoadStoreImmediateOffset()
 		m_scheduler->addCycles(2);
 	}
 
+	nextFetchNonsequential = true;
 }
 
 void ARM7TDMI::Thumb_LoadStoreHalfword()
@@ -429,6 +433,7 @@ void ARM7TDMI::Thumb_LoadStoreHalfword()
 		m_bus->write16(base, val,false);
 		m_scheduler->addCycles(2);
 	}
+	nextFetchNonsequential = true;
 }
 
 void ARM7TDMI::Thumb_SPRelativeLoadStore()
@@ -454,6 +459,7 @@ void ARM7TDMI::Thumb_SPRelativeLoadStore()
 		m_bus->write32(addr, val,false);
 		m_scheduler->addCycles(2);
 	}
+	nextFetchNonsequential = true;
 }
 
 void ARM7TDMI::Thumb_LoadAddress()
@@ -477,6 +483,7 @@ void ARM7TDMI::Thumb_LoadAddress()
 		setReg(destRegIdx, PC);
 	}
 	m_scheduler->addCycles(3);	//probs right?
+	nextFetchNonsequential = true;
 }
 
 void ARM7TDMI::Thumb_AddOffsetToStackPointer()
@@ -554,6 +561,7 @@ void ARM7TDMI::Thumb_PushPopRegisters()
 	}
 
 	setReg(13, SP);
+	nextFetchNonsequential = true;
 }
 
 void ARM7TDMI::Thumb_MultipleLoadStore()
@@ -646,7 +654,7 @@ void ARM7TDMI::Thumb_MultipleLoadStore()
 	if (!loadStore || (loadStore && !baseIncluded))
 		setReg(baseRegIdx, base);
 	//TODO: writeback with rb in rlist has different behaviour that's unimplemented (see gbatek)
-	
+	nextFetchNonsequential = true;
 }
 
 void ARM7TDMI::Thumb_ConditionalBranch()
