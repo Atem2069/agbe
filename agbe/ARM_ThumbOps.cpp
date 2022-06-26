@@ -244,14 +244,15 @@ void ARM7TDMI::Thumb_HiRegisterOperations()
 			CPSR &= 0xFFFFFFDF;	//unset T bit
 			operand2 &= ~0b11;
 			setReg(15, operand2);
+			m_scheduler->addCycles(2);
 		}
 		else
 		{
 			//stay in thumb
 			operand2 &= ~0b1;
 			setReg(15, operand2);
+			m_scheduler->addCycles(1);
 		}
-		m_scheduler->addCycles(2);
 		break;
 	}
 	m_scheduler->addCycles(1);
@@ -713,7 +714,6 @@ void ARM7TDMI::Thumb_LongBranchWithLink()
 		if (offset & 0x400000) { offset |= 0xFF800000; }
 		uint32_t res = getReg(15) + offset;
 		setReg(14, res & ~0b1);
-		m_scheduler->addCycles(1);
 	}
 	else			//H=1: leftshift by 1 and add to LR - then copy LR to PC. copy old PC (-2) to LR and set bit 0
 	{
@@ -722,6 +722,6 @@ void ARM7TDMI::Thumb_LongBranchWithLink()
 		LR += offset;
 		setReg(14, ((getReg(15) - 2) | 0b1));	//set LR to point to instruction after this one
 		setReg(15, LR);				//set PC to old LR contents (plus the offset)
-		m_scheduler->addCycles(3);
+		m_scheduler->addCycles(4);
 	}
 }

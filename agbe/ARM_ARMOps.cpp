@@ -752,7 +752,9 @@ void ARM7TDMI::ARM_BlockDataTransfer()
 			//Write back the into base register
 			if (writeBack == 1 && (!loadStore || (loadStore && !baseIncluded))) { setReg(baseReg, base_addr); }
 		}
-		m_scheduler->addCycles(transferCount + 2);	//should account for PC being loaded too!! adds 1s+1n
+
+		int cyclesToAdd = transferCount + ((loadStore) ? 2 : 1);
+		m_scheduler->addCycles(cyclesToAdd);
 	}
 
 	//Load-Store with a descending stack order, Up-Down = 0
@@ -795,7 +797,8 @@ void ARM7TDMI::ARM_BlockDataTransfer()
 			//Write back the into base register
 			if (writeBack == 1 && (!loadStore || (loadStore && !baseIncluded))) { setReg(baseReg, base_addr); }
 		}
-		m_scheduler->addCycles((transferCount - 1) + 2);
+		int cyclesToAdd = transferCount + ((loadStore) ? 2 : 1);
+		m_scheduler->addCycles(cyclesToAdd);
 	}
 	else //Special case, empty RList
 	{
