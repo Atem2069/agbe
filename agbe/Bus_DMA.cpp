@@ -296,6 +296,10 @@ void Bus::doDMATransfer(int channel)
 
 	}
 
+	m_dmaChannels[channel].srcAddress = src;
+	m_dmaChannels[channel].internalDest = dest;
+	m_dmaChannels[channel].wordCount = 0;
+
 	if (((curChannel.control >> 14) & 0b1))
 	{
 		switch (channel)
@@ -317,6 +321,7 @@ void Bus::doDMATransfer(int channel)
 		if (reloadDest)
 			m_dmaChannels[channel].internalDest = m_dmaChannels[channel].destAddress;
 		m_dmaChannels[channel].srcAddress = src;
+		m_dmaChannels[channel].wordCount = numWords;
 	}
 	else
 		m_dmaChannels[channel].control &= 0x7FFF;	//clear DMA enable
