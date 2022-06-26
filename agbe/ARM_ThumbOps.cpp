@@ -264,7 +264,7 @@ void ARM7TDMI::Thumb_PCRelativeLoad()
 
 	uint8_t destRegIdx = ((m_currentOpcode >> 8) & 0b111);
 
-	uint32_t val = m_bus->read32(PC + offset);
+	uint32_t val = m_bus->read32(PC + offset,false);
 	setReg(destRegIdx, val);
 	m_scheduler->addCycles(5);	//probs right? 1s+1n+1i for ldr, then 1s+1n for loading pc
 }
@@ -284,12 +284,12 @@ void ARM7TDMI::Thumb_LoadStoreRegisterOffset()
 	{
 		if (byteWord)
 		{
-			uint32_t val = m_bus->read8(base);
+			uint32_t val = m_bus->read8(base,false);
 			setReg(srcDestRegIdx, val);
 		}
 		else
 		{
-			uint32_t val = m_bus->read32(base);
+			uint32_t val = m_bus->read32(base,false);
 			if (base & 3)
 				val = std::rotr(val, (base & 3) * 8);
 			setReg(srcDestRegIdx, val);
@@ -301,12 +301,12 @@ void ARM7TDMI::Thumb_LoadStoreRegisterOffset()
 		if (byteWord)
 		{
 			uint8_t val = getReg(srcDestRegIdx) & 0xFF;
-			m_bus->write8(base, val);
+			m_bus->write8(base, val,false);
 		}
 		else
 		{
 			uint32_t val = getReg(srcDestRegIdx);
-			m_bus->write32(base, val);
+			m_bus->write32(base, val,false);
 		}
 		m_scheduler->addCycles(2);
 	}
@@ -325,12 +325,12 @@ void ARM7TDMI::Thumb_LoadStoreSignExtended()
 	if (op == 0)
 	{
 		uint16_t val = getReg(srcDestRegIdx) & 0xFFFF;
-		m_bus->write16(addr, val);
+		m_bus->write16(addr, val,false);
 		m_scheduler->addCycles(2);
 	}
 	else if (op == 2)	//load halfword
 	{
-		uint32_t val = m_bus->read16(addr);
+		uint32_t val = m_bus->read16(addr,false);
 		if (addr & 0b1)
 			val = std::rotr(val, 8);
 		setReg(srcDestRegIdx, val);
@@ -338,7 +338,7 @@ void ARM7TDMI::Thumb_LoadStoreSignExtended()
 	}
 	else if (op == 1)	//load sign extended byte
 	{
-		uint32_t val = m_bus->read8(addr);
+		uint32_t val = m_bus->read8(addr,false);
 		if (((val >> 7) & 0b1))
 			val |= 0xFFFFFF00;
 		setReg(srcDestRegIdx, val);
@@ -349,13 +349,13 @@ void ARM7TDMI::Thumb_LoadStoreSignExtended()
 		uint32_t val = 0;
 		if (!(addr & 0b1))
 		{
-			val = m_bus->read16(addr);
+			val = m_bus->read16(addr,false);
 			if (((val >> 15) & 0b1))
 				val |= 0xFFFF0000;
 		}
 		else
 		{
-			val = m_bus->read8(addr);
+			val = m_bus->read8(addr,false);
 			if (((val >> 7) & 0b1))
 				val |= 0xFFFFFF00;
 		}
@@ -381,10 +381,10 @@ void ARM7TDMI::Thumb_LoadStoreImmediateOffset()
 	{
 		uint32_t val = 0;
 		if (byteWord)
-			val = m_bus->read8(baseAddr);
+			val = m_bus->read8(baseAddr,false);
 		else
 		{
-			val = m_bus->read32(baseAddr);
+			val = m_bus->read32(baseAddr,false);
 			if (baseAddr & 3)
 				val = std::rotr(val, (baseAddr & 3) * 8);
 		}
@@ -395,9 +395,9 @@ void ARM7TDMI::Thumb_LoadStoreImmediateOffset()
 	{
 		uint32_t val = getReg(srcDestRegIdx);
 		if (byteWord)
-			m_bus->write8(baseAddr, val & 0xFF);
+			m_bus->write8(baseAddr, val & 0xFF,false);
 		else
-			m_bus->write32(baseAddr, val);
+			m_bus->write32(baseAddr, val,false);
 		m_scheduler->addCycles(2);
 	}
 
@@ -417,7 +417,7 @@ void ARM7TDMI::Thumb_LoadStoreHalfword()
 
 	if (loadStore)
 	{
-		uint32_t val = m_bus->read16(base);
+		uint32_t val = m_bus->read16(base,false);
 		if (base & 0b1)
 			val = std::rotr(val, 8);
 		setReg(srcDestRegIdx, val);
@@ -426,7 +426,7 @@ void ARM7TDMI::Thumb_LoadStoreHalfword()
 	else
 	{
 		uint16_t val = getReg(srcDestRegIdx) & 0xFFFF;
-		m_bus->write16(base, val);
+		m_bus->write16(base, val,false);
 		m_scheduler->addCycles(2);
 	}
 }
@@ -442,7 +442,7 @@ void ARM7TDMI::Thumb_SPRelativeLoadStore()
 
 	if (loadStore)
 	{
-		uint32_t val = m_bus->read32(addr);
+		uint32_t val = m_bus->read32(addr,false);
 		if (addr & 3)
 			val = std::rotr(val, (addr & 3) * 8);
 		setReg(destRegIdx, val);
@@ -451,7 +451,7 @@ void ARM7TDMI::Thumb_SPRelativeLoadStore()
 	else
 	{
 		uint32_t val = getReg(destRegIdx);
-		m_bus->write32(addr, val);
+		m_bus->write32(addr, val,false);
 		m_scheduler->addCycles(2);
 	}
 }
@@ -501,24 +501,31 @@ void ARM7TDMI::Thumb_PushPopRegisters()
 
 	uint32_t SP = getReg(13);
 
+	bool firstTransfer = true;
+	int transferCount = 0;
+
 	if (loadStore) //Load - i.e. pop from stack
 	{
 		for (int i = 0; i < 8; i++)
 		{
 			if (((regs >> i) & 0b1))
 			{
-				uint32_t popVal = m_bus->read32(SP);
+				transferCount++;
+				uint32_t popVal = m_bus->read32(SP,!firstTransfer);
 				setReg(i, popVal);
 				SP += 4;
+				firstTransfer = false;
 			}
 		}
 
 		if (R)
 		{
-			uint32_t newPC = m_bus->read32(SP);
+			uint32_t newPC = m_bus->read32(SP,true);
 			setReg(15, newPC & ~0b1);
 			SP += 4;
+			m_scheduler->addCycles(1);
 		}
+		m_scheduler->addCycles(transferCount + 2);
 
 	}
 	else          //Store - i.e. push to stack
@@ -527,17 +534,23 @@ void ARM7TDMI::Thumb_PushPopRegisters()
 		if (R)
 		{
 			SP -= 4;
-			m_bus->write32(SP, getReg(14));
+			m_bus->write32(SP, getReg(14),false);
+			firstTransfer = false;
+			m_scheduler->addCycles(1);
 		}
 
 		for (int i = 7; i >= 0; i--)
 		{
 			if (((regs >> i) & 0b1))
 			{
+				transferCount++;
 				SP -= 4;
-				m_bus->write32(SP, getReg(i));
+				m_bus->write32(SP, getReg(i),!firstTransfer);
+				firstTransfer = false;
 			}
 		}
+
+		m_scheduler->addCycles(transferCount + 1);
 	}
 
 	setReg(13, SP);
@@ -571,18 +584,25 @@ void ARM7TDMI::Thumb_MultipleLoadStore()
 	if (baseRegIdx == lowestReg)
 		baseIsLowest = true;
 
+	bool firstTransfer = true;
+
+	int transferCount = 0;
+
 	if (loadStore)	//LDMIA
 	{
 		for (int i = 0; i < 8; i++)
 		{
 			if (regList & 0b1)
 			{
-				uint32_t cur = m_bus->read32(base);
+				transferCount++;
+				uint32_t cur = m_bus->read32(base,!firstTransfer);
 				setReg(i, cur);
 				base += 4;	//base always increments with this opcode
+				firstTransfer = false;
 			}
 			regList >>= 1;	//shift one to the right to check next register
 		}
+		m_scheduler->addCycles(transferCount + 2);
 	}
 	else			//STMIA
 	{
@@ -590,34 +610,37 @@ void ARM7TDMI::Thumb_MultipleLoadStore()
 		{
 			if (regList & 0b1)
 			{
+				transferCount++;
 				if (i == baseRegIdx)
 				{
 					if (baseIsLowest)
-						m_bus->write32(base, oldBase);
+						m_bus->write32(base, oldBase,!firstTransfer);
 					else
 					{
 						int numRegs = std::popcount(regListOriginal);
-						m_bus->write32(base, oldBase + (numRegs * 4));
+						m_bus->write32(base, oldBase + (numRegs * 4),!firstTransfer);
 					}
 				}
 				else
 				{
 					uint32_t cur = getReg(i);
-					m_bus->write32(base, cur);
+					m_bus->write32(base, cur,!firstTransfer);
 				}
 				base += 4;
+				firstTransfer = false;
 			}
 			regList >>= 1;
 			setReg(baseRegIdx, base);
 		}
+		m_scheduler->addCycles(transferCount + 1);
 	}
 
 	if (regListOriginal == 0)
 	{
 		if (loadStore)
-			setReg(15, m_bus->read32(base));
+			setReg(15, m_bus->read32(base,false));
 		else
-			m_bus->write32(base, getReg(15)+2);
+			m_bus->write32(base, getReg(15)+2,false);
 		base += 0x40;
 	}
 	if (!loadStore || (loadStore && !baseIncluded))

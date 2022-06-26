@@ -36,6 +36,7 @@ private:
 	Pipeline m_pipeline[3];
 	uint8_t m_pipelinePtr = 0;
 	bool m_pipelineFlushed = false;
+	bool nextFetchNonsequential = true;
 
 	uint32_t R[16];	//general registers - and default registers in usermode
 	uint32_t R8_fiq=0, R9_fiq=0, R10_fiq=0, R11_fiq=0, R12_fiq=0, R13_fiq=0, R14_fiq=0;	//additional banked registers in FIQ mode

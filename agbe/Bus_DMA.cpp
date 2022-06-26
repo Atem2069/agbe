@@ -251,17 +251,17 @@ void Bus::doDMATransfer(int channel)
 	bool wordTransfer = ((curChannel.control >> 10) & 0b1);
 	dmaInProgress = true;
 	bool reloadDest = false;
-	for (int i = 0; i < numWords; i++)
+	for (int i = 0; i < numWords; i++)		//assuming all accesses are sequential, which is probs not right..
 	{
 		if (wordTransfer)
 		{
-			uint32_t word = read32(src);
-			write32(dest, word);
+			uint32_t word = read32(src,true);
+			write32(dest, word,true);
 		}
 		else
 		{
-			uint16_t halfword = read16(src);
-			write16(dest, halfword);
+			uint16_t halfword = read16(src,true);
+			write16(dest, halfword,true);
 		}
 
 		int incrementAmount = (wordTransfer) ? 4 : 2;
@@ -317,6 +317,8 @@ void Bus::doDMATransfer(int channel)
 	}
 	else
 		m_dmaChannels[channel].control &= 0x7FFF;	//clear DMA enable
+
+	m_scheduler->addCycles(numWords);
 	dmaInProgress = false;
 }
 

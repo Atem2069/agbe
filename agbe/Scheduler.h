@@ -39,6 +39,7 @@ public:
 private:
 	bool getEntryAtTimestamp(SchedulerEntry& entry);
 	uint64_t timestamp;
+	uint64_t pendingCycles = 0;
 	SchedulerEntry entries[7];	//todo: add moree stuff to scheduler
 	const int NUM_ENTRIES = 7;
 };

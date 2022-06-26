@@ -42,8 +42,9 @@ Bus::~Bus()
 	m_timer.reset();
 }
 
-uint8_t Bus::read8(uint32_t address)
+uint8_t Bus::read8(uint32_t address, bool seq)
 {
+	int cartCycles = 0;
 	uint8_t page = (address >> 24) & 0xF;
 	switch (page)
 	{
@@ -71,7 +72,8 @@ uint8_t Bus::read8(uint32_t address)
 	case 7:
 		return m_mem->OAM[address & 0x3FF];
 	case 8: case 9: case 0xA: case 0xB: case 0xC: case 0xD:	//need to do this better (different waitstates will have different timings)
-		m_scheduler->addCycles(waitstateNonsequentialTable[((page - 8) >> 1)]);
+		cartCycles = (seq) ? waitstateSequentialTable[((page - 8) >> 1)] : waitstateNonsequentialTable[((page - 8) >> 1)];
+		m_scheduler->addCycles(cartCycles);
 		return m_mem->ROM[address & 0x01FFFFFF];
 	case 0xE:
 		m_scheduler->addCycles(SRAMCycles);	//hm.
@@ -84,8 +86,9 @@ uint8_t Bus::read8(uint32_t address)
 	return 0;
 }
 
-void Bus::write8(uint32_t address, uint8_t value)
+void Bus::write8(uint32_t address, uint8_t value, bool seq)
 {
+	int cartCycles = 0;
 	uint8_t page = (address >> 24) & 0xF;
 	switch (page)
 	{
@@ -117,7 +120,8 @@ void Bus::write8(uint32_t address, uint8_t value)
 		Logger::getInstance()->msg(LoggerSeverity::Error, "Ignore obj write");
 		break;
 	case 8: case 9: case 0xA: case 0xB: case 0xC: case 0xD:
-		m_scheduler->addCycles(waitstateNonsequentialTable[((page - 8) >> 1)]);
+		cartCycles = (seq) ? waitstateSequentialTable[((page - 8) >> 1)] : waitstateNonsequentialTable[((page - 8) >> 1)];
+		m_scheduler->addCycles(cartCycles);
 		Logger::getInstance()->msg(LoggerSeverity::Error, "Tried writing to ROM - ignoring");
 		break;
 	case 0xE:
@@ -135,8 +139,9 @@ void Bus::write8(uint32_t address, uint8_t value)
 	}
 }
 
-uint16_t Bus::read16(uint32_t address)
+uint16_t Bus::read16(uint32_t address, bool seq)
 {
+	int cartCycles = 0;
 	address &= 0xFFFFFFFE;
 	uint8_t page = (address >> 24) & 0xF;
 	switch (page)
@@ -165,7 +170,8 @@ uint16_t Bus::read16(uint32_t address)
 	case 7:
 		return getValue16(m_mem->OAM, address & 0x3FF,0x3FF);
 	case 8: case 9: case 0xA: case 0xB: case 0xC: case 0xD:
-		m_scheduler->addCycles(waitstateNonsequentialTable[((page - 8) >> 1)]);
+		cartCycles = (seq) ? waitstateSequentialTable[((page - 8) >> 1)] : waitstateNonsequentialTable[((page - 8) >> 1)];
+		m_scheduler->addCycles(cartCycles);
 		if (address >= 0x0D000000 && address <= 0x0DFFFFFF)		//not strictly accurate, bc not like the cart will always have eeprom
 			return m_eeprom->read(address);
 		return getValue16(m_mem->ROM, address & 0x01FFFFFF,0xFFFFFFFF);
@@ -179,8 +185,9 @@ uint16_t Bus::read16(uint32_t address)
 	return 0;
 }
 
-void Bus::write16(uint32_t address, uint16_t value)
+void Bus::write16(uint32_t address, uint16_t value, bool seq)
 {
+	int cartCycles = 0;
 	address &= 0xFFFFFFFE;
 	uint8_t page = (address >> 24) & 0xF;
 	switch (page)
@@ -211,7 +218,8 @@ void Bus::write16(uint32_t address, uint16_t value)
 		setValue16(m_mem->OAM, address & 0x3FF, 0x3FF, value);
 		break;
 	case 8: case 9: case 0xA: case 0xB: case 0xC: case 0xD:
-		m_scheduler->addCycles(waitstateNonsequentialTable[((page - 8) >> 1)]);
+		cartCycles = (seq) ? waitstateSequentialTable[((page - 8) >> 1)] : waitstateNonsequentialTable[((page - 8) >> 1)];
+		m_scheduler->addCycles(cartCycles);
 		if (address >= 0x0D000000 && address <= 0x0DFFFFFF)
 		{
 			m_eeprom->write(address, value);
@@ -229,8 +237,9 @@ void Bus::write16(uint32_t address, uint16_t value)
 	}
 }
 
-uint32_t Bus::read32(uint32_t address)
+uint32_t Bus::read32(uint32_t address, bool seq)
 {
+	int cartCycles = 0;
 	address &= 0xFFFFFFFC;
 	uint8_t page = (address >> 24) & 0xF;
 	switch (page)
@@ -259,7 +268,8 @@ uint32_t Bus::read32(uint32_t address)
 	case 7:
 		return getValue32(m_mem->OAM, address & 0x3FF,0x3FF);
 	case 8: case 9: case 0xA: case 0xB: case 0xC: case 0xD:
-		m_scheduler->addCycles(waitstateNonsequentialTable[((page - 8) >> 1)] + waitstateSequentialTable[((page-8)>>1)]+1);	//hmm. assume always nonsequential first (not true!)
+		cartCycles = (seq) ? waitstateSequentialTable[((page - 8) >> 1)] : waitstateNonsequentialTable[((page - 8) >> 1)];
+		m_scheduler->addCycles(cartCycles + waitstateSequentialTable[((page-8)>>1)] + 1);	//first access is either nonseq/seq. second is *always* seq
 		return getValue32(m_mem->ROM, address & 0x01FFFFFF,0xFFFFFFFF);
 	case 0xE:
 		m_scheduler->addCycles(SRAMCycles);
@@ -271,8 +281,9 @@ uint32_t Bus::read32(uint32_t address)
 	return 0;
 }
 
-void Bus::write32(uint32_t address, uint32_t value)
+void Bus::write32(uint32_t address, uint32_t value, bool seq)
 {
+	int cartCycles = 0;
 	address &= 0xFFFFFFFC;
 	uint8_t page = (address >> 24) & 0xF;
 	switch (page)
@@ -303,7 +314,8 @@ void Bus::write32(uint32_t address, uint32_t value)
 		setValue32(m_mem->OAM, address & 0x3FF, 0x3FF, value);
 		break;
 	case 8: case 9: case 0xA: case 0xB: case 0xC: case 0xD:
-		m_scheduler->addCycles(waitstateNonsequentialTable[((page - 8) >> 1)] + waitstateSequentialTable[((page - 8) >> 1)] + 1);	//hmm. assume always nonsequential first (not true!)
+		cartCycles = (seq) ? waitstateSequentialTable[((page - 8) >> 1)] : waitstateNonsequentialTable[((page - 8) >> 1)];
+		m_scheduler->addCycles(cartCycles + waitstateSequentialTable[((page - 8) >> 1)] + 1);	//same as for read32
 		Logger::getInstance()->msg(LoggerSeverity::Error, "Tried to write to cartridge space!!!");
 		break;
 	case 0xE:
@@ -316,19 +328,19 @@ void Bus::write32(uint32_t address, uint32_t value)
 	}
 }
 
-uint32_t Bus::fetch32(uint32_t address)
+uint32_t Bus::fetch32(uint32_t address, bool seq)
 {
 	biosLockout = false;
-	uint32_t val = read32(address);
+	uint32_t val = read32(address,seq);	//not strictly correct. the first access (e.g. after a branch) isnt going to have sequential timing
 	if(address>0x3FFF)
 		biosLockout = true;
 	return val;
 }
 
-uint16_t Bus::fetch16(uint32_t address)
+uint16_t Bus::fetch16(uint32_t address, bool seq)
 {
 	biosLockout = false;
-	uint16_t val = read16(address);
+	uint16_t val = read16(address,seq);
 	if(address>0x3FFF)
 		biosLockout = true;
 	return val;

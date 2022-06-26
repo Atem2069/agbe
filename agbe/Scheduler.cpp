@@ -13,6 +13,13 @@ Scheduler::~Scheduler()
 void Scheduler::addCycles(uint64_t cycles)
 {
 	timestamp += cycles;
+	pendingCycles += cycles;
+
+	while (pendingCycles >= 10)
+	{
+		pendingCycles -= 10;
+		tick();
+	}
 }
 
 void Scheduler::tick()

@@ -15,6 +15,7 @@ ARM7TDMI::ARM7TDMI(std::shared_ptr<Bus> bus, std::shared_ptr<InterruptManager> i
 	R[15] = 0x00000000;	//start of cartridge
 	flushPipeline();
 	m_pipelineFlushed = false;
+	nextFetchNonsequential = true;
 }
 
 ARM7TDMI::~ARM7TDMI()
@@ -36,7 +37,7 @@ void ARM7TDMI::step()
 		m_pipelinePtr = ((m_pipelinePtr + 1) % 3);
 	}
 	m_pipelineFlushed = false;
-	m_scheduler->tick();
+	//m_scheduler->tick();
 }
 
 void ARM7TDMI::fetch()
@@ -45,9 +46,11 @@ void ARM7TDMI::fetch()
 	int curPipelinePtr = m_pipelinePtr;
 	m_pipeline[curPipelinePtr].state = PipelineState::FILLED;
 	if (thumb)
-		m_pipeline[curPipelinePtr].opcode = m_bus->fetch16(R[15]);
+		m_pipeline[curPipelinePtr].opcode = m_bus->fetch16(R[15],!nextFetchNonsequential);
 	else
-		m_pipeline[curPipelinePtr].opcode = m_bus->fetch32(R[15]);
+		m_pipeline[curPipelinePtr].opcode = m_bus->fetch32(R[15],!nextFetchNonsequential);
+
+	nextFetchNonsequential = false;
 }
 
 void ARM7TDMI::execute()
@@ -67,7 +70,10 @@ void ARM7TDMI::execute()
 	//check conditions before executing
 	uint8_t conditionCode = ((m_currentOpcode >> 28) & 0xF);
 	if (!checkConditions(conditionCode))
+	{
+		m_scheduler->addCycles(1);
 		return;
+	}
 
 	uint32_t lookup = ((m_currentOpcode & 0x0FF00000) >> 16) | ((m_currentOpcode & 0xF0) >> 4);	//bits 20-27 shifted down to bits 4-11. bits 4-7 shifted down to bits 0-4
 	instructionFn instr = armTable[lookup];
@@ -119,6 +125,7 @@ void ARM7TDMI::flushPipeline()
 		m_pipeline[i].state = PipelineState::UNFILLED;
 	m_pipelinePtr = 0;
 	m_pipelineFlushed = true;
+	nextFetchNonsequential = true;
 }
 
 bool ARM7TDMI::checkConditions(uint8_t code)
