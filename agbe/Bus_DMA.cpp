@@ -213,12 +213,13 @@ void Bus::checkDMAChannel(int idx)
 		//dma enabled
 		uint8_t startTiming = ((curCtrlReg >> 12) & 0b11);
 		if (startTiming == 0)
-			m_scheduler->addEvent(Event::DMA, &Bus::DMA_ImmediateCallback, (void*)this, m_scheduler->getCurrentTimestamp() + 2);	//2 cycle delay before imm dma starts.
+			doDMATransfer(idx);
 	}
 }
 
 void Bus::doDMATransfer(int channel)
 {
+	m_scheduler->addCycles(2);	//2 cycle startup delay?
 	//we assume the transfer is going to take place by the time this function is called
 	DMAChannel curChannel = m_dmaChannels[channel];
 
@@ -251,19 +252,21 @@ void Bus::doDMATransfer(int channel)
 	bool wordTransfer = ((curChannel.control >> 10) & 0b1);
 	dmaInProgress = true;
 	bool reloadDest = false;
+	bool firstAccess = true;
 	for (int i = 0; i < numWords; i++)		//assuming all accesses are sequential, which is probs not right..
 	{
+		m_scheduler->addCycles(2);
 		if (wordTransfer)
 		{
-			uint32_t word = read32(src,true);
-			write32(dest, word,true);
+			uint32_t word = read32(src,!firstAccess);
+			write32(dest, word,!firstAccess);
 		}
 		else
 		{
-			uint16_t halfword = read16(src,true);
-			write16(dest, halfword,true);
+			uint16_t halfword = read16(src,!firstAccess);
+			write16(dest, halfword,!firstAccess);
 		}
-
+		firstAccess = false;
 		int incrementAmount = (wordTransfer) ? 4 : 2;
 
 		//TODO: control mode 3 (increment/reload on dest)
@@ -318,7 +321,6 @@ void Bus::doDMATransfer(int channel)
 	else
 		m_dmaChannels[channel].control &= 0x7FFF;	//clear DMA enable
 
-	m_scheduler->addCycles(numWords);
 	dmaInProgress = false;
 }
 
