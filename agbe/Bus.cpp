@@ -76,7 +76,7 @@ uint8_t Bus::read8(uint32_t address, bool seq)
 		cartCycles = (seq) ? waitstateSequentialTable[((page - 8) >> 1)] : waitstateNonsequentialTable[((page - 8) >> 1)];
 		m_scheduler->addCycles(cartCycles);
 		return m_mem->ROM[address & 0x01FFFFFF];
-	case 0xE:
+	case 0xE: case 0xF:
 		m_scheduler->addCycles(SRAMCycles);	//hm.
 		if (isFlash)
 			return m_flash->read(address);
@@ -125,7 +125,7 @@ void Bus::write8(uint32_t address, uint8_t value, bool seq)
 		m_scheduler->addCycles(cartCycles);
 		Logger::getInstance()->msg(LoggerSeverity::Error, "Tried writing to ROM - ignoring");
 		break;
-	case 0xE:
+	case 0xE: case 0xF:
 		m_scheduler->addCycles(SRAMCycles);
 		if (isFlash)
 		{
@@ -143,6 +143,7 @@ void Bus::write8(uint32_t address, uint8_t value, bool seq)
 uint16_t Bus::read16(uint32_t address, bool seq)
 {
 	int cartCycles = 0;
+	uint32_t originalAddress = address;
 	address &= 0xFFFFFFFE;
 	uint8_t page = (address >> 24) & 0xF;
 	switch (page)
@@ -178,10 +179,9 @@ uint16_t Bus::read16(uint32_t address, bool seq)
 		if (address >= 0x0D000000 && address <= 0x0DFFFFFF)		//not strictly accurate, bc not like the cart will always have eeprom
 			return m_eeprom->read(address);
 		return getValue16(m_mem->ROM, address & 0x01FFFFFF,0xFFFFFFFF);
-	case 0xE:
+	case 0xE: case 0xF:
 		m_scheduler->addCycles(SRAMCycles);
-		Logger::getInstance()->msg(LoggerSeverity::Error, "Invalid 16-bit SRAM read");
-		return 0;
+		return (m_mem->SRAM[originalAddress&0xFFFF]) * 0x0101;
 	}
 
 	Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Out of bounds/invalid read addr={:#x}", address));
@@ -191,6 +191,7 @@ uint16_t Bus::read16(uint32_t address, bool seq)
 void Bus::write16(uint32_t address, uint16_t value, bool seq)
 {
 	int cartCycles = 0;
+	uint32_t originalAddress = address;
 	address &= 0xFFFFFFFE;
 	uint8_t page = (address >> 24) & 0xF;
 	switch (page)
@@ -230,9 +231,10 @@ void Bus::write16(uint32_t address, uint16_t value, bool seq)
 		}
 		Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Tried to write to cartridge space!!! addr={:#x}",address));
 		break;
-	case 0xE:
+	case 0xE: case 0xF:
 		m_scheduler->addCycles(SRAMCycles);
-		Logger::getInstance()->msg(LoggerSeverity::Error, "unhandled halfword sram write");
+		value = (std::rotr(value, (originalAddress * 8))) & 0xFF;
+		m_mem->SRAM[originalAddress&0xFFFF] = value;
 		break;
 	default:
 		Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Out of bounds/invalid write addr={:#x}", address));
@@ -243,6 +245,7 @@ void Bus::write16(uint32_t address, uint16_t value, bool seq)
 uint32_t Bus::read32(uint32_t address, bool seq)
 {
 	int cartCycles = 0;
+	uint32_t originalAddress = address;
 	address &= 0xFFFFFFFC;
 	uint8_t page = (address >> 24) & 0xF;
 	switch (page)
@@ -276,10 +279,9 @@ uint32_t Bus::read32(uint32_t address, bool seq)
 		cartCycles = (seq) ? waitstateSequentialTable[((page - 8) >> 1)] : waitstateNonsequentialTable[((page - 8) >> 1)];
 		m_scheduler->addCycles(cartCycles + waitstateSequentialTable[((page-8)>>1)] + 1);	//first access is either nonseq/seq. second is *always* seq
 		return getValue32(m_mem->ROM, address & 0x01FFFFFF,0xFFFFFFFF);
-	case 0xE:
+	case 0xE: case 0xF:
 		m_scheduler->addCycles(SRAMCycles);
-		Logger::getInstance()->msg(LoggerSeverity::Error, "Invalid 32-bit SRAM read");
-		return 0;
+		return m_mem->SRAM[originalAddress & 0xFFFF] * 0x01010101;
 	}
 
 	Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Out of bounds/invalid read addr={:#x}", address));
@@ -289,6 +291,7 @@ uint32_t Bus::read32(uint32_t address, bool seq)
 void Bus::write32(uint32_t address, uint32_t value, bool seq)
 {
 	int cartCycles = 0;
+	uint32_t originalAddress = address;
 	address &= 0xFFFFFFFC;
 	uint8_t page = (address >> 24) & 0xF;
 	switch (page)
@@ -323,9 +326,9 @@ void Bus::write32(uint32_t address, uint32_t value, bool seq)
 		m_scheduler->addCycles(cartCycles + waitstateSequentialTable[((page - 8) >> 1)] + 1);	//same as for read32
 		Logger::getInstance()->msg(LoggerSeverity::Error, "Tried to write to cartridge space!!!");
 		break;
-	case 0xE:
+	case 0xE: case 0xF:
 		m_scheduler->addCycles(SRAMCycles);
-		Logger::getInstance()->msg(LoggerSeverity::Error, "unhandled word sram write");
+		m_mem->SRAM[originalAddress & 0xFFFF] = std::rotr(value, originalAddress * 8) & 0xFF;
 		break;
 	default:
 		Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Out of bounds/invalid write addr={:#x}", address));

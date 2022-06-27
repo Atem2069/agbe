@@ -259,12 +259,12 @@ void Bus::doDMATransfer(int channel)
 		if (wordTransfer)
 		{
 			uint32_t word = read32(src,!firstAccess);
-			write32(dest, word,!firstAccess);
+			write32(dest, word,true);									//hmm. first rom write is sequential?
 		}
 		else
 		{
 			uint16_t halfword = read16(src,!firstAccess);
-			write16(dest, halfword,!firstAccess);
+			write16(dest, halfword,true);                               //same as above^^
 		}
 		firstAccess = false;
 		int incrementAmount = (wordTransfer) ? 4 : 2;
