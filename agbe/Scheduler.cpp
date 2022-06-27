@@ -15,9 +15,9 @@ void Scheduler::addCycles(uint64_t cycles)
 	timestamp += cycles;
 	pendingCycles += cycles;
 
-	while (pendingCycles >= 10)
+	while (pendingCycles >= 4)
 	{
-		pendingCycles -= 10;
+		pendingCycles -= 4;
 		tick();
 	}
 }

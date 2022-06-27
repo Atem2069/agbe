@@ -29,7 +29,7 @@ void Timer::event()
 				m_timers[i].initialClock = m_timers[i].CNT_L;
 				m_timers[i].clock = m_timers[i].initialClock;
 				calculateNextOverflow(i, timerOverflowTime,false);	//don't update with our current clock, because we might have overshot the overflow time slightly.
-
+				setCurrentClock(i, m_timers[i].CNT_H & 0b11);
 				bool doIrq = (ctrlreg >> 6) & 0b1;
 				if (doIrq)
 				{

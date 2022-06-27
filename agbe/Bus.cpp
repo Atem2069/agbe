@@ -272,8 +272,10 @@ uint32_t Bus::read32(uint32_t address, bool seq)
 	case 4:
 		return readIO32(address);
 	case 5:
+		m_scheduler->addCycles(1);
 		return getValue32(m_mem->paletteRAM, address & 0x3FF,0x3FF);
 	case 6:
+		m_scheduler->addCycles(1);
 		address = address & 0x1FFFF;
 		if (address >= 0x18000)
 			address -= 32768;
@@ -317,9 +319,11 @@ void Bus::write32(uint32_t address, uint32_t value, bool seq)
 		writeIO32(address, value);
 		break;
 	case 5:
+		m_scheduler->addCycles(1);
 		setValue32(m_mem->paletteRAM, address & 0x3FF, 0x3FF, value);
 		break;
 	case 6:
+		m_scheduler->addCycles(1);
 		address = address & 0x1FFFF;
 		if (address >= 0x18000)
 			address -= 32768;
