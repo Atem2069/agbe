@@ -37,7 +37,7 @@ void ARM7TDMI::step()
 		m_pipelinePtr = ((m_pipelinePtr + 1) % 3);
 	}
 	m_pipelineFlushed = false;
-	//m_scheduler->tick();
+	m_scheduler->tick();
 }
 
 void ARM7TDMI::fetch()

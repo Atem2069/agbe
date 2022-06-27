@@ -15,17 +15,24 @@ void Scheduler::addCycles(uint64_t cycles)
 	timestamp += cycles;
 	pendingCycles += cycles;
 
-	while (pendingCycles >= 4)
+	if (shouldSync && (timestamp >= syncDelta))
 	{
-		pendingCycles -= 4;
+		shouldSync = false;
 		tick();
 	}
+}
+
+void Scheduler::forceSync(uint64_t delta)
+{
+	syncDelta = timestamp+delta;
+	shouldSync = true;
 }
 
 void Scheduler::tick()
 {
 	uint64_t tempTimestamp = timestamp;
 	SchedulerEntry entry = {};
+	pendingCycles=0;
 	while (getEntryAtTimestamp(entry))
 	{
 		//getEntryAtTimestamp will already disable the entry, so it won't fire until re-scheduled!
@@ -34,7 +41,8 @@ void Scheduler::tick()
 			timestamp = entry.timestamp;
 			entry.callback(entry.context);	//dereferencing nullptr? you sure vs??
 		}
-		timestamp = tempTimestamp;
+		timestamp = tempTimestamp + pendingCycles;
+		pendingCycles = 0;
 	}
 }
 

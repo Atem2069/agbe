@@ -30,6 +30,7 @@ public:
 	~Scheduler();
 
 	void addCycles(uint64_t cycles);
+	void forceSync(uint64_t delta);
 	void tick();
 	void jumpToNextEvent();
 	uint64_t getCurrentTimestamp();
@@ -40,6 +41,8 @@ private:
 	bool getEntryAtTimestamp(SchedulerEntry& entry);
 	uint64_t timestamp;
 	uint64_t pendingCycles = 0;
+	uint64_t syncDelta = 0;
+	bool shouldSync = false;
 	SchedulerEntry entries[7];	//todo: add moree stuff to scheduler
 	const int NUM_ENTRIES = 7;
 };
