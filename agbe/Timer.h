@@ -29,6 +29,7 @@ public:
 private:
 	void event();
 	void calculateNextOverflow(int timerIdx, uint64_t timeBase, bool first);
+	void checkCascade(int timerIdx);
 	void setCurrentClock(int idx, uint8_t prescalerSetting);
 	TimerRegister m_timers[4];
 	std::shared_ptr<InterruptManager> m_interruptManager;

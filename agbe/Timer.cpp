@@ -20,7 +20,8 @@ void Timer::event()
 	{
 		uint8_t ctrlreg = m_timers[i].CNT_H;
 		bool timerEnabled = (ctrlreg >> 7) & 0b1;
-		if (timerEnabled)
+		bool cascade = (ctrlreg >> 2) & 0b1;
+		if (timerEnabled && !cascade)
 		{
 			uint64_t timerOverflowTime = m_timers[i].overflowTime;
 			if (timerOverflowTime <= currentTimestamp)
@@ -30,6 +31,7 @@ void Timer::event()
 				m_timers[i].clock = m_timers[i].initialClock;
 				calculateNextOverflow(i, timerOverflowTime,false);	//don't update with our current clock, because we might have overshot the overflow time slightly.
 				setCurrentClock(i, m_timers[i].CNT_H & 0b11);
+				checkCascade(i + 1);
 				bool doIrq = (ctrlreg >> 6) & 0b1;
 				if (doIrq)
 				{
@@ -46,6 +48,11 @@ uint8_t Timer::readIO(uint32_t address)
 {
 	uint32_t timerIdx = ((address - 0x4000100) / 4);	//4000100-4000103 = timer 0, etc.
 	uint32_t addrOffset = ((address - 0x4000100) % 4);	//figure out which byte we're writing (0-3)
+
+	bool cascade = (m_timers[timerIdx].CNT_H >> 2) & 0b1;
+	if (cascade)
+		this->event();	//hehe
+
 	switch (addrOffset)
 	{
 	case 0:
@@ -82,6 +89,15 @@ void Timer::writeIO(uint32_t address, uint8_t value)
 		uint8_t newPrescalerSetting = value & 0b11;
 		m_timers[timerIdx].CNT_H &= 0xFF00; m_timers[timerIdx].CNT_H |= value;
 
+		if (timerIdx == 0)
+		{
+			m_timers[timerIdx].CNT_H &= 0b11111011;	//clear cascade bit on timer0
+			countup = false;
+		}
+
+		if (!timerWasEnabled && timerNowEnabled && countup)
+			m_timers[timerIdx].clock = m_timers[timerIdx].CNT_L;
+
 		if (!timerWasEnabled && timerNowEnabled && !countup)
 		{
 			m_timers[timerIdx].initialClock = m_timers[timerIdx].CNT_L;
@@ -89,7 +105,7 @@ void Timer::writeIO(uint32_t address, uint8_t value)
 			calculateNextOverflow(timerIdx, m_scheduler->getCurrentTimestamp(),true);
 		}
 
-		if (timerWasEnabled && timerNowEnabled && (newPrescalerSetting != oldPrescalerSetting))	//prescaler has changed!!
+		if (timerWasEnabled && timerNowEnabled && (newPrescalerSetting != oldPrescalerSetting) && !countup)	//prescaler has changed!!
 		{
 			setCurrentClock(timerIdx, oldPrescalerSetting);	//update clock with old prescaler
 			calculateNextOverflow(timerIdx, m_scheduler->getCurrentTimestamp(),false);	//then find next overflow time
@@ -121,6 +137,31 @@ void Timer::calculateNextOverflow(int timerIdx, uint64_t timeBase, bool first)
 	m_timers[timerIdx].lastUpdateTimestamp = currentTime;
 	m_timers[timerIdx].overflowTime = overflowTimestamp;
 
+}
+
+void Timer::checkCascade(int timerIdx)
+{
+	if (timerIdx > 3)
+		return;
+	uint8_t timerctrl = m_timers[timerIdx].CNT_H;
+	bool timerEnabled = ((timerctrl >> 7) & 0b1);
+	bool isCascade = ((timerctrl >> 2) & 0b1);
+	if (!isCascade)
+		return;
+
+	if (m_timers[timerIdx].clock == 0xFFFF)
+	{
+		m_timers[timerIdx].clock = m_timers[timerIdx].CNT_L;
+		bool doIrq = (timerctrl >> 6) & 0b1;
+		if (doIrq)
+		{
+			InterruptType irqLUT[4] = { InterruptType::Timer0,InterruptType::Timer1,InterruptType::Timer2,InterruptType::Timer3 };
+			m_interruptManager->requestInterrupt(irqLUT[timerIdx]);
+		}
+		checkCascade(timerIdx + 1);
+	}
+	else
+		m_timers[timerIdx].clock++;
 }
 
 void Timer::setCurrentClock(int idx, uint8_t prescalerSetting)
