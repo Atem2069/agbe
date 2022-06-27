@@ -73,6 +73,7 @@ private:
 	std::shared_ptr<EEPROM> m_eeprom;
 	std::shared_ptr<Flash> m_flash;
 
+	uint32_t romSize = 0;
 	OpenBus m_openBusVals = {};
 
 	DMAChannel m_dmaChannels[4];

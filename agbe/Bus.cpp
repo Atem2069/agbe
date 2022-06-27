@@ -25,6 +25,7 @@ Bus::Bus(std::vector<uint8_t> BIOS, std::vector<uint8_t> cartData, std::shared_p
 		Logger::getInstance()->msg(LoggerSeverity::Error, "ROM file is too big!!");
 		return;
 	}
+	romSize = cartData.size();
 	for (int i = 0; i < 4; i++)	//clear dma channel registers
 		m_dmaChannels[i] = {};
 	memcpy(m_mem->BIOS, &BIOS[0], BIOS.size());
@@ -75,6 +76,8 @@ uint8_t Bus::read8(uint32_t address, bool seq)
 	case 8: case 9: case 0xA: case 0xB: case 0xC: case 0xD:	//need to do this better (different waitstates will have different timings)
 		cartCycles = (seq) ? waitstateSequentialTable[((page - 8) >> 1)] : waitstateNonsequentialTable[((page - 8) >> 1)];
 		m_scheduler->addCycles(cartCycles);
+		if ((address & 0x01FFFFFF) >= romSize)
+			return (address / 2) & 0xFFFF;
 		return m_mem->ROM[address & 0x01FFFFFF];
 	case 0xE: case 0xF:
 		m_scheduler->addCycles(SRAMCycles);	//hm.
@@ -178,6 +181,8 @@ uint16_t Bus::read16(uint32_t address, bool seq)
 		m_scheduler->addCycles(cartCycles);
 		if (address >= 0x0D000000 && address <= 0x0DFFFFFF)		//not strictly accurate, bc not like the cart will always have eeprom
 			return m_eeprom->read(address);
+		if ((address & 0x01FFFFFF) >= romSize)
+			return (address / 2) & 0xFFFF;
 		return getValue16(m_mem->ROM, address & 0x01FFFFFF,0xFFFFFFFF);
 	case 0xE: case 0xF:
 		m_scheduler->addCycles(SRAMCycles);
@@ -278,6 +283,8 @@ uint32_t Bus::read32(uint32_t address, bool seq)
 	case 8: case 9: case 0xA: case 0xB: case 0xC: case 0xD:
 		cartCycles = (seq) ? waitstateSequentialTable[((page - 8) >> 1)] : waitstateNonsequentialTable[((page - 8) >> 1)];
 		m_scheduler->addCycles(cartCycles + waitstateSequentialTable[((page-8)>>1)] + 1);	//first access is either nonseq/seq. second is *always* seq
+		if ((address & 0x01FFFFFF) >= romSize)
+			return ((address / 2) & 0xFFFF) | (((address + 2) / 2) & 0xFFFF) << 16;
 		return getValue32(m_mem->ROM, address & 0x01FFFFFF,0xFFFFFFFF);
 	case 0xE: case 0xF:
 		m_scheduler->addCycles(SRAMCycles);
