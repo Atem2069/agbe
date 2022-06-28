@@ -222,7 +222,9 @@ void Bus::checkDMAChannel(int idx)
 
 void Bus::doDMATransfer(int channel)
 {
-	m_scheduler->addCycles(2);	//2 cycle startup delay?
+	bool dmaWasInProgress = dmaInProgress;
+	if(!dmaWasInProgress)
+		m_scheduler->addCycles(2);	//2 cycle startup delay?
 	//we assume the transfer is going to take place by the time this function is called
 	DMAChannel curChannel = m_dmaChannels[channel];
 
@@ -269,6 +271,7 @@ void Bus::doDMATransfer(int channel)
 			uint16_t halfword = read16(src,!firstAccess);
 			write16(dest, halfword,true);                               //same as above^^			
 		}
+		m_scheduler->tick();
 		firstAccess = false;
 		int incrementAmount = (wordTransfer) ? 4 : 2;
 
@@ -329,7 +332,8 @@ void Bus::doDMATransfer(int channel)
 	else
 		m_dmaChannels[channel].control &= 0x7FFF;	//clear DMA enable
 
-	dmaInProgress = false;
+	if(!dmaWasInProgress)
+		dmaInProgress = false;
 }
 
 void Bus::onVBlank()
