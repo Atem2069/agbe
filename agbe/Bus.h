@@ -24,7 +24,8 @@ struct DMAChannel
 
 struct OpenBus
 {
-	uint32_t bios;
+	uint32_t bios;	//bios open bus value
+	uint32_t mem;	//open bus for other unused mem
 };
 
 

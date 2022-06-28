@@ -46,7 +46,7 @@ Bus::~Bus()
 uint8_t Bus::read8(uint32_t address, bool seq)
 {
 	int cartCycles = 0;
-	uint8_t page = (address >> 24) & 0xF;
+	uint8_t page = (address >> 24) & 0xFF;
 	switch (page)
 	{
 	case 0: case 1:
@@ -54,7 +54,7 @@ uint8_t Bus::read8(uint32_t address, bool seq)
 		{
 			if (address <= 0x3FFF)
 				return m_openBusVals.bios;	//todo: account for the value being rotated properly
-			return 0;
+			return m_openBusVals.mem;
 		}
 		return m_mem->BIOS[address & 0x3FFF];
 	case 2:
@@ -87,13 +87,13 @@ uint8_t Bus::read8(uint32_t address, bool seq)
 	}
 
 	Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Out of bounds/invalid read addr={:#x}", address));
-	return 0;
+	return m_openBusVals.mem;
 }
 
 void Bus::write8(uint32_t address, uint8_t value, bool seq)
 {
 	int cartCycles = 0;
-	uint8_t page = (address >> 24) & 0xF;
+	uint8_t page = (address >> 24) & 0xFF;
 	switch (page)
 	{
 	case 0: case 1:
@@ -148,7 +148,7 @@ uint16_t Bus::read16(uint32_t address, bool seq)
 	int cartCycles = 0;
 	uint32_t originalAddress = address;
 	address &= 0xFFFFFFFE;
-	uint8_t page = (address >> 24) & 0xF;
+	uint8_t page = (address >> 24) & 0xFF;
 	switch (page)
 	{
 	case 0: case 1:
@@ -157,7 +157,7 @@ uint16_t Bus::read16(uint32_t address, bool seq)
 			if (address <= 0x3FFF)
 				return m_openBusVals.bios;	//todo: account for the value being rotated properly
 			Logger::getInstance()->msg(LoggerSeverity::Error, "Out of bounds BIOS read");
-			return 0;
+			return m_openBusVals.mem;
 		}
 		return getValue16(m_mem->BIOS, address & 0x3FFF, 0x3FFF);
 	case 2:
@@ -190,7 +190,7 @@ uint16_t Bus::read16(uint32_t address, bool seq)
 	}
 
 	Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Out of bounds/invalid read addr={:#x}", address));
-	return 0;
+	return m_openBusVals.mem;
 }
 
 void Bus::write16(uint32_t address, uint16_t value, bool seq)
@@ -198,7 +198,7 @@ void Bus::write16(uint32_t address, uint16_t value, bool seq)
 	int cartCycles = 0;
 	uint32_t originalAddress = address;
 	address &= 0xFFFFFFFE;
-	uint8_t page = (address >> 24) & 0xF;
+	uint8_t page = (address >> 24) & 0xFF;
 	switch (page)
 	{
 	case 0: case 1:
@@ -252,7 +252,7 @@ uint32_t Bus::read32(uint32_t address, bool seq)
 	int cartCycles = 0;
 	uint32_t originalAddress = address;
 	address &= 0xFFFFFFFC;
-	uint8_t page = (address >> 24) & 0xF;
+	uint8_t page = (address >> 24) & 0xFF;
 	switch (page)
 	{
 	case 0: case 1:
@@ -260,7 +260,7 @@ uint32_t Bus::read32(uint32_t address, bool seq)
 		{
 			if (address <= 0x3FFF)
 				return m_openBusVals.bios;
-			return 0;
+			return m_openBusVals.mem;
 		}
 		m_openBusVals.bios = getValue32(m_mem->BIOS, address & 0x3FFF, 0x3FFF);
 		return m_openBusVals.bios;
@@ -294,7 +294,7 @@ uint32_t Bus::read32(uint32_t address, bool seq)
 	}
 
 	Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Out of bounds/invalid read addr={:#x}", address));
-	return 0;
+	return m_openBusVals.mem;
 }
 
 void Bus::write32(uint32_t address, uint32_t value, bool seq)
@@ -302,7 +302,7 @@ void Bus::write32(uint32_t address, uint32_t value, bool seq)
 	int cartCycles = 0;
 	uint32_t originalAddress = address;
 	address &= 0xFFFFFFFC;
-	uint8_t page = (address >> 24) & 0xF;
+	uint8_t page = (address >> 24) & 0xFF;
 	switch (page)
 	{
 	case 0: case 1:
@@ -350,9 +350,10 @@ void Bus::write32(uint32_t address, uint32_t value, bool seq)
 uint32_t Bus::fetch32(uint32_t address, bool seq)
 {
 	biosLockout = false;
-	uint32_t val = read32(address,seq);	//not strictly correct. the first access (e.g. after a branch) isnt going to have sequential timing
+	uint32_t val = read32(address,seq);	
 	if(address>0x3FFF)
 		biosLockout = true;
+	m_openBusVals.mem = val;
 	return val;
 }
 
@@ -362,6 +363,9 @@ uint16_t Bus::fetch16(uint32_t address, bool seq)
 	uint16_t val = read16(address,seq);
 	if(address>0x3FFF)
 		biosLockout = true;
+	m_openBusVals.mem = val;
+	if ((address >> 1) & 0b1)
+		m_openBusVals.mem = std::rotr(m_openBusVals.mem, 8);	//hmm, if misaligned word address then rotate the fetched val?
 	return val;
 }
 
@@ -390,8 +394,7 @@ uint8_t Bus::readIO8(uint32_t address)
 	case 0x04000135:	//hack (tie top byte of rcnt to 0x80)
 		return 0x80;
 	}
-	Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Unimplemented IO read addr={:#x}", address));
-	return 0;
+	return m_openBusVals.mem >> ((address & 0b1)*8);
 }
 
 void Bus::writeIO8(uint32_t address, uint8_t value)
