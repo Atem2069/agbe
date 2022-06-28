@@ -189,6 +189,7 @@ void ARM7TDMI::Thumb_ALUOperations()
 		setReg(srcDestRegIdx, result);
 		setLogicalFlags(result, -1);	//hmm...
 		m_scheduler->addCycles(calculateMultiplyCycles(operand2, false, true) - 1);
+		nextFetchNonsequential = true;	//mul has internal cycles, so next fetch is forced nonsequential for some reason.
 		break;
 	case 14: //BIC
 		result = operand1 & (~operand2);
