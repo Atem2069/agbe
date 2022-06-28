@@ -13,7 +13,7 @@ Bus::Bus(std::vector<uint8_t> BIOS, std::vector<uint8_t> cartData, std::shared_p
 	m_eeprom = std::make_shared<EEPROM>();
 	m_flash = std::make_shared<Flash>();
 	m_ppu->registerMemory(m_mem);
-	m_ppu->registerDMACallbacks(&Bus::DMA_HBlankCallback, &Bus::DMA_VBlankCallback, (void*)this);
+	m_ppu->registerDMACallbacks(&Bus::DMA_HBlankCallback, &Bus::DMA_VBlankCallback, &Bus::DMA_VideoCaptureCallback, (void*)this);
 	if (BIOS.size() != 16384)
 	{
 		std::cout << BIOS.size() << '\n';

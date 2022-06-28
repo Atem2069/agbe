@@ -62,8 +62,10 @@ public:
 	void writeIO(uint32_t address, uint8_t value);
 
 	bool getShouldSync();
-	void registerDMACallbacks(callbackFn HBlank, callbackFn VBlank, void*ctx);
+	void registerDMACallbacks(callbackFn HBlank, callbackFn VBlank, callbackFn videoCapture, void*ctx);
 	static void onSchedulerEvent(void* context);
+
+	int getVCOUNT();
 
 private:
 	bool registered = false;
@@ -88,6 +90,7 @@ private:
 
 	callbackFn DMAHBlankCallback = nullptr;
 	callbackFn DMAVBlankCallback = nullptr;
+	callbackFn DMAVideoCaptureCallback = nullptr;
 	void* callbackContext = nullptr;
 	bool shouldSyncVideo = false;
 

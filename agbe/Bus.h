@@ -63,6 +63,7 @@ public:
 	static void DMA_VBlankCallback(void* context);
 	static void DMA_HBlankCallback(void* context);
 	static void DMA_ImmediateCallback(void* context);
+	static void DMA_VideoCaptureCallback(void* context);
 private:
 	std::shared_ptr<Scheduler> m_scheduler;
 	std::shared_ptr<GBAMem> m_mem;
@@ -101,6 +102,7 @@ private:
 	void onVBlank();
 	void onHBlank();
 	void onImmediate();
+	void onVideoCapture();
 
 	int waitstateNonsequentialTable[3] = {3,3,3};
 	int waitstateSequentialTable[3] = { 1,1,1 };

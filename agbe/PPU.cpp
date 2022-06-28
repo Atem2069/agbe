@@ -76,6 +76,8 @@ void PPU::HDraw()
 	if (((DISPSTAT >> 4) & 0b1))
 		m_interruptManager->requestInterrupt(InterruptType::HBlank);
 	DMAHBlankCallback(callbackContext);
+	if (VCOUNT >= 2)
+		DMAVideoCaptureCallback(callbackContext);
 
 	m_backgroundLayers[0].enabled = false;
 	m_backgroundLayers[1].enabled = false;
@@ -161,6 +163,8 @@ void PPU::VBlank()
 		vblank_setHblankBit = true;
 		expectedNextTimeStamp = (schedTimestamp + 226);
 		m_scheduler->addEvent(Event::PPU, &PPU::onSchedulerEvent, (void*)this, expectedNextTimeStamp);
+		if (VCOUNT < 162)
+			DMAVideoCaptureCallback(callbackContext);
 		return;
 	}
 
@@ -1402,10 +1406,11 @@ void PPU::writeIO(uint32_t address, uint8_t value)
 	}
 }
 
-void PPU::registerDMACallbacks(callbackFn HBlankCallback, callbackFn VBlankCallback, void* ctx)
+void PPU::registerDMACallbacks(callbackFn HBlankCallback, callbackFn VBlankCallback, callbackFn videoCapture, void* ctx)
 {
 	DMAHBlankCallback = HBlankCallback;
 	DMAVBlankCallback = VBlankCallback;
+	DMAVideoCaptureCallback = videoCapture;
 	callbackContext = ctx;
 }
 
@@ -1420,4 +1425,9 @@ void PPU::onSchedulerEvent(void* context)
 {
 	PPU* thisPtr = (PPU*)context;
 	thisPtr->eventHandler();
+}
+
+int PPU::getVCOUNT()
+{
+	return VCOUNT;
 }

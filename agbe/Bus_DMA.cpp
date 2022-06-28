@@ -262,12 +262,12 @@ void Bus::doDMATransfer(int channel)
 		if (wordTransfer)
 		{
 			uint32_t word = read32(src,!firstAccess);
-			write32(dest, word,true);									//hmm. first rom write is sequential?
+			write32(dest, word,true);									//hmm. first rom write is sequential?	
 		}
 		else
 		{
 			uint16_t halfword = read16(src,!firstAccess);
-			write16(dest, halfword,true);                               //same as above^^
+			write16(dest, halfword,true);                               //same as above^^			
 		}
 		firstAccess = false;
 		int incrementAmount = (wordTransfer) ? 4 : 2;
@@ -375,6 +375,21 @@ void Bus::onImmediate()
 	}
 }
 
+void Bus::onVideoCapture()	//special video capture dma used by dma3 (scanlines 2-162)
+{
+	uint16_t curCtrlReg = m_dmaChannels[3].control;
+	if ((curCtrlReg >> 15) & 0b1)
+	{
+		uint8_t startTiming = ((curCtrlReg >> 12) & 0b11);
+		if (startTiming == 3)
+		{
+			if (m_ppu->getVCOUNT() == 161)						//clear repeat bit if on the last scanline of dma
+				m_dmaChannels[3].control &= 0xFDFF;
+			doDMATransfer(3);
+		}
+	}
+}
+
 void Bus::DMA_VBlankCallback(void* context)
 {
 	Bus* thisPtr = (Bus*)context;
@@ -391,4 +406,10 @@ void Bus::DMA_ImmediateCallback(void* context)
 {
 	Bus* thisPtr = (Bus*)context;
 	thisPtr->onImmediate();
+}
+
+void Bus::DMA_VideoCaptureCallback(void* context)
+{
+	Bus* thisPtr = (Bus*)context;
+	thisPtr->onVideoCapture();
 }
