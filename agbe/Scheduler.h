@@ -20,7 +20,8 @@ enum class Event
 	TIMER2=3,
 	TIMER3=4,
 	DMA=5,
-	Frame=6
+	Serial=6,
+	Frame=7
 };
 
 class Scheduler
@@ -45,6 +46,6 @@ private:
 	uint64_t pendingCycles = 0;
 	uint64_t syncDelta = 0;
 	bool shouldSync = false;
-	SchedulerEntry entries[7];	//todo: add moree stuff to scheduler
-	const int NUM_ENTRIES = 7;
+	SchedulerEntry entries[8];	//todo: add moree stuff to scheduler
+	const int NUM_ENTRIES = 8;
 };

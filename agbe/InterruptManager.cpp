@@ -28,6 +28,8 @@ void InterruptManager::requestInterrupt(InterruptType type)
 		IF |= 0b100000; break;
 	case InterruptType::Timer3:
 		IF |= 0b1000000; break;
+	case InterruptType::Serial:
+		IF |= 0b10000000; break;
 	case InterruptType::DMA0:
 		IF |= 0b100000000; break;
 	case InterruptType::DMA1:

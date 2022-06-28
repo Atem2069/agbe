@@ -7,6 +7,7 @@ enum class InterruptType	//todo: more interrupt sources!
 	VBlank,
 	HBlank,
 	VCount,
+	Serial,
 	DMA0,
 	DMA1,
 	DMA2,

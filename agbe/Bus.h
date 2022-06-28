@@ -10,6 +10,7 @@
 #include"Flash.h"
 #include"Scheduler.h"
 #include"APU.h"
+#include"SerialStub.h"
 
 #include<iostream>
 
@@ -74,6 +75,7 @@ private:
 	std::shared_ptr<APU> m_apu;
 	std::shared_ptr<EEPROM> m_eeprom;
 	std::shared_ptr<Flash> m_flash;
+	std::shared_ptr<SerialStub> m_serial;
 
 	uint32_t romSize = 0;
 	OpenBus m_openBusVals = {};

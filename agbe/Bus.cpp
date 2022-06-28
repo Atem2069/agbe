@@ -12,6 +12,7 @@ Bus::Bus(std::vector<uint8_t> BIOS, std::vector<uint8_t> cartData, std::shared_p
 	m_apu = std::make_shared<APU>();
 	m_eeprom = std::make_shared<EEPROM>();
 	m_flash = std::make_shared<Flash>();
+	m_serial = std::make_shared<SerialStub>(m_scheduler, m_interruptManager);
 	m_ppu->registerMemory(m_mem);
 	m_ppu->registerDMACallbacks(&Bus::DMA_HBlankCallback, &Bus::DMA_VBlankCallback, &Bus::DMA_VideoCaptureCallback, (void*)this);
 	if (BIOS.size() != 16384)
@@ -387,6 +388,8 @@ uint8_t Bus::readIO8(uint32_t address)
 	{
 	case 0x04000200:case 0x04000201: case 0x04000202:  case 0x04000203: case 0x04000208: case 0x04000209: case 0x0400020A: case 0x0400020B:
 		return m_interruptManager->readIO(address);
+	case 0x04000120: case 0x04000121: case 0x04000122: case 0x04000123: case 0x0400012A: case 0x04000128: case 0x04000129:
+		return m_serial->readIO(address);
 	case 0x04000204:
 		return WAITCNT & 0xFF;
 	case 0x04000205:
@@ -429,6 +432,9 @@ void Bus::writeIO8(uint32_t address, uint8_t value)
 	case 0x04000200:case 0x04000201: case 0x04000202:  case 0x04000203: case 0x04000208: case 0x04000209: case 0x0400020A: case 0x0400020B:
 		m_interruptManager->writeIO(address,value);
 		return;
+	case 0x04000120: case 0x04000121: case 0x04000122: case 0x04000123: case 0x0400012A: case 0x04000128: case 0x04000129:
+		m_serial->writeIO(address, value);
+		break;
 	case 0x04000204:
 		WAITCNT &= 0xFF00; WAITCNT |= value;
 		return;
