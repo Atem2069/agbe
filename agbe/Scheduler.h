@@ -34,12 +34,14 @@ public:
 	void tick();
 	void jumpToNextEvent();
 	uint64_t getCurrentTimestamp();
+	uint64_t getEventTime();
 	void addEvent(Event type, callbackFn callback, void* context, uint64_t time);
 	void removeEvent(Event type);
 	void invalidateAll();
 private:
 	bool getEntryAtTimestamp(SchedulerEntry& entry);
 	uint64_t timestamp;
+	uint64_t eventTime;
 	uint64_t pendingCycles = 0;
 	uint64_t syncDelta = 0;
 	bool shouldSync = false;

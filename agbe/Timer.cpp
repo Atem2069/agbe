@@ -15,7 +15,7 @@ Timer::~Timer()
 
 void Timer::event()
 {
-	uint64_t currentTimestamp = m_scheduler->getCurrentTimestamp();
+	uint64_t currentTimestamp = m_scheduler->getEventTime();
 	for (int i = 0; i < 4; i++)
 	{
 		uint8_t ctrlreg = m_timers[i].CNT_H;
@@ -51,8 +51,8 @@ uint8_t Timer::readIO(uint32_t address)
 
 	bool cascade = (m_timers[timerIdx].CNT_H >> 2) & 0b1;
 	if (cascade)
-		this->event();	//hehe
-
+		m_scheduler->tick();	//hehe - the aging cart cascade test requires quite tight timing, so force all pending events to fire first 
+								//some pending timer events may occur too late otherwise, which means we fail :(
 	switch (addrOffset)
 	{
 	case 0:

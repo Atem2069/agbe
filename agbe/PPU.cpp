@@ -29,7 +29,7 @@ void PPU::registerMemory(std::shared_ptr<GBAMem> mem)
 
 void PPU::eventHandler()
 {
-	uint64_t schedTimestamp = m_scheduler->getCurrentTimestamp();
+	uint64_t schedTimestamp = m_scheduler->getEventTime();
 
 	switch (m_state)
 	{
@@ -85,7 +85,7 @@ void PPU::HDraw()
 
 void PPU::HBlank()
 {
-	uint64_t schedTimestamp = m_scheduler->getCurrentTimestamp();
+	uint64_t schedTimestamp = m_scheduler->getEventTime();
 	//todo: check timing of when exactly hblank flag/interrupt set
 
 	if (!hblank_flagSet)	//now set hblank flag, at cycle 1006!
@@ -147,7 +147,7 @@ void PPU::HBlank()
 
 void PPU::VBlank()
 {
-	uint64_t schedTimestamp = m_scheduler->getCurrentTimestamp();
+	uint64_t schedTimestamp = m_scheduler->getEventTime();
 	m_lineCycles = 0;
 	m_state=PPUState::VBlank;
 

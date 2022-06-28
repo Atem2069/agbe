@@ -30,7 +30,6 @@ void Scheduler::forceSync(uint64_t delta)
 
 void Scheduler::tick()
 {
-	uint64_t tempTimestamp = timestamp;
 	SchedulerEntry entry = {};
 	pendingCycles=0;
 	while (getEntryAtTimestamp(entry))
@@ -38,10 +37,9 @@ void Scheduler::tick()
 		//getEntryAtTimestamp will already disable the entry, so it won't fire until re-scheduled!
 		if (entry.callback && entry.context)
 		{
-			timestamp = entry.timestamp;
+			eventTime = entry.timestamp;
 			entry.callback(entry.context);	//dereferencing nullptr? you sure vs??
 		}
-		timestamp = tempTimestamp + pendingCycles;
 		pendingCycles = 0;
 	}
 }
@@ -60,6 +58,7 @@ void Scheduler::jumpToNextEvent()
 	}
 
 	timestamp = entries[lowestEntryIdx].timestamp;
+	eventTime = timestamp;
 	entries[lowestEntryIdx].enabled = false;
 	entries[lowestEntryIdx].callback(entries[lowestEntryIdx].context);
 }
@@ -67,6 +66,11 @@ void Scheduler::jumpToNextEvent()
 uint64_t Scheduler::getCurrentTimestamp()
 {
 	return timestamp;
+}
+
+uint64_t Scheduler::getEventTime()
+{
+	return eventTime;
 }
 
 void Scheduler::addEvent(Event type, callbackFn callback, void* context, uint64_t time)
@@ -103,6 +107,7 @@ bool Scheduler::getEntryAtTimestamp(SchedulerEntry& entry)
 void Scheduler::invalidateAll()
 {
 	timestamp = 0;
+	eventTime = 0;
 	for (int i = 0; i < NUM_ENTRIES; i++)
 		entries[i].enabled = false;
 }

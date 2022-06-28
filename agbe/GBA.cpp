@@ -50,10 +50,10 @@ void GBA::frameEventHandler()
 	}
 	m_lastTime = curTime;
 
-	uint64_t curTicks = m_scheduler->getCurrentTimestamp();
+	uint64_t curTicks = m_scheduler->getEventTime();
 	uint64_t tickDiff = curTicks - expectedNextFrame;
 	expectedNextFrame = (curTicks + 280896) - tickDiff;
-	m_scheduler->addEvent(Event::Frame, &GBA::onEvent, (void*)this, expectedNextFrame);
+	m_scheduler->addEvent(Event::Frame, &GBA::onEvent, (void*)this, curTicks+280896);
 
 	m_input->tick();
 
