@@ -38,6 +38,8 @@ void InterruptManager::requestInterrupt(InterruptType type)
 		IF |= 0b10000000000; break;
 	case InterruptType::DMA3:
 		IF |= 0b100000000000; break;
+	case InterruptType::Keypad:
+		IF |= 0b1000000000000; break;
 
 	}
 }

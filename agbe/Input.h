@@ -3,6 +3,7 @@
 #include<iostream>
 #include"Logger.h"
 #include"Scheduler.h"
+#include"InterruptManager.h"
 
 union InputState
 {
@@ -35,12 +36,17 @@ public:
 	~Input();
 
 	void registerInput(std::shared_ptr<InputState> inputState);
+	void registerInterrupts(std::shared_ptr<InterruptManager> interruptManager);
 
 	uint8_t readIORegister(uint32_t address);
 	void writeIORegister(uint32_t address, uint8_t value);
 	void tick();
 private:
+	void checkIRQ();
+
 	std::shared_ptr<InputState> m_inputState;
+	std::shared_ptr<InterruptManager> m_interruptManager;
 	uint64_t lastEventTime = 0;
 	uint16_t keyInput = 0;
+	uint16_t KEYCNT = 0;
 };

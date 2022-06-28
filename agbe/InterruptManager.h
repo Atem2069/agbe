@@ -15,7 +15,8 @@ enum class InterruptType	//todo: more interrupt sources!
 	Timer0,
 	Timer1,
 	Timer2,
-	Timer3
+	Timer3,
+	Keypad
 };
 
 class InterruptManager

@@ -13,6 +13,13 @@ Input::~Input()
 void Input::registerInput(std::shared_ptr<InputState> inputState)
 {
 	m_inputState = inputState;
+	keyInput = 0xFFFF;
+	KEYCNT = 0;
+}
+
+void Input::registerInterrupts(std::shared_ptr<InterruptManager> interruptManager)
+{
+	m_interruptManager = interruptManager;
 }
 
 void Input::tick()
@@ -23,15 +30,44 @@ void Input::tick()
 
 uint8_t Input::readIORegister(uint32_t address)
 {
-	if (address == 0x04000130)
+	switch (address)
+	{
+	case 0x04000130:
 		return keyInput & 0xFF;
-	if (address == 0x04000131)
+	case 0x04000131:
 		return ((keyInput >> 8) & 0xFF);
-
-	//Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Invalid/unmapped IO given - {:#x}", address));
+	case 0x04000132:
+		return KEYCNT & 0xFF;
+	case 0x04000133:
+		return ((KEYCNT >> 8) & 0xFF);
+	}
 }
 
 void Input::writeIORegister(uint32_t address, uint8_t value)
 {
-	//Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Unimplemented joypad write {:#x}", address));
+	switch (address)
+	{
+	case 0x04000132:
+		KEYCNT &= 0xFF00; KEYCNT |= value;
+		break;
+	case 0x04000133:
+		KEYCNT &= 0xFF; KEYCNT |= (value << 8);
+		checkIRQ();
+		break;
+	}
+}
+
+void Input::checkIRQ()
+{
+	bool irqEnabled = ((KEYCNT >> 14) & 0b1);
+	if (!irqEnabled)
+		return;
+	bool irqMode = ((KEYCNT >> 15) & 0b1);
+
+	bool shouldDoIRQ = (((~keyInput) & 0x3FF) | (KEYCNT & 0x3FF));
+	if (irqMode)
+		shouldDoIRQ = (((~keyInput) & 0x3FF) == (KEYCNT & 0x3FF));
+
+	if (shouldDoIRQ)
+		m_interruptManager->requestInterrupt(InterruptType::Keypad);
 }
