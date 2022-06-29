@@ -134,6 +134,8 @@ private:
 	int prefetchStart = 0, prefetchEnd = 0;
 	bool prefetchInProgress = false;
 
+	uint16_t getPrefetchedValue(uint32_t pc);
+
 	uint64_t prefetchInternalCycles = 0;
 	uint32_t prefetchAddress = 0;
 };

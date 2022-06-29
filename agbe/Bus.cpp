@@ -412,7 +412,7 @@ uint32_t Bus::fetch32(uint32_t address, AccessType accessType)
 		uint16_t valHigh = fetch16(address + 2, accessType);
 		val = ((valHigh << 16) | valLow);
 		m_openBusVals.mem = val;
-		m_scheduler->addCycles(1);
+		m_scheduler->addCycles(1);		//extra S cycle bc the access is split into two 16 bit prefetch buffer reads
 		return val;
 	}
 	val = read32(address,accessType);
@@ -434,31 +434,12 @@ uint16_t Bus::fetch16(uint32_t address, AccessType accessType)
 	if (address < 0x08000000 || address > 0x0DFFFFFF)
 		invalidatePrefetchBuffer();
 	uint16_t val = 0;
-	if (prefetchEnabled && prefetchInProgress)
-	{
-		if (prefetchSize > 0)
-		{
-			val = m_prefetchBuffer[prefetchStart].value;
-			if (address != m_prefetchBuffer[prefetchStart].address)
-				std::cout << "prefetch mismatch - expected addr=" << std::hex << address << " one in buffer=" << m_prefetchBuffer[prefetchStart].address << '\n';
-			prefetchStart = (prefetchStart + 1) & 7;
-			prefetchSize--;
-		}
-		else
-		{
-			uint8_t page = (address >> 24) & 0xFF;
-			uint64_t waitstates = waitstateSequentialTable[((page - 8) >> 1)];
-			m_scheduler->addCycles(waitstates - prefetchInternalCycles);
-			invalidatePrefetchBuffer();
-			prefetchInProgress = true;
-			prefetchAddress = address + 2;
-			val = read16(address, AccessType::Prefetch);
-		}
-	}
+	if (prefetchEnabled && prefetchInProgress)	//nice, we can just read the prefetch buffer
+		val = getPrefetchedValue(address);
 	else
 	{
 		val = read16(address, accessType);
-		if (accessType == AccessType::Nonsequential && prefetchEnabled && !prefetchInProgress && address >= 0x08000000 && address <= 0x0DFFFFFF)
+		if (accessType == AccessType::Nonsequential && prefetchEnabled && !prefetchInProgress && address >= 0x08000000 && address <= 0x0DFFFFFF)	//this sucks. but starts burst transfer
 		{
 			invalidatePrefetchBuffer();
 			prefetchInProgress = true;
@@ -470,6 +451,28 @@ uint16_t Bus::fetch16(uint32_t address, AccessType accessType)
 	m_openBusVals.mem = val;
 	if ((address >> 1) & 0b1)
 		m_openBusVals.mem = std::rotr(m_openBusVals.mem, 8);	//hmm, if misaligned word address then rotate the fetched val?
+	return val;
+}
+
+uint16_t Bus::getPrefetchedValue(uint32_t pc)
+{
+	uint16_t val = 0;
+	if (prefetchSize > 0)	//if value in prefetch buffer, then just get it
+	{
+		val = m_prefetchBuffer[prefetchStart].value;
+		prefetchStart = (prefetchStart + 1) & 7;
+		prefetchSize--;
+	}
+	else					//otherwise we'll wait for the prefetch buffer to get it, then reset the buffer (but keep burst going)
+	{
+		uint8_t page = (pc >> 24) & 0xFF;
+		uint64_t waitstates = waitstateSequentialTable[((page - 8) >> 1)];
+		m_scheduler->addCycles(waitstates - prefetchInternalCycles);
+		invalidatePrefetchBuffer();
+		prefetchInProgress = true;
+		prefetchAddress = pc + 2;
+		val = read16(pc, AccessType::Prefetch);
+	}
 	return val;
 }
 
