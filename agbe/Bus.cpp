@@ -297,7 +297,7 @@ uint32_t Bus::read32(uint32_t address, AccessType accessType)
 		return m_openBusVals.bios;
 	case 2:
 		m_scheduler->addCycles(5);	//5 bc first access is 2 waitstates, then another access happens which is 1S + 2 waitstates
-		tickPrefetcher(5);
+		tickPrefetcher(6);
 		return getValue32(m_mem->externalWRAM, address & 0x3FFFF,0x3FFFF);
 	case 3:
 		tickPrefetcher(1);
@@ -343,30 +343,37 @@ void Bus::write32(uint32_t address, uint32_t value, AccessType accessType)
 	switch (page)
 	{
 	case 0: case 1:
+		tickPrefetcher(1);
 		Logger::getInstance()->msg(LoggerSeverity::Error, "Tried to write to BIOS!!");
 		break;
 	case 2:
 		m_scheduler->addCycles(5);
+		tickPrefetcher(6);
 		setValue32(m_mem->externalWRAM, address & 0x3FFFF, 0x3FFFF, value);
 		break;
 	case 3:
+		tickPrefetcher(1);
 		setValue32(m_mem->internalWRAM, address & 0x7FFF, 0x7FFF, value);
 		break;
 	case 4:
+		tickPrefetcher(1);
 		writeIO32(address, value);
 		break;
 	case 5:
 		m_scheduler->addCycles(1);
+		tickPrefetcher(1);
 		setValue32(m_mem->paletteRAM, address & 0x3FF, 0x3FF, value);
 		break;
 	case 6:
 		m_scheduler->addCycles(1);
+		tickPrefetcher(1);
 		address = address & 0x1FFFF;
 		if (address >= 0x18000)
 			address -= 32768;
 		setValue32(m_mem->VRAM, address, 0xFFFFFFFF, value);
 		break;
 	case 7:
+		tickPrefetcher(1);
 		setValue32(m_mem->OAM, address & 0x3FF, 0x3FF, value);
 		break;
 	case 8: case 9: case 0xA: case 0xB: case 0xC: case 0xD:
@@ -396,7 +403,7 @@ uint32_t Bus::fetch32(uint32_t address, AccessType accessType)
 		uint16_t valHigh = fetch16(address + 2, accessType);
 		val = ((valHigh << 16) | valLow);
 		m_openBusVals.mem = val;
-		m_scheduler->addCycles(2);	//this probably shouldn't be 2. lol
+		m_scheduler->addCycles(1);	//this probably shouldn't be 2. lol
 		return val;
 	}
 	val = read32(address,accessType);
@@ -430,7 +437,7 @@ uint16_t Bus::fetch16(uint32_t address, AccessType accessType)
 		{
 			uint8_t page = (address >> 24) & 0xFF;
 			uint64_t waitstates = waitstateSequentialTable[((page - 8) >> 1)];
-			m_scheduler->addCycles(waitstates - prefetchInternalCycles - 1);	//this -1 is wrong lol. I must have screwed cycle counting up somewhere
+			m_scheduler->addCycles(waitstates - prefetchInternalCycles);	//this -1 is wrong lol. I must have screwed cycle counting up somewhere
 			invalidatePrefetchBuffer();
 			prefetchInProgress = true;
 			prefetchAddress = address + 2;
