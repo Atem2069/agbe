@@ -85,8 +85,13 @@ void Timer::writeIO(uint32_t address, uint8_t value)
 		bool timerWasEnabled = (m_timers[timerIdx].CNT_H >> 7) & 0b1;
 		bool timerNowEnabled = (value >> 7) & 0b1;
 		bool countup = ((value >> 2) & 0b1);
+		bool wasCountup = (m_timers[timerIdx].CNT_H >> 2) & 0b1;
 		uint8_t oldPrescalerSetting = m_timers[timerIdx].CNT_H & 0b11;
 		uint8_t newPrescalerSetting = value & 0b11;
+
+		if ((timerWasEnabled && !timerNowEnabled) || (!wasCountup && countup))
+			setCurrentClock(timerIdx, oldPrescalerSetting);
+
 		m_timers[timerIdx].CNT_H &= 0xFF00; m_timers[timerIdx].CNT_H |= value;
 
 		if (timerIdx == 0)
