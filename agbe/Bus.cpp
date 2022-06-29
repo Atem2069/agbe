@@ -51,6 +51,7 @@ uint8_t Bus::read8(uint32_t address, AccessType accessType)
 	switch (page)
 	{
 	case 0: case 1:
+		tickPrefetcher(1);
 		if ((address >= 0x4000) || biosLockout)
 		{
 			if (address <= 0x3FFF)
@@ -60,19 +61,25 @@ uint8_t Bus::read8(uint32_t address, AccessType accessType)
 		return m_mem->BIOS[address & 0x3FFF];
 	case 2:
 		m_scheduler->addCycles(2);
+		tickPrefetcher(3);
 		return m_mem->externalWRAM[address & 0x3FFFF];
 	case 3:
+		tickPrefetcher(1);
 		return m_mem->internalWRAM[address & 0x7FFF];
 	case 4:
+		tickPrefetcher(1);
 		return readIO8(address);
 	case 5:
+		tickPrefetcher(1);
 		return m_mem->paletteRAM[address & 0x3FF];
 	case 6:
+		tickPrefetcher(1);
 		address = address & 0x1FFFF;
 		if (address >= 0x18000)
 			address -= 32768;
 		return m_mem->VRAM[address];
 	case 7:
+		tickPrefetcher(1);
 		return m_mem->OAM[address & 0x3FF];
 	case 8: case 9: case 0xA: case 0xB: case 0xC: case 0xD:	//need to do this better (different waitstates will have different timings)
 		cartCycles = ((accessType==AccessType::Sequential) && ((address & 0x1FF) != 0)) ? waitstateSequentialTable[((page - 8) >> 1)] : waitstateNonsequentialTable[((page - 8) >> 1)];
@@ -98,23 +105,29 @@ void Bus::write8(uint32_t address, uint8_t value, AccessType accessType)
 	switch (page)
 	{
 	case 0: case 1:
+		tickPrefetcher(1);
 		Logger::getInstance()->msg(LoggerSeverity::Error, "Tried to write to BIOS region");
 		break;
 	case 2:
 		m_scheduler->addCycles(2);
+		tickPrefetcher(3);
 		m_mem->externalWRAM[address & 0x3FFFF] = value;
 		break;
 	case 3:
+		tickPrefetcher(1);
 		m_mem->internalWRAM[address & 0x7FFF] = value;
 		break;
 	case 4:
+		tickPrefetcher(1);
 		writeIO8(address, value);
 		break;
 	case 5:
+		tickPrefetcher(1);
 		m_mem->paletteRAM[address & 0x3FF] = value;
 		m_mem->paletteRAM[(address + 1) & 0x3FF] = value;
 		break;
 	case 6:
+		tickPrefetcher(1);
 		address = address & 0x1FFFF;
 		if (address >= 0x18000)
 			address -= 32768;
@@ -122,6 +135,7 @@ void Bus::write8(uint32_t address, uint8_t value, AccessType accessType)
 		m_mem->VRAM[address + 1] = value;
 		break;
 	case 7:
+		tickPrefetcher(1);
 		Logger::getInstance()->msg(LoggerSeverity::Error, "Ignore obj write");
 		break;
 	case 8: case 9: case 0xA: case 0xB: case 0xC: case 0xD:
@@ -153,6 +167,7 @@ uint16_t Bus::read16(uint32_t address, AccessType accessType)
 	switch (page)
 	{
 	case 0: case 1:
+		tickPrefetcher(1);
 		if ((address > 0x3FFF) || biosLockout)
 		{
 			if (address <= 0x3FFF)
@@ -163,23 +178,30 @@ uint16_t Bus::read16(uint32_t address, AccessType accessType)
 		return getValue16(m_mem->BIOS, address & 0x3FFF, 0x3FFF);
 	case 2:
 		m_scheduler->addCycles(2);
+		tickPrefetcher(3);
 		return getValue16(m_mem->externalWRAM, address & 0x3FFFF, 0x3FFFF);
 	case 3:
+		tickPrefetcher(1);
 		return getValue16(m_mem->internalWRAM, address & 0x7FFF, 0x7FFF);
 	case 4:
+		tickPrefetcher(1);
 		return readIO16(address);
 	case 5:
+		tickPrefetcher(1);
 		return getValue16(m_mem->paletteRAM, address & 0x3FF,0x3FF);
 	case 6:
+		tickPrefetcher(1);
 		address = address & 0x1FFFF;
 		if (address >= 0x18000)
 			address -= 32768;
 		return getValue16(m_mem->VRAM, address,0xFFFFFFFF);
 	case 7:
+		tickPrefetcher(1);
 		return getValue16(m_mem->OAM, address & 0x3FF,0x3FF);
 	case 8: case 9: case 0xA: case 0xB: case 0xC: case 0xD:
 		cartCycles = ((accessType==AccessType::Sequential) && ((address & 0x1FF) != 0)) ? waitstateSequentialTable[((page - 8) >> 1)] : waitstateNonsequentialTable[((page - 8) >> 1)];
-		m_scheduler->addCycles(cartCycles);
+		if(accessType != AccessType::Prefetch)
+			m_scheduler->addCycles(cartCycles);
 		if (address >= 0x0D000000 && address <= 0x0DFFFFFF)		//not strictly accurate, bc not like the cart will always have eeprom
 			return m_eeprom->read(address);
 		if ((address & 0x01FFFFFF) >= romSize)
@@ -203,28 +225,35 @@ void Bus::write16(uint32_t address, uint16_t value, AccessType accessType)
 	switch (page)
 	{
 	case 0: case 1:
+		tickPrefetcher(1);
 		Logger::getInstance()->msg(LoggerSeverity::Error, "Tried to write to BIOS!!");
 		break;
 	case 2:
 		m_scheduler->addCycles(2);
+		tickPrefetcher(3);
 		setValue16(m_mem->externalWRAM, address & 0x3FFFF, 0x3FFFF, value);
 		break;
 	case 3:
+		tickPrefetcher(1);
 		setValue16(m_mem->internalWRAM, address & 0x7FFF, 0x7FFF, value);
 		break;
 	case 4:
+		tickPrefetcher(1);
 		writeIO16(address, value);
 		break;
 	case 5:
+		tickPrefetcher(1);
 		setValue16(m_mem->paletteRAM, address & 0x3FF, 0x3FF, value);
 		break;
 	case 6:
+		tickPrefetcher(1);
 		address = address & 0x1FFFF;
 		if (address >= 0x18000)
 			address -= 32768;
 		setValue16(m_mem->VRAM, address, 0xFFFFFFFF, value);
 		break;
 	case 7:
+		tickPrefetcher(1);
 		setValue16(m_mem->OAM, address & 0x3FF, 0x3FF, value);
 		break;
 	case 8: case 9: case 0xA: case 0xB: case 0xC: case 0xD:
@@ -257,6 +286,7 @@ uint32_t Bus::read32(uint32_t address, AccessType accessType)
 	switch (page)
 	{
 	case 0: case 1:
+		tickPrefetcher(1);
 		if ((address > 0x3FFF) || biosLockout)
 		{
 			if (address <= 0x3FFF)
@@ -267,21 +297,27 @@ uint32_t Bus::read32(uint32_t address, AccessType accessType)
 		return m_openBusVals.bios;
 	case 2:
 		m_scheduler->addCycles(5);	//5 bc first access is 2 waitstates, then another access happens which is 1S + 2 waitstates
+		tickPrefetcher(5);
 		return getValue32(m_mem->externalWRAM, address & 0x3FFFF,0x3FFFF);
 	case 3:
+		tickPrefetcher(1);
 		return getValue32(m_mem->internalWRAM, address & 0x7FFF,0x7FFF);
 	case 4:
+		tickPrefetcher(1);
 		return readIO32(address);
 	case 5:
 		m_scheduler->addCycles(1);
+		tickPrefetcher(2);
 		return getValue32(m_mem->paletteRAM, address & 0x3FF,0x3FF);
 	case 6:
 		m_scheduler->addCycles(1);
+		tickPrefetcher(2);
 		address = address & 0x1FFFF;
 		if (address >= 0x18000)
 			address -= 32768;
 		return getValue32(m_mem->VRAM, address,0xFFFFFFFF);
 	case 7:
+		tickPrefetcher(1);
 		return getValue32(m_mem->OAM, address & 0x3FF,0x3FF);
 	case 8: case 9: case 0xA: case 0xB: case 0xC: case 0xD:
 		cartCycles = ((accessType==AccessType::Sequential) && ((address & 0x1FF) != 0)) ? waitstateSequentialTable[((page - 8) >> 1)] : waitstateNonsequentialTable[((page - 8) >> 1)];
@@ -351,7 +387,25 @@ void Bus::write32(uint32_t address, uint32_t value, AccessType accessType)
 uint32_t Bus::fetch32(uint32_t address, AccessType accessType)
 {
 	biosLockout = false;
-	uint32_t val = read32(address,accessType);	
+	if (accessType == AccessType::Nonsequential && prefetchEnabled && !prefetchInProgress && address >= 0x08000000 && address <= 0x0DFFFFFF)
+	{
+		invalidatePrefetchBuffer();
+		prefetchInProgress = true;
+		prefetchAddress = address + 4;
+	}
+	if (address < 0x08000000 || address > 0x0DFFFFFF)
+		invalidatePrefetchBuffer();
+	uint32_t val = 0;
+	if (prefetchEnabled && prefetchInProgress)
+	{
+		uint16_t valLow = fetch16(address, accessType);
+		uint16_t valHigh = fetch16(address + 2, accessType);
+		val = ((valHigh << 16) | valLow);
+		m_openBusVals.mem = val;
+		m_scheduler->addCycles(1);
+		return val;
+	}
+	val = read32(address,accessType);	
 	if(address>0x3FFF)
 		biosLockout = true;
 	m_openBusVals.mem = val;
@@ -361,7 +415,36 @@ uint32_t Bus::fetch32(uint32_t address, AccessType accessType)
 uint16_t Bus::fetch16(uint32_t address, AccessType accessType)
 {
 	biosLockout = false;
-	uint16_t val = read16(address,accessType);
+	if (accessType == AccessType::Nonsequential && prefetchEnabled && !prefetchInProgress && address >= 0x08000000 && address <= 0x0DFFFFFF)
+	{
+		invalidatePrefetchBuffer();
+		prefetchInProgress = true;
+		prefetchAddress = address + 2;
+	}
+	if (address < 0x08000000 || address > 0x0DFFFFFF)
+		invalidatePrefetchBuffer();
+	uint16_t val = 0;
+	if (prefetchEnabled && prefetchInProgress)
+	{
+		if (prefetchSize > 0)
+		{
+			val = m_prefetchBuffer[prefetchStart].value;
+			prefetchStart = (prefetchStart + 1) & 7;
+			prefetchSize--;
+		}
+		else
+		{
+			uint8_t page = (address >> 24) & 0xFF;
+			uint64_t waitstates = waitstateSequentialTable[((page - 8) >> 1)];
+			m_scheduler->addCycles(waitstates - prefetchInternalCycles - 1);	//this -1 is wrong lol. I must have screwed cycle counting up somewhere
+			invalidatePrefetchBuffer();
+			prefetchInProgress = true;
+			prefetchAddress = address + 2;
+			val = read16(address, AccessType::Prefetch);
+		}
+	}
+	else
+		val = read16(address,accessType);
 	if(address>0x3FFF)
 		biosLockout = true;
 	m_openBusVals.mem = val;
@@ -448,6 +531,7 @@ void Bus::writeIO8(uint32_t address, uint8_t value)
 		waitstateSequentialTable[1] = ((WAITCNT >> 7) & 0b1) ? 1 : 4;
 		waitstateSequentialTable[2] = ((WAITCNT >> 10) & 0b1) ? 1 : 8;
 		SRAMCycles = nonseqLUT[(WAITCNT & 0b11)];
+		prefetchEnabled = ((WAITCNT >> 14) & 0b1);
 
 		return;
 	case 0x04000301:
@@ -537,4 +621,35 @@ void Bus::setByteInHalfword(uint16_t* halfword, uint8_t byte, int pos)
 	tmp &= mask;
 	tmp |= (byte << (pos * 8));
 	*halfword = tmp;
+}
+
+void Bus::tickPrefetcher(uint64_t cycles)
+{
+	uint8_t page = (prefetchAddress >> 24) & 0xFF;
+	uint64_t waitstates = waitstateSequentialTable[((page - 8) >> 1)];
+	if (prefetchInProgress && prefetchEnabled && !dmaInProgress)
+	{
+		prefetchInternalCycles += cycles;
+		while (prefetchInternalCycles >= waitstates)
+		{
+			prefetchInternalCycles -= waitstates;
+			uint16_t val = read16(prefetchAddress, AccessType::Prefetch);
+			if (prefetchSize < 8)
+			{
+				m_prefetchBuffer[prefetchEnd] = { prefetchAddress,val };
+				prefetchEnd = (prefetchEnd + 1) & 7;
+				prefetchSize++;
+				prefetchAddress += 2;
+			}
+		}
+	}
+}
+
+void Bus::invalidatePrefetchBuffer()
+{
+	prefetchInProgress = false;
+	prefetchStart = 0;
+	prefetchEnd = 0;
+	prefetchSize = 0;
+	prefetchInternalCycles = 0;
 }

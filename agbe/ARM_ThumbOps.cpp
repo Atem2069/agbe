@@ -189,6 +189,7 @@ void ARM7TDMI::Thumb_ALUOperations()
 		setReg(srcDestRegIdx, result);
 		setLogicalFlags(result, -1);	//hmm...
 		m_scheduler->addCycles(calculateMultiplyCycles(operand2, false, true) - 1);
+		m_bus->tickPrefetcher(calculateMultiplyCycles(operand2, false, true) - 1);
 		nextFetchNonsequential = true;	//mul has internal cycles, so next fetch is forced nonsequential for some reason.
 		break;
 	case 14: //BIC
@@ -269,6 +270,7 @@ void ARM7TDMI::Thumb_PCRelativeLoad()
 	uint32_t val = m_bus->read32(PC + offset, AccessType::Nonsequential);
 	setReg(destRegIdx, val);
 	m_scheduler->addCycles(5);	//probs right? 1s+1n+1i for ldr, then 1s+1n for loading pc
+	m_bus->tickPrefetcher(1);
 	nextFetchNonsequential = true;
 }
 
@@ -298,6 +300,7 @@ void ARM7TDMI::Thumb_LoadStoreRegisterOffset()
 			setReg(srcDestRegIdx, val);
 		}
 		m_scheduler->addCycles(3);
+		m_bus->tickPrefetcher(1);
 	}
 	else			//store
 	{
@@ -339,6 +342,7 @@ void ARM7TDMI::Thumb_LoadStoreSignExtended()
 			val = std::rotr(val, 8);
 		setReg(srcDestRegIdx, val);
 		m_scheduler->addCycles(3);
+		m_bus->tickPrefetcher(1);
 	}
 	else if (op == 1)	//load sign extended byte
 	{
@@ -347,6 +351,7 @@ void ARM7TDMI::Thumb_LoadStoreSignExtended()
 			val |= 0xFFFFFF00;
 		setReg(srcDestRegIdx, val);
 		m_scheduler->addCycles(3);
+		m_bus->tickPrefetcher(1);
 	}
 	else if (op == 3)   //load sign extended halfword
 	{
@@ -365,6 +370,7 @@ void ARM7TDMI::Thumb_LoadStoreSignExtended()
 		}
 		setReg(srcDestRegIdx, val);
 		m_scheduler->addCycles(3);
+		m_bus->tickPrefetcher(1);
 	}
 	nextFetchNonsequential = true;
 }
@@ -395,6 +401,7 @@ void ARM7TDMI::Thumb_LoadStoreImmediateOffset()
 		}
 		setReg(srcDestRegIdx, val);
 		m_scheduler->addCycles(3);
+		m_bus->tickPrefetcher(1);
 	}
 	else			//Store value to memory
 	{
@@ -428,6 +435,7 @@ void ARM7TDMI::Thumb_LoadStoreHalfword()
 			val = std::rotr(val, 8);
 		setReg(srcDestRegIdx, val);
 		m_scheduler->addCycles(3);
+		m_bus->tickPrefetcher(1);
 	}
 	else
 	{
@@ -454,6 +462,7 @@ void ARM7TDMI::Thumb_SPRelativeLoadStore()
 			val = std::rotr(val, (addr & 3) * 8);
 		setReg(destRegIdx, val);
 		m_scheduler->addCycles(3);
+		m_bus->tickPrefetcher(1);
 	}
 	else
 	{
@@ -485,6 +494,7 @@ void ARM7TDMI::Thumb_LoadAddress()
 		setReg(destRegIdx, PC);
 	}
 	m_scheduler->addCycles(3);	//probs right?
+	m_bus->tickPrefetcher(1);
 	nextFetchNonsequential = true;
 }
 
@@ -535,6 +545,7 @@ void ARM7TDMI::Thumb_PushPopRegisters()
 			m_scheduler->addCycles(1);
 		}
 		m_scheduler->addCycles(transferCount + 2);
+		m_bus->tickPrefetcher(1);
 
 	}
 	else          //Store - i.e. push to stack
@@ -613,6 +624,7 @@ void ARM7TDMI::Thumb_MultipleLoadStore()
 			regList >>= 1;	//shift one to the right to check next register
 		}
 		m_scheduler->addCycles(transferCount + 2);
+		m_bus->tickPrefetcher(1);
 	}
 	else			//STMIA
 	{

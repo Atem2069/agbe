@@ -126,6 +126,7 @@ void ARM7TDMI::flushPipeline()
 	m_pipelinePtr = 0;
 	m_pipelineFlushed = true;
 	nextFetchNonsequential = true;
+	m_bus->invalidatePrefetchBuffer();
 }
 
 bool ARM7TDMI::checkConditions(uint8_t code)

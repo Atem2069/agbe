@@ -32,7 +32,14 @@ struct OpenBus
 enum class AccessType
 {
 	Nonsequential=0,
-	Sequential=1
+	Sequential=1,
+	Prefetch				//this access takes zero waitstates to complete (we assume those waitstates already ticked in i-cycles or mem accesses)
+};
+
+struct PrefetchEntry
+{
+	uint32_t address;
+	uint16_t value;
 };
 
 
@@ -71,6 +78,9 @@ public:
 	static void DMA_HBlankCallback(void* context);
 	static void DMA_ImmediateCallback(void* context);
 	static void DMA_VideoCaptureCallback(void* context);
+
+	void tickPrefetcher(uint64_t cycles);
+	void invalidatePrefetchBuffer();
 private:
 	std::shared_ptr<Scheduler> m_scheduler;
 	std::shared_ptr<GBAMem> m_mem;
@@ -115,6 +125,15 @@ private:
 	int waitstateNonsequentialTable[3] = {3,3,3};
 	int waitstateSequentialTable[3] = { 1,1,1 };
 	int SRAMCycles = 8;
+	bool prefetchEnabled = false;
 
 	const int nonseqLUT[4] = { 4,3,2,8 };
+
+	PrefetchEntry m_prefetchBuffer[8] = {};
+	int prefetchSize = 0;
+	int prefetchStart = 0, prefetchEnd = 0;
+	bool prefetchInProgress = false;
+
+	uint64_t prefetchInternalCycles = 0;
+	uint32_t prefetchAddress = 0;
 };

@@ -61,6 +61,7 @@ void ARM7TDMI::ARM_DataProcessing()
 		if (shiftIsRegister)
 		{
 			m_scheduler->addCycles(1);
+			m_bus->tickPrefetcher(1);
 			nextFetchNonsequential = true;
 			if (op2Idx == 15)	//account for R15 being 12 bytes ahead if register-specified shift amount
 				operand2 += 4;
@@ -291,7 +292,9 @@ void ARM7TDMI::ARM_Multiply()
 	}
 
 
-	m_scheduler->addCycles(calculateMultiplyCycles(operand2, accumulate,true));
+	uint64_t cycles = calculateMultiplyCycles(operand2, accumulate, true);
+	m_scheduler->addCycles(cycles);
+	m_bus->tickPrefetcher(cycles - 1);
 	nextFetchNonsequential = true;	//hm
 }
 
@@ -336,7 +339,9 @@ void ARM7TDMI::ARM_MultiplyLong()
 	setReg(destRegLoIdx, result & 0xFFFFFFFF);
 	setReg(destRegHiIdx, ((result >> 32) & 0xFFFFFFFF));
 
-	m_scheduler->addCycles(calculateMultiplyCycles(src2, accumulate, isSigned) + 1);
+	uint64_t cycles = calculateMultiplyCycles(src2, accumulate, isSigned) + 1;
+	m_scheduler->addCycles(cycles);
+	m_bus->tickPrefetcher(cycles - 1);
 	nextFetchNonsequential = true;
 }
 
@@ -448,6 +453,7 @@ void ARM7TDMI::ARM_HalfwordTransferRegisterOffset()
 			break;
 		}
 		m_scheduler->addCycles(3);
+		m_bus->tickPrefetcher(1);
 	}
 	else						//store
 	{
@@ -549,6 +555,7 @@ void ARM7TDMI::ARM_HalfwordTransferImmediateOffset()
 			break;
 		}
 		m_scheduler->addCycles(3);
+		m_bus->tickPrefetcher(1);
 	}
 	else						//store
 	{
@@ -654,6 +661,7 @@ void ARM7TDMI::ARM_SingleDataTransfer()
 		}
 		setReg(destRegIdx, val);
 		m_scheduler->addCycles(3);
+		m_bus->tickPrefetcher(1);
 	}
 	else //store value
 	{
@@ -755,6 +763,8 @@ void ARM7TDMI::ARM_BlockDataTransfer()
 
 		int cyclesToAdd = transferCount + ((loadStore) ? 2 : 1);
 		m_scheduler->addCycles(cyclesToAdd);
+		if (loadStore)
+			m_bus->tickPrefetcher(1);
 	}
 
 	//Load-Store with a descending stack order, Up-Down = 0
@@ -799,6 +809,8 @@ void ARM7TDMI::ARM_BlockDataTransfer()
 		}
 		int cyclesToAdd = transferCount + ((loadStore) ? 2 : 1);
 		m_scheduler->addCycles(cyclesToAdd);
+		if (loadStore)
+			m_bus->tickPrefetcher(1);
 	}
 	else //Special case, empty RList
 	{
