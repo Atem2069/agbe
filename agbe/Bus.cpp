@@ -265,6 +265,7 @@ void Bus::write16(uint32_t address, uint16_t value, AccessType accessType)
 			break;
 		}
 		Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Tried to write to cartridge space!!! addr={:#x}",address));
+		invalidatePrefetchBuffer();
 		break;
 	case 0xE: case 0xF:
 		m_scheduler->addCycles(SRAMCycles);
@@ -403,7 +404,7 @@ uint32_t Bus::fetch32(uint32_t address, AccessType accessType)
 		uint16_t valHigh = fetch16(address + 2, accessType);
 		val = ((valHigh << 16) | valLow);
 		m_openBusVals.mem = val;
-		m_scheduler->addCycles(1);	//this probably shouldn't be 2. lol
+		m_scheduler->addCycles(1);
 		return val;
 	}
 	val = read32(address,accessType);
@@ -430,6 +431,8 @@ uint16_t Bus::fetch16(uint32_t address, AccessType accessType)
 		if (prefetchSize > 0)
 		{
 			val = m_prefetchBuffer[prefetchStart].value;
+			if (address != m_prefetchBuffer[prefetchStart].address)
+				std::cout << "prefetch mismatch - expected addr=" << std::hex << address << " one in buffer=" << m_prefetchBuffer[prefetchStart].address << '\n';
 			prefetchStart = (prefetchStart + 1) & 7;
 			prefetchSize--;
 		}
@@ -437,7 +440,7 @@ uint16_t Bus::fetch16(uint32_t address, AccessType accessType)
 		{
 			uint8_t page = (address >> 24) & 0xFF;
 			uint64_t waitstates = waitstateSequentialTable[((page - 8) >> 1)];
-			m_scheduler->addCycles(waitstates - prefetchInternalCycles);	//this -1 is wrong lol. I must have screwed cycle counting up somewhere
+			m_scheduler->addCycles(waitstates - prefetchInternalCycles);
 			invalidatePrefetchBuffer();
 			prefetchInProgress = true;
 			prefetchAddress = address + 2;
