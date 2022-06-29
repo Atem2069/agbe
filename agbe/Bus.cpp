@@ -387,12 +387,6 @@ void Bus::write32(uint32_t address, uint32_t value, AccessType accessType)
 uint32_t Bus::fetch32(uint32_t address, AccessType accessType)
 {
 	biosLockout = false;
-	if (accessType == AccessType::Nonsequential && prefetchEnabled && !prefetchInProgress && address >= 0x08000000 && address <= 0x0DFFFFFF)
-	{
-		invalidatePrefetchBuffer();
-		prefetchInProgress = true;
-		prefetchAddress = address + 4;
-	}
 	if (address < 0x08000000 || address > 0x0DFFFFFF)
 		invalidatePrefetchBuffer();
 	uint32_t val = 0;
@@ -402,10 +396,16 @@ uint32_t Bus::fetch32(uint32_t address, AccessType accessType)
 		uint16_t valHigh = fetch16(address + 2, accessType);
 		val = ((valHigh << 16) | valLow);
 		m_openBusVals.mem = val;
-		m_scheduler->addCycles(1);
+		m_scheduler->addCycles(2);	//this probably shouldn't be 2. lol
 		return val;
 	}
-	val = read32(address,accessType);	
+	val = read32(address,accessType);
+	if (accessType == AccessType::Nonsequential && prefetchEnabled && !prefetchInProgress && address >= 0x08000000 && address <= 0x0DFFFFFF)
+	{
+		invalidatePrefetchBuffer();
+		prefetchInProgress = true;
+		prefetchAddress = address + 4;
+	}
 	if(address>0x3FFF)
 		biosLockout = true;
 	m_openBusVals.mem = val;
@@ -415,12 +415,6 @@ uint32_t Bus::fetch32(uint32_t address, AccessType accessType)
 uint16_t Bus::fetch16(uint32_t address, AccessType accessType)
 {
 	biosLockout = false;
-	if (accessType == AccessType::Nonsequential && prefetchEnabled && !prefetchInProgress && address >= 0x08000000 && address <= 0x0DFFFFFF)
-	{
-		invalidatePrefetchBuffer();
-		prefetchInProgress = true;
-		prefetchAddress = address + 2;
-	}
 	if (address < 0x08000000 || address > 0x0DFFFFFF)
 		invalidatePrefetchBuffer();
 	uint16_t val = 0;
@@ -444,7 +438,15 @@ uint16_t Bus::fetch16(uint32_t address, AccessType accessType)
 		}
 	}
 	else
-		val = read16(address,accessType);
+	{
+		val = read16(address, accessType);
+		if (accessType == AccessType::Nonsequential && prefetchEnabled && !prefetchInProgress && address >= 0x08000000 && address <= 0x0DFFFFFF)
+		{
+			invalidatePrefetchBuffer();
+			prefetchInProgress = true;
+			prefetchAddress = address + 2;
+		}
+	}
 	if(address>0x3FFF)
 		biosLockout = true;
 	m_openBusVals.mem = val;
