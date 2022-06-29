@@ -352,18 +352,18 @@ void ARM7TDMI::ARM_SingleDataSwap()
 
 	if (byteWord)		//swap byte
 	{
-		uint8_t swapVal = m_bus->read8(swapAddress,false);
-		m_bus->write8(swapAddress, srcData & 0xFF,false);
+		uint8_t swapVal = m_bus->read8(swapAddress,AccessType::Nonsequential);
+		m_bus->write8(swapAddress, srcData & 0xFF, AccessType::Nonsequential);
 		setReg(destRegIdx, swapVal);
 		
 	}
 
 	else				//swap word
 	{
-		uint32_t swapVal = m_bus->read32(swapAddress,false);
+		uint32_t swapVal = m_bus->read32(swapAddress, AccessType::Nonsequential);
 		if (swapAddress & 3)
 			swapVal = std::rotr(swapVal, (swapAddress & 3) * 8);
-		m_bus->write32(swapAddress, srcData,false);
+		m_bus->write32(swapAddress, srcData, AccessType::Nonsequential);
 		setReg(destRegIdx, swapVal);
 	}
 	m_scheduler->addCycles(4);
@@ -420,13 +420,13 @@ void ARM7TDMI::ARM_HalfwordTransferRegisterOffset()
 			Logger::getInstance()->msg(LoggerSeverity::Error, "SWP called from halfword transfer - opcode decoding is invalid!!!");
 			break;
 		case 1:
-			val = m_bus->read16(base,false);
+			val = m_bus->read16(base, AccessType::Nonsequential);
 			if (base & 1)
 				val = std::rotr(val, 8);
 			setReg(srcDestRegIdx, val);
 			break;
 		case 2:
-			val = m_bus->read8(base,false);
+			val = m_bus->read8(base, AccessType::Nonsequential);
 			if (((val >> 7) & 0b1))
 				val |= 0xFFFFFF00;
 			setReg(srcDestRegIdx, val);
@@ -434,13 +434,13 @@ void ARM7TDMI::ARM_HalfwordTransferRegisterOffset()
 		case 3:
 			if (!(base & 0b1))
 			{
-				val = m_bus->read16(base,false);
+				val = m_bus->read16(base, AccessType::Nonsequential);
 				if (((val >> 15) & 0b1))
 					val |= 0xFFFF0000;
 			}
 			else
 			{
-				val = m_bus->read8(base,false);
+				val = m_bus->read8(base, AccessType::Nonsequential);
 				if (((val >> 7) & 0b1))
 					val |= 0xFFFFFF00;
 			}
@@ -460,13 +460,13 @@ void ARM7TDMI::ARM_HalfwordTransferRegisterOffset()
 			Logger::getInstance()->msg(LoggerSeverity::Error, "Invalid halfword operation encoding");
 			break;
 		case 1:
-			m_bus->write16(base, data & 0xFFFF,false);
+			m_bus->write16(base, data & 0xFFFF, AccessType::Nonsequential);
 			break;
 		case 2:
-			m_bus->write8(base, data & 0xFF,false);
+			m_bus->write8(base, data & 0xFF, AccessType::Nonsequential);
 			break;
 		case 3:
-			m_bus->write16(base, data & 0xFFFF,false);
+			m_bus->write16(base, data & 0xFFFF, AccessType::Nonsequential);
 			break;
 		}
 		m_scheduler->addCycles(2);
@@ -521,13 +521,13 @@ void ARM7TDMI::ARM_HalfwordTransferImmediateOffset()
 			Logger::getInstance()->msg(LoggerSeverity::Error, "Invalid halfword operation encoding");
 			break;
 		case 1:
-			data = m_bus->read16(base,false);
+			data = m_bus->read16(base, AccessType::Nonsequential);
 			if (base & 1)
 				data = std::rotr(data, 8);
 			setReg(srcDestRegIdx, data);
 			break;
 		case 2:
-			data = m_bus->read8(base,false);
+			data = m_bus->read8(base, AccessType::Nonsequential);
 			if (((data >> 7) & 0b1))	//sign extend byte if bit 7 set
 				data |= 0xFFFFFF00;
 			setReg(srcDestRegIdx, data);
@@ -535,13 +535,13 @@ void ARM7TDMI::ARM_HalfwordTransferImmediateOffset()
 		case 3:
 			if (!(base & 0b1))
 			{
-				data = m_bus->read16(base,false);
+				data = m_bus->read16(base, AccessType::Nonsequential);
 				if (((data >> 15) & 0b1))
 					data |= 0xFFFF0000;
 			}
 			else
 			{
-				data = m_bus->read8(base,false);
+				data = m_bus->read8(base, AccessType::Nonsequential);
 				if (((data >> 7) & 0b1))
 					data |= 0xFFFFFF00;
 			}
@@ -561,13 +561,13 @@ void ARM7TDMI::ARM_HalfwordTransferImmediateOffset()
 			Logger::getInstance()->msg(LoggerSeverity::Error, "Invalid halfword operation encoding");
 			break;
 		case 1:
-			m_bus->write16(base, data & 0xFFFF,false);
+			m_bus->write16(base, data & 0xFFFF, AccessType::Nonsequential);
 			break;
 		case 2:
-			m_bus->write8(base, data & 0xFF,false);
+			m_bus->write8(base, data & 0xFF, AccessType::Nonsequential);
 			break;
 		case 3:
-			m_bus->write16(base, data & 0xFFFF,false);
+			m_bus->write16(base, data & 0xFFFF, AccessType::Nonsequential);
 			break;
 		}
 		m_scheduler->addCycles(2);
@@ -644,11 +644,11 @@ void ARM7TDMI::ARM_SingleDataTransfer()
 		uint32_t val = 0;
 		if (byteWord)
 		{
-			val = m_bus->read8(base,false);
+			val = m_bus->read8(base, AccessType::Nonsequential);
 		}
 		else
 		{
-			val = m_bus->read32(base,false);
+			val = m_bus->read32(base, AccessType::Nonsequential);
 			if(base&3)
 				val = std::rotr(val, (base & 3) * 8);
 		}
@@ -662,11 +662,11 @@ void ARM7TDMI::ARM_SingleDataTransfer()
 			val += 4;
 		if (byteWord)
 		{
-			m_bus->write8(base, val & 0xFF,false);
+			m_bus->write8(base, val & 0xFF, AccessType::Nonsequential);
 		}
 		else
 		{
-			m_bus->write32(base, val,false);
+			m_bus->write32(base, val, AccessType::Nonsequential);
 		}
 		m_scheduler->addCycles(2);
 	}
@@ -735,14 +735,14 @@ void ARM7TDMI::ARM_BlockDataTransfer()
 				if (loadStore == 0)
 				{
 					//Store registers
-					if ((x == transfer_reg) && (baseReg == transfer_reg)) { m_bus->write32(base_addr, old_base,!firstTransfer); }
-					else { m_bus->write32(base_addr, getReg(x),!firstTransfer); }
+					if ((x == transfer_reg) && (baseReg == transfer_reg)) { m_bus->write32(base_addr, old_base,(AccessType)!firstTransfer); }
+					else { m_bus->write32(base_addr, getReg(x),(AccessType)!firstTransfer); }
 				}
 				else
 				{
 					//Load registers
 					if ((x == transfer_reg) && (baseReg == transfer_reg)) { writeBack = 0; }
-					setReg(x, m_bus->read32(base_addr,!firstTransfer));
+					setReg(x, m_bus->read32(base_addr,(AccessType)!firstTransfer));
 				}
 				firstTransfer = false;
 				//Increment after transfer if post-indexing
@@ -771,13 +771,13 @@ void ARM7TDMI::ARM_BlockDataTransfer()
 				//Store registers
 				if (loadStore == 0)
 				{
-					if ((x == transfer_reg) && (baseReg == transfer_reg)) { m_bus->write32(base_addr, old_base,!firstTransfer); }
+					if ((x == transfer_reg) && (baseReg == transfer_reg)) { m_bus->write32(base_addr, old_base,(AccessType)!firstTransfer); }
 					else
 					{
 						uint32_t val = getReg(x);
 						if (x == 15)
 							val += 4;
-						m_bus->write32(base_addr, val,!firstTransfer);
+						m_bus->write32(base_addr, val,(AccessType)!firstTransfer);
 					}
 				}
 
@@ -785,7 +785,7 @@ void ARM7TDMI::ARM_BlockDataTransfer()
 				else
 				{
 					if ((x == transfer_reg) && (baseReg == transfer_reg)) { writeBack = 0; }
-					setReg(x, m_bus->read32(base_addr,!firstTransfer));
+					setReg(x, m_bus->read32(base_addr,(AccessType)!firstTransfer));
 				}
 
 				firstTransfer = false;
@@ -803,10 +803,10 @@ void ARM7TDMI::ARM_BlockDataTransfer()
 	else //Special case, empty RList
 	{
 		//Load R15
-		if (loadStore == 0) { m_bus->write32(base_addr, getReg(15) + 4,false); }
+		if (loadStore == 0) { m_bus->write32(base_addr, getReg(15) + 4, AccessType::Nonsequential); }
 		else //Store R15
 		{
-			setReg(15, m_bus->read32(base_addr,false));
+			setReg(15, m_bus->read32(base_addr, AccessType::Nonsequential));
 		}
 
 		//Add 0x40 to base address if ascending stack, writeback into base register

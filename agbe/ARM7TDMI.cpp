@@ -46,9 +46,9 @@ void ARM7TDMI::fetch()
 	int curPipelinePtr = m_pipelinePtr;
 	m_pipeline[curPipelinePtr].state = PipelineState::FILLED;
 	if (thumb)
-		m_pipeline[curPipelinePtr].opcode = m_bus->fetch16(R[15],!nextFetchNonsequential);
+		m_pipeline[curPipelinePtr].opcode = m_bus->fetch16(R[15],(AccessType)!nextFetchNonsequential);
 	else
-		m_pipeline[curPipelinePtr].opcode = m_bus->fetch32(R[15],!nextFetchNonsequential);
+		m_pipeline[curPipelinePtr].opcode = m_bus->fetch32(R[15],(AccessType)!nextFetchNonsequential);
 
 	nextFetchNonsequential = false;
 }

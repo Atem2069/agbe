@@ -266,7 +266,7 @@ void ARM7TDMI::Thumb_PCRelativeLoad()
 
 	uint8_t destRegIdx = ((m_currentOpcode >> 8) & 0b111);
 
-	uint32_t val = m_bus->read32(PC + offset,false);
+	uint32_t val = m_bus->read32(PC + offset, AccessType::Nonsequential);
 	setReg(destRegIdx, val);
 	m_scheduler->addCycles(5);	//probs right? 1s+1n+1i for ldr, then 1s+1n for loading pc
 	nextFetchNonsequential = true;
@@ -287,12 +287,12 @@ void ARM7TDMI::Thumb_LoadStoreRegisterOffset()
 	{
 		if (byteWord)
 		{
-			uint32_t val = m_bus->read8(base,false);
+			uint32_t val = m_bus->read8(base, AccessType::Nonsequential);
 			setReg(srcDestRegIdx, val);
 		}
 		else
 		{
-			uint32_t val = m_bus->read32(base,false);
+			uint32_t val = m_bus->read32(base, AccessType::Nonsequential);
 			if (base & 3)
 				val = std::rotr(val, (base & 3) * 8);
 			setReg(srcDestRegIdx, val);
@@ -304,12 +304,12 @@ void ARM7TDMI::Thumb_LoadStoreRegisterOffset()
 		if (byteWord)
 		{
 			uint8_t val = getReg(srcDestRegIdx) & 0xFF;
-			m_bus->write8(base, val,false);
+			m_bus->write8(base, val, AccessType::Nonsequential);
 		}
 		else
 		{
 			uint32_t val = getReg(srcDestRegIdx);
-			m_bus->write32(base, val,false);
+			m_bus->write32(base, val, AccessType::Nonsequential);
 		}
 		m_scheduler->addCycles(2);
 	}
@@ -329,12 +329,12 @@ void ARM7TDMI::Thumb_LoadStoreSignExtended()
 	if (op == 0)
 	{
 		uint16_t val = getReg(srcDestRegIdx) & 0xFFFF;
-		m_bus->write16(addr, val,false);
+		m_bus->write16(addr, val, AccessType::Nonsequential);
 		m_scheduler->addCycles(2);
 	}
 	else if (op == 2)	//load halfword
 	{
-		uint32_t val = m_bus->read16(addr,false);
+		uint32_t val = m_bus->read16(addr, AccessType::Nonsequential);
 		if (addr & 0b1)
 			val = std::rotr(val, 8);
 		setReg(srcDestRegIdx, val);
@@ -342,7 +342,7 @@ void ARM7TDMI::Thumb_LoadStoreSignExtended()
 	}
 	else if (op == 1)	//load sign extended byte
 	{
-		uint32_t val = m_bus->read8(addr,false);
+		uint32_t val = m_bus->read8(addr, AccessType::Nonsequential);
 		if (((val >> 7) & 0b1))
 			val |= 0xFFFFFF00;
 		setReg(srcDestRegIdx, val);
@@ -353,13 +353,13 @@ void ARM7TDMI::Thumb_LoadStoreSignExtended()
 		uint32_t val = 0;
 		if (!(addr & 0b1))
 		{
-			val = m_bus->read16(addr,false);
+			val = m_bus->read16(addr, AccessType::Nonsequential);
 			if (((val >> 15) & 0b1))
 				val |= 0xFFFF0000;
 		}
 		else
 		{
-			val = m_bus->read8(addr,false);
+			val = m_bus->read8(addr, AccessType::Nonsequential);
 			if (((val >> 7) & 0b1))
 				val |= 0xFFFFFF00;
 		}
@@ -386,10 +386,10 @@ void ARM7TDMI::Thumb_LoadStoreImmediateOffset()
 	{
 		uint32_t val = 0;
 		if (byteWord)
-			val = m_bus->read8(baseAddr,false);
+			val = m_bus->read8(baseAddr, AccessType::Nonsequential);
 		else
 		{
-			val = m_bus->read32(baseAddr,false);
+			val = m_bus->read32(baseAddr, AccessType::Nonsequential);
 			if (baseAddr & 3)
 				val = std::rotr(val, (baseAddr & 3) * 8);
 		}
@@ -400,9 +400,9 @@ void ARM7TDMI::Thumb_LoadStoreImmediateOffset()
 	{
 		uint32_t val = getReg(srcDestRegIdx);
 		if (byteWord)
-			m_bus->write8(baseAddr, val & 0xFF,false);
+			m_bus->write8(baseAddr, val & 0xFF, AccessType::Nonsequential);
 		else
-			m_bus->write32(baseAddr, val,false);
+			m_bus->write32(baseAddr, val, AccessType::Nonsequential);
 		m_scheduler->addCycles(2);
 	}
 
@@ -423,7 +423,7 @@ void ARM7TDMI::Thumb_LoadStoreHalfword()
 
 	if (loadStore)
 	{
-		uint32_t val = m_bus->read16(base,false);
+		uint32_t val = m_bus->read16(base, AccessType::Nonsequential);
 		if (base & 0b1)
 			val = std::rotr(val, 8);
 		setReg(srcDestRegIdx, val);
@@ -432,7 +432,7 @@ void ARM7TDMI::Thumb_LoadStoreHalfword()
 	else
 	{
 		uint16_t val = getReg(srcDestRegIdx) & 0xFFFF;
-		m_bus->write16(base, val,false);
+		m_bus->write16(base, val, AccessType::Nonsequential);
 		m_scheduler->addCycles(2);
 	}
 	nextFetchNonsequential = true;
@@ -449,7 +449,7 @@ void ARM7TDMI::Thumb_SPRelativeLoadStore()
 
 	if (loadStore)
 	{
-		uint32_t val = m_bus->read32(addr,false);
+		uint32_t val = m_bus->read32(addr, AccessType::Nonsequential);
 		if (addr & 3)
 			val = std::rotr(val, (addr & 3) * 8);
 		setReg(destRegIdx, val);
@@ -458,7 +458,7 @@ void ARM7TDMI::Thumb_SPRelativeLoadStore()
 	else
 	{
 		uint32_t val = getReg(destRegIdx);
-		m_bus->write32(addr, val,false);
+		m_bus->write32(addr, val, AccessType::Nonsequential);
 		m_scheduler->addCycles(2);
 	}
 	nextFetchNonsequential = true;
@@ -520,7 +520,7 @@ void ARM7TDMI::Thumb_PushPopRegisters()
 			if (((regs >> i) & 0b1))
 			{
 				transferCount++;
-				uint32_t popVal = m_bus->read32(SP,!firstTransfer);
+				uint32_t popVal = m_bus->read32(SP,(AccessType)!firstTransfer);
 				setReg(i, popVal);
 				SP += 4;
 				firstTransfer = false;
@@ -529,7 +529,7 @@ void ARM7TDMI::Thumb_PushPopRegisters()
 
 		if (R)
 		{
-			uint32_t newPC = m_bus->read32(SP,true);
+			uint32_t newPC = m_bus->read32(SP,AccessType::Sequential);
 			setReg(15, newPC & ~0b1);
 			SP += 4;
 			m_scheduler->addCycles(1);
@@ -543,7 +543,7 @@ void ARM7TDMI::Thumb_PushPopRegisters()
 		if (R)
 		{
 			SP -= 4;
-			m_bus->write32(SP, getReg(14),false);
+			m_bus->write32(SP, getReg(14), AccessType::Nonsequential);
 			firstTransfer = false;
 			m_scheduler->addCycles(1);
 		}
@@ -554,7 +554,7 @@ void ARM7TDMI::Thumb_PushPopRegisters()
 			{
 				transferCount++;
 				SP -= 4;
-				m_bus->write32(SP, getReg(i),!firstTransfer);
+				m_bus->write32(SP, getReg(i),(AccessType)!firstTransfer);
 				firstTransfer = false;
 			}
 		}
@@ -605,7 +605,7 @@ void ARM7TDMI::Thumb_MultipleLoadStore()
 			if (regList & 0b1)
 			{
 				transferCount++;
-				uint32_t cur = m_bus->read32(base,!firstTransfer);
+				uint32_t cur = m_bus->read32(base,(AccessType)!firstTransfer);
 				setReg(i, cur);
 				base += 4;	//base always increments with this opcode
 				firstTransfer = false;
@@ -624,17 +624,17 @@ void ARM7TDMI::Thumb_MultipleLoadStore()
 				if (i == baseRegIdx)
 				{
 					if (baseIsLowest)
-						m_bus->write32(base, oldBase,!firstTransfer);
+						m_bus->write32(base, oldBase,(AccessType)!firstTransfer);
 					else
 					{
 						int numRegs = std::popcount(regListOriginal);
-						m_bus->write32(base, oldBase + (numRegs * 4),!firstTransfer);
+						m_bus->write32(base, oldBase + (numRegs * 4),(AccessType)!firstTransfer);
 					}
 				}
 				else
 				{
 					uint32_t cur = getReg(i);
-					m_bus->write32(base, cur,!firstTransfer);
+					m_bus->write32(base, cur,(AccessType)!firstTransfer);
 				}
 				base += 4;
 				firstTransfer = false;
@@ -648,9 +648,9 @@ void ARM7TDMI::Thumb_MultipleLoadStore()
 	if (regListOriginal == 0)
 	{
 		if (loadStore)
-			setReg(15, m_bus->read32(base,false));
+			setReg(15, m_bus->read32(base,(AccessType)false));
 		else
-			m_bus->write32(base, getReg(15)+2,false);
+			m_bus->write32(base, getReg(15)+2,(AccessType)false);
 		base += 0x40;
 	}
 	if (!loadStore || (loadStore && !baseIncluded))

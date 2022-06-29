@@ -44,7 +44,7 @@ Bus::~Bus()
 	m_timer.reset();
 }
 
-uint8_t Bus::read8(uint32_t address, bool seq)
+uint8_t Bus::read8(uint32_t address, AccessType accessType)
 {
 	int cartCycles = 0;
 	uint8_t page = (address >> 24) & 0xFF;
@@ -75,7 +75,7 @@ uint8_t Bus::read8(uint32_t address, bool seq)
 	case 7:
 		return m_mem->OAM[address & 0x3FF];
 	case 8: case 9: case 0xA: case 0xB: case 0xC: case 0xD:	//need to do this better (different waitstates will have different timings)
-		cartCycles = (seq && ((address & 0x1FF) != 0)) ? waitstateSequentialTable[((page - 8) >> 1)] : waitstateNonsequentialTable[((page - 8) >> 1)];
+		cartCycles = ((accessType==AccessType::Sequential) && ((address & 0x1FF) != 0)) ? waitstateSequentialTable[((page - 8) >> 1)] : waitstateNonsequentialTable[((page - 8) >> 1)];
 		m_scheduler->addCycles(cartCycles);
 		if ((address & 0x01FFFFFF) >= romSize)
 			return (address / 2) & 0xFFFF;
@@ -91,7 +91,7 @@ uint8_t Bus::read8(uint32_t address, bool seq)
 	return m_openBusVals.mem;
 }
 
-void Bus::write8(uint32_t address, uint8_t value, bool seq)
+void Bus::write8(uint32_t address, uint8_t value, AccessType accessType)
 {
 	int cartCycles = 0;
 	uint8_t page = (address >> 24) & 0xFF;
@@ -125,7 +125,7 @@ void Bus::write8(uint32_t address, uint8_t value, bool seq)
 		Logger::getInstance()->msg(LoggerSeverity::Error, "Ignore obj write");
 		break;
 	case 8: case 9: case 0xA: case 0xB: case 0xC: case 0xD:
-		cartCycles = (seq && ((address & 0x1FF) != 0)) ? waitstateSequentialTable[((page - 8) >> 1)] : waitstateNonsequentialTable[((page - 8) >> 1)];
+		cartCycles = ((accessType==AccessType::Sequential) && ((address & 0x1FF) != 0)) ? waitstateSequentialTable[((page - 8) >> 1)] : waitstateNonsequentialTable[((page - 8) >> 1)];
 		m_scheduler->addCycles(cartCycles);
 		Logger::getInstance()->msg(LoggerSeverity::Error, "Tried writing to ROM - ignoring");
 		break;
@@ -144,7 +144,7 @@ void Bus::write8(uint32_t address, uint8_t value, bool seq)
 	}
 }
 
-uint16_t Bus::read16(uint32_t address, bool seq)
+uint16_t Bus::read16(uint32_t address, AccessType accessType)
 {
 	int cartCycles = 0;
 	uint32_t originalAddress = address;
@@ -178,7 +178,7 @@ uint16_t Bus::read16(uint32_t address, bool seq)
 	case 7:
 		return getValue16(m_mem->OAM, address & 0x3FF,0x3FF);
 	case 8: case 9: case 0xA: case 0xB: case 0xC: case 0xD:
-		cartCycles = (seq && ((address & 0x1FF) != 0)) ? waitstateSequentialTable[((page - 8) >> 1)] : waitstateNonsequentialTable[((page - 8) >> 1)];
+		cartCycles = ((accessType==AccessType::Sequential) && ((address & 0x1FF) != 0)) ? waitstateSequentialTable[((page - 8) >> 1)] : waitstateNonsequentialTable[((page - 8) >> 1)];
 		m_scheduler->addCycles(cartCycles);
 		if (address >= 0x0D000000 && address <= 0x0DFFFFFF)		//not strictly accurate, bc not like the cart will always have eeprom
 			return m_eeprom->read(address);
@@ -194,7 +194,7 @@ uint16_t Bus::read16(uint32_t address, bool seq)
 	return m_openBusVals.mem;
 }
 
-void Bus::write16(uint32_t address, uint16_t value, bool seq)
+void Bus::write16(uint32_t address, uint16_t value, AccessType accessType)
 {
 	int cartCycles = 0;
 	uint32_t originalAddress = address;
@@ -228,7 +228,7 @@ void Bus::write16(uint32_t address, uint16_t value, bool seq)
 		setValue16(m_mem->OAM, address & 0x3FF, 0x3FF, value);
 		break;
 	case 8: case 9: case 0xA: case 0xB: case 0xC: case 0xD:
-		cartCycles = (seq && ((address & 0x1FF) != 0)) ? waitstateSequentialTable[((page - 8) >> 1)] : waitstateNonsequentialTable[((page - 8) >> 1)];
+		cartCycles = ((accessType==AccessType::Sequential) && ((address & 0x1FF) != 0)) ? waitstateSequentialTable[((page - 8) >> 1)] : waitstateNonsequentialTable[((page - 8) >> 1)];
 		m_scheduler->addCycles(cartCycles);
 		if (address >= 0x0D000000 && address <= 0x0DFFFFFF)
 		{
@@ -248,7 +248,7 @@ void Bus::write16(uint32_t address, uint16_t value, bool seq)
 	}
 }
 
-uint32_t Bus::read32(uint32_t address, bool seq)
+uint32_t Bus::read32(uint32_t address, AccessType accessType)
 {
 	int cartCycles = 0;
 	uint32_t originalAddress = address;
@@ -284,7 +284,7 @@ uint32_t Bus::read32(uint32_t address, bool seq)
 	case 7:
 		return getValue32(m_mem->OAM, address & 0x3FF,0x3FF);
 	case 8: case 9: case 0xA: case 0xB: case 0xC: case 0xD:
-		cartCycles = (seq && ((address & 0x1FF) != 0)) ? waitstateSequentialTable[((page - 8) >> 1)] : waitstateNonsequentialTable[((page - 8) >> 1)];
+		cartCycles = ((accessType==AccessType::Sequential) && ((address & 0x1FF) != 0)) ? waitstateSequentialTable[((page - 8) >> 1)] : waitstateNonsequentialTable[((page - 8) >> 1)];
 		m_scheduler->addCycles(cartCycles + waitstateSequentialTable[((page-8)>>1)] + 1);	//first access is either nonseq/seq. second is *always* seq
 		if ((address & 0x01FFFFFF) >= romSize)
 			return ((address / 2) & 0xFFFF) | (((address + 2) / 2) & 0xFFFF) << 16;
@@ -298,7 +298,7 @@ uint32_t Bus::read32(uint32_t address, bool seq)
 	return m_openBusVals.mem;
 }
 
-void Bus::write32(uint32_t address, uint32_t value, bool seq)
+void Bus::write32(uint32_t address, uint32_t value, AccessType accessType)
 {
 	int cartCycles = 0;
 	uint32_t originalAddress = address;
@@ -334,7 +334,7 @@ void Bus::write32(uint32_t address, uint32_t value, bool seq)
 		setValue32(m_mem->OAM, address & 0x3FF, 0x3FF, value);
 		break;
 	case 8: case 9: case 0xA: case 0xB: case 0xC: case 0xD:
-		cartCycles = (seq && ((address&0x1FF)!=0)) ? waitstateSequentialTable[((page - 8) >> 1)] : waitstateNonsequentialTable[((page - 8) >> 1)];
+		cartCycles = ((accessType==AccessType::Sequential) && ((address & 0x1FF) != 0)) ? waitstateSequentialTable[((page - 8) >> 1)] : waitstateNonsequentialTable[((page - 8) >> 1)];
 		m_scheduler->addCycles(cartCycles + waitstateSequentialTable[((page - 8) >> 1)] + 1);	//same as for read32
 		Logger::getInstance()->msg(LoggerSeverity::Error, "Tried to write to cartridge space!!!");
 		break;
@@ -348,20 +348,20 @@ void Bus::write32(uint32_t address, uint32_t value, bool seq)
 	}
 }
 
-uint32_t Bus::fetch32(uint32_t address, bool seq)
+uint32_t Bus::fetch32(uint32_t address, AccessType accessType)
 {
 	biosLockout = false;
-	uint32_t val = read32(address,seq);	
+	uint32_t val = read32(address,accessType);	
 	if(address>0x3FFF)
 		biosLockout = true;
 	m_openBusVals.mem = val;
 	return val;
 }
 
-uint16_t Bus::fetch16(uint32_t address, bool seq)
+uint16_t Bus::fetch16(uint32_t address, AccessType accessType)
 {
 	biosLockout = false;
-	uint16_t val = read16(address,seq);
+	uint16_t val = read16(address,accessType);
 	if(address>0x3FFF)
 		biosLockout = true;
 	m_openBusVals.mem = val;

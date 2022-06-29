@@ -29,6 +29,12 @@ struct OpenBus
 	uint32_t mem;	//open bus for other unused mem
 };
 
+enum class AccessType
+{
+	Nonsequential=0,
+	Sequential=1
+};
+
 
 class Bus
 {
@@ -36,17 +42,17 @@ public:
 	Bus(std::vector<uint8_t> BIOS, std::vector<uint8_t> cartData, std::shared_ptr<InterruptManager> interruptManager, std::shared_ptr<PPU> ppu, std::shared_ptr<Input> input, std::shared_ptr<Scheduler> scheduler);
 	~Bus();
 
-	uint8_t read8(uint32_t address, bool seq);
-	void write8(uint32_t address, uint8_t value, bool seq);
+	uint8_t read8(uint32_t address, AccessType accessType);
+	void write8(uint32_t address, uint8_t value, AccessType accessType);
 
-	uint16_t read16(uint32_t address, bool seq);
-	void write16(uint32_t address, uint16_t value, bool seq);
+	uint16_t read16(uint32_t address, AccessType accessType);
+	void write16(uint32_t address, uint16_t value, AccessType accessType);
 
-	uint32_t read32(uint32_t address, bool seq);
-	void write32(uint32_t address, uint32_t value, bool seq);
+	uint32_t read32(uint32_t address, AccessType accessType);
+	void write32(uint32_t address, uint32_t value, AccessType accessType);
 
-	uint32_t fetch32(uint32_t address, bool seq);
-	uint16_t fetch16(uint32_t address, bool seq);
+	uint32_t fetch32(uint32_t address, AccessType accessType);
+	uint16_t fetch16(uint32_t address, AccessType accessType);
 
 	bool getHalted();
 

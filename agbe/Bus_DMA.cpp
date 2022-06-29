@@ -263,13 +263,13 @@ void Bus::doDMATransfer(int channel)
 		m_scheduler->addCycles(2);
 		if (wordTransfer)
 		{
-			uint32_t word = read32(src,!firstAccess);
-			write32(dest, word,true);									//hmm. first rom write is sequential?	
+			uint32_t word = read32(src,(AccessType)!firstAccess);
+			write32(dest, word,AccessType::Sequential);									//hmm. first rom write is sequential? (this is wrong)	
 		}
 		else
 		{
-			uint16_t halfword = read16(src,!firstAccess);
-			write16(dest, halfword,true);                               //same as above^^			
+			uint16_t halfword = read16(src,(AccessType)!firstAccess);
+			write16(dest, halfword,AccessType::Sequential);                               //same as above^^			
 		}
 		m_scheduler->tick();
 		firstAccess = false;
