@@ -213,10 +213,7 @@ void PPU::VBlank()
 
 void PPU::renderMode0()
 {
-	bool objEnabled = ((DISPCNT >> 12) & 0b1);
-	if (objEnabled)
-		drawSprites();
-
+	drawSprites();
 	for (int i = 0; i < 4; i++)	//todo: optimise. can use a single for loop and get each pixel one by one
 	{
 		if ((DISPCNT >> (8 + i)) & 0b1)
@@ -228,10 +225,7 @@ void PPU::renderMode0()
 
 void PPU::renderMode1()
 {
-	bool objEnabled = ((DISPCNT >> 12) & 0b1);
-	if (objEnabled)
-		drawSprites();
-
+	drawSprites();
 	for (int i = 0; i < 3; i++)	//todo: optimise. can use a single for loop and get each pixel one by one
 	{
 		if ((DISPCNT>>(8+i))&0b1)
@@ -249,9 +243,7 @@ void PPU::renderMode1()
 
 void PPU::renderMode2()
 {
-	bool objEnabled = ((DISPCNT >> 12) & 0b1);
-	if(objEnabled)
-		drawSprites();
+	drawSprites();
 	for (int i = 2; i < 4; i++)
 	{
 		if ((DISPCNT >> (8 + i)) & 0b1)
@@ -263,58 +255,79 @@ void PPU::renderMode2()
 
 void PPU::renderMode3()
 {
-	for (int i = 0; i < 240; i++)
+	drawSprites();
+	if ((DISPCNT >> 10) & 0b1)
 	{
-		uint32_t address = (VCOUNT * 480) + (i*2);
-		uint8_t colLow = m_mem->VRAM[address];
-		uint8_t colHigh = m_mem->VRAM[address + 1];
-		uint16_t col = ((colHigh << 8) | colLow);
-		uint32_t plotAddr = (VCOUNT * 240) + i;
-		m_renderBuffer[pageIdx][plotAddr] = col16to32(col);
+		m_backgroundLayers[2].enabled = true;
+		m_backgroundLayers[2].priorityBits = BG2CNT & 0b11;
+		for (int i = 0; i < 240; i++)
+		{
+			uint32_t address = (VCOUNT * 480) + (i * 2);
+			uint8_t colLow = m_mem->VRAM[address];
+			uint8_t colHigh = m_mem->VRAM[address + 1];
+			uint16_t col = ((colHigh << 8) | colLow);
+			m_backgroundLayers[2].lineBuffer[i] = col & 0x7FFF;
+		}
 	}
+
+	composeLayers();
 }
 
 void PPU::renderMode4()
 {
+	drawSprites();
 	uint32_t base = 0;
 	bool pageFlip = ((DISPCNT >> 4) & 0b1);
 	if (pageFlip)
 		base = 0xA000;
-	for (int i = 0; i < 240; i++)
+	if ((DISPCNT >> 10) & 0b1)
 	{
-		uint32_t address = base + (VCOUNT * 240) + i;
-		uint8_t curPaletteIdx = m_mem->VRAM[address];
-		uint16_t paletteAddress = (uint16_t)curPaletteIdx * 2;
-		uint8_t paletteLow = m_mem->paletteRAM[paletteAddress];
-		uint8_t paletteHigh = m_mem->paletteRAM[paletteAddress + 1];
+		m_backgroundLayers[2].enabled = true;
+		m_backgroundLayers[2].priorityBits = BG2CNT & 0b11;
+		for (int i = 0; i < 240; i++)
+		{
+			uint32_t address = base + (VCOUNT * 240) + i;
+			uint8_t curPaletteIdx = m_mem->VRAM[address];
+			uint16_t paletteAddress = (uint16_t)curPaletteIdx * 2;
+			uint8_t paletteLow = m_mem->paletteRAM[paletteAddress];
+			uint8_t paletteHigh = m_mem->paletteRAM[paletteAddress + 1];
 
-		uint16_t paletteData = ((paletteHigh << 8) | paletteLow);
-		uint32_t plotAddress = (VCOUNT * 240) + i;
-		m_renderBuffer[pageIdx][plotAddress] = col16to32(paletteData);
+			uint16_t paletteData = ((paletteHigh << 8) | paletteLow);
+			m_backgroundLayers[2].lineBuffer[i] = paletteData & 0x7FFF;
+		}
 	}
+
+	composeLayers();
 }
 
 void PPU::renderMode5()
 {
+	drawSprites();
 	uint32_t baseAddr = 0;
 	bool pageFlip = ((DISPCNT >> 4) & 0b1);
 	if (pageFlip)
 		baseAddr = 0xA000;
-	for (int i = 0; i < 240; i++)
+	if ((DISPCNT >> 10) & 0b1)
 	{
-		uint32_t plotAddress = (VCOUNT * 240) + i;
-		if (i > 159 || VCOUNT > 127)
+		m_backgroundLayers[2].enabled = true;
+		m_backgroundLayers[2].priorityBits = BG2CNT & 0b11;
+		for (int i = 0; i < 240; i++)
 		{
-			m_renderBuffer[pageIdx][plotAddress] = 0;		//<--todo: fix. this is not correct - backdrop colour used instead
-			continue;
-		}
+			if (i > 159 || VCOUNT > 127)
+			{
+				m_backgroundLayers[2].lineBuffer[i] = 0x8000;
+				continue;
+			}
 
-		uint32_t address = baseAddr + (VCOUNT * 320) + (i*2);
-		uint8_t colLow = m_mem->VRAM[address];
-		uint8_t colHigh = m_mem->VRAM[address + 1];
-		uint16_t col = (colHigh << 8) | colLow;
-		m_renderBuffer[pageIdx][plotAddress] = col16to32(col);
+			uint32_t address = baseAddr + (VCOUNT * 320) + (i * 2);
+			uint8_t colLow = m_mem->VRAM[address];
+			uint8_t colHigh = m_mem->VRAM[address + 1];
+			uint16_t col = (colHigh << 8) | colLow;
+			m_backgroundLayers[2].lineBuffer[i] = col & 0x7FFF;
+		}
 	}
+
+	composeLayers();
 }
 
 void PPU::composeLayers()
@@ -607,6 +620,9 @@ void PPU::drawRotationScalingBackground(int bg)
 
 void PPU::drawSprites()
 {
+	memset(m_spriteAttrBuffer, 0b00011111, 240);
+	if (!((DISPCNT >> 12) & 0b1))
+		return;
 	bool oneDimensionalMapping = ((DISPCNT >> 6) & 0b1);
 	bool isBlendTarget1 = ((BLDCNT >> 4) & 0b1);
 	bool isBlendTarget2 = ((BLDCNT >> 12) & 0b1);
@@ -614,8 +630,6 @@ void PPU::drawSprites()
 
 	int mosaicHorizontal = ((MOSAIC >> 8) & 0xF) + 1;
 	int mosaicVertical = ((MOSAIC >> 12) & 0xF) + 1;
-
-	memset(m_spriteAttrBuffer, 0b00011111, 240);
 
 	for (int i = 127; i >= 0; i--)
 	{
