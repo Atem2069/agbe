@@ -394,6 +394,7 @@ void PPU::composeLayers()
 		bool blendAMask = ((BLDCNT >> 5) & 0b1);	//initially set 1st target mask to backdrop. if something displays above it, then it's disabled !
 		bool transparentSpriteTop = false;
 		uint16_t blendPixelB = 0x8000;
+		int blendPixelBPriority = 255;
 		if (((BLDCNT >> 13) & 0b1))
 			blendPixelB = backDrop;
 
@@ -412,8 +413,11 @@ void PPU::composeLayers()
 						blendAMask = ((BLDCNT >> layer) & 0b1);
 					}
 
-					if ((BLDCNT >> (layer + 8)) & 0b1)
+					if (((BLDCNT >> (layer + 8)) & 0b1) && m_backgroundLayers[layer].priorityBits <= blendPixelBPriority)
+					{
 						blendPixelB = colAtLayer;
+						blendPixelBPriority = m_backgroundLayers[layer].priorityBits;
+					}
 				}
 
 			}
