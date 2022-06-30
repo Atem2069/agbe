@@ -270,10 +270,12 @@ void PPU::renderMode3()
 
 		m_backgroundLayers[2].enabled = true;
 		m_backgroundLayers[2].priorityBits = BG2CNT & 0b11;
-		for (int i = 0; i < 240; i++, xRef += pA, yRef += pC)
+		for (int i = 0; i < 240; i++)
 		{
 			uint32_t xCoord = (xRef >> 8) & 0xFFFFF;
 			uint32_t yCoord = (yRef >> 8) & 0xFFFFF;
+			xRef += pA;
+			yRef += pC;
 			if (xCoord > 239 || yCoord > 159)
 			{
 				m_backgroundLayers[2].lineBuffer[i] = 0x8000;
@@ -311,10 +313,12 @@ void PPU::renderMode4()
 		int16_t pC = (int16_t)BG2PC;
 		m_backgroundLayers[2].enabled = true;
 		m_backgroundLayers[2].priorityBits = BG2CNT & 0b11;
-		for (int i = 0; i < 240; i++, xRef += pA, yRef += pC)
+		for (int i = 0; i < 240; i++)
 		{
 			uint32_t xCoord = (xRef >> 8) & 0xFFFFF;
 			uint32_t yCoord = (yRef >> 8) & 0xFFFFF;
+			xRef += pA;
+			yRef += pC;
 			if (xCoord > 239 || yCoord > 159)
 			{
 				m_backgroundLayers[2].lineBuffer[i] = 0x8000;
@@ -356,12 +360,12 @@ void PPU::renderMode5()
 
 		m_backgroundLayers[2].enabled = true;
 		m_backgroundLayers[2].priorityBits = BG2CNT & 0b11;
-		for (int i = 0; i < 240; i++, xRef+=pA, yRef+=pC)
+		for (int i = 0; i < 240; i++)
 		{
-
 			uint32_t xCoord = (xRef >> 8) & 0xFFFFF;
 			uint32_t yCoord = (yRef >> 8) & 0xFFFFF;
-			
+			xRef += pA;
+			yRef += pC;
 			if (xCoord > 159 || yCoord > 127)
 			{
 				m_backgroundLayers[2].lineBuffer[i] = 0x8000;
