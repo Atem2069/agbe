@@ -4,6 +4,8 @@
 #include"Scheduler.h"
 
 #include<iostream>
+#include<SDL.h>
+#undef main			//really sdl??
 
 struct AudioFIFO
 {
@@ -15,13 +17,13 @@ struct AudioFIFO
 	void push(int8_t val)
 	{
 		data[endIdx] = val;
-		endIdx = (endIdx + 1) & 0x1F;	//limit range to 0->31
+		endIdx = (endIdx + 1) % 32;	//limit range to 0->31
 		size++;
 	}
 	void pop()
 	{
 		int8_t retVal = data[startIdx];
-		startIdx = (startIdx + 1) & 0x1F;
+		startIdx = (startIdx + 1) % 32;
 		size--;
 		currentSample = retVal;
 	}
@@ -38,7 +40,7 @@ struct AudioFIFO
 
 	bool isFull()
 	{
-		return size == 32;
+		return size >= 32;
 	}
 
 	int8_t currentSample = 0;	//holds last sample from timer event
@@ -66,8 +68,8 @@ private:
 	uint8_t SOUNDCNT_X = {};
 	uint16_t SOUNDBIAS = {};
 
-	const int cyclesPerSample = 256;	//~64KHz sample rate, so we want to mix samples together roughly every that many cycles
-	const int sampleRate = 65536;
+	const int cyclesPerSample = 512;	//~32KHz sample rate, so we want to mix samples together roughly every that many cycles
+	const int sampleRate = 32768;
 
 	callbackFn FIFODMACallback;
 	void* dmaContext;
@@ -75,4 +77,12 @@ private:
 	void onSampleEvent();
 	void onTimer0Overflow();
 	void onTimer1Overflow();
+
+	SDL_AudioDeviceID m_audioDevice = {};
+	float m_chanABuffer[1024] = {};
+	float m_chanBBuffer[1024] = {};
+	int sampleIndex = 0;
+
+	float capacitor = 0.0f;
+	float highPass(float in);
 };

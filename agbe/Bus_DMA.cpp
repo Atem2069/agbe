@@ -66,7 +66,10 @@ void Bus::DMARegWrite(uint32_t address, uint8_t value)
 		break;
 	case 0x040000BB:
 		if ((!((m_dmaChannels[0].control >> 15) & 0b1)) && ((value >> 7) & 0b1))
+		{
 			m_dmaChannels[0].internalDest = m_dmaChannels[0].destAddress;
+			m_dmaChannels[0].internalSrc = m_dmaChannels[0].srcAddress;
+		}
 		setByteInHalfword(&(m_dmaChannels[0].control), value, 1);
 		checkDMAChannel(0);
 		break;
@@ -108,7 +111,10 @@ void Bus::DMARegWrite(uint32_t address, uint8_t value)
 		break;
 	case 0x040000C7:
 		if ((!((m_dmaChannels[1].control >> 15) & 0b1)) && ((value >> 7) & 0b1))
+		{
 			m_dmaChannels[1].internalDest = m_dmaChannels[1].destAddress;
+			m_dmaChannels[1].internalSrc = m_dmaChannels[1].srcAddress;
+		}
 		setByteInHalfword(&(m_dmaChannels[1].control), value, 1);
 		checkDMAChannel(1);
 		break;
@@ -151,7 +157,10 @@ void Bus::DMARegWrite(uint32_t address, uint8_t value)
 		break;
 	case 0x040000D3:
 		if ((!((m_dmaChannels[2].control >> 15) & 0b1)) && ((value >> 7) & 0b1))
+		{
 			m_dmaChannels[2].internalDest = m_dmaChannels[2].destAddress;
+			m_dmaChannels[2].internalSrc = m_dmaChannels[2].srcAddress;
+		}
 		setByteInHalfword(&(m_dmaChannels[2].control), value, 1);
 		checkDMAChannel(2);
 		break;
@@ -194,7 +203,10 @@ void Bus::DMARegWrite(uint32_t address, uint8_t value)
 		break;
 	case 0x040000DF:
 		if ((!((m_dmaChannels[3].control >> 15) & 0b1)) && ((value >> 7) & 0b1))
+		{
 			m_dmaChannels[3].internalDest = m_dmaChannels[3].destAddress;
+			m_dmaChannels[3].internalSrc = m_dmaChannels[3].srcAddress;
+		}
 		setByteInHalfword(&(m_dmaChannels[3].control), value, 1);
 		checkDMAChannel(3);
 		break;
@@ -235,7 +247,7 @@ void Bus::doDMATransfer(int channel)
 	if (channel == 3)
 		destAddrMask = 0x0FFFFFFF;
 
-	uint32_t src = curChannel.srcAddress & srcAddrMask;
+	uint32_t src = curChannel.internalSrc & srcAddrMask;
 	uint32_t dest = curChannel.internalDest & destAddrMask;
 
 	int numWords = curChannel.wordCount;
@@ -259,36 +271,17 @@ void Bus::doDMATransfer(int channel)
 	bool reloadDest = false;
 	dmaNonsequentialAccess = true;
 
+	bool isAudioDMA = false;
 	int dmaType = ((curChannel.control >> 12) & 0b11);
 	if (dmaType == 3 && channel != 3)							//need to clean this up: audio fifo dma
 	{
+		isAudioDMA = true;
 		if(dest != 0x040000A0 && dest!=0x040000A4)
 			std::cout << "bad write addr: " << std::hex << dest << '\n';
 		wordTransfer = true;
 		numWords = 4;	//4 32 bit words transferred
-		
-		for (int i = 0; i < 4; i++)
-		{
-			m_scheduler->addCycles(2);
-			uint32_t val = read32(src, AccessType::Nonsequential);
-			write32(dest, val,AccessType::Sequential);
-			
-			switch (srcAddrCtrl)
-			{
-			case 0:
-				src += 4;
-				break;
-			case 1:
-				src -= 4;
-				break;
-			}
-
-		}
-
-		if (!dmaWasInProgress)
-			dmaInProgress = false;
-
-		return;
+		dstAddrCtrl = 2;
+		curChannel.control |= 0x200;
 	}
 
 	for (int i = 0; i < numWords; i++)		//assuming all accesses are sequential, which is probs not right..
@@ -333,8 +326,7 @@ void Bus::doDMATransfer(int channel)
 		}
 
 	}
-
-	m_dmaChannels[channel].srcAddress = src;
+	m_dmaChannels[channel].internalSrc = src;
 	m_dmaChannels[channel].internalDest = dest;
 	m_dmaChannels[channel].wordCount = 0;
 
@@ -358,7 +350,7 @@ void Bus::doDMATransfer(int channel)
 	{
 		if (reloadDest)
 			m_dmaChannels[channel].internalDest = m_dmaChannels[channel].destAddress;
-		m_dmaChannels[channel].srcAddress = src;
+		m_dmaChannels[channel].internalSrc = src;
 		m_dmaChannels[channel].wordCount = numWords;
 	}
 	else

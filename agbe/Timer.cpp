@@ -28,10 +28,8 @@ void Timer::event()
 	switch (m_scheduler->getLastFiredEvent())
 	{
 	case Event::TIMER0:
-		apuOverflowCallbacks[0](apuCtx);
 		break;
 	case Event::TIMER1:
-		apuOverflowCallbacks[1](apuCtx);
 		timerIdx = 1;
 		break;
 	case Event::TIMER2:
@@ -65,6 +63,9 @@ void Timer::event()
 
 		}
 	}
+
+	if (timerIdx == 0 || timerIdx == 1)
+		apuOverflowCallbacks[timerIdx](apuCtx);
 }
 
 uint8_t Timer::readIO(uint32_t address)
