@@ -78,6 +78,7 @@ public:
 	static void DMA_HBlankCallback(void* context);
 	static void DMA_ImmediateCallback(void* context);
 	static void DMA_VideoCaptureCallback(void* context);
+	static void DMA_AudioFIFOCallback(void* context);
 
 	void tickPrefetcher(uint64_t cycles);
 	void invalidatePrefetchBuffer();
@@ -122,6 +123,9 @@ private:
 	void onHBlank();
 	void onImmediate();
 	void onVideoCapture();
+	void onAudioFIFO();
+
+	static void* busCtx;
 
 	int waitstateNonsequentialTable[3] = {3,3,3};
 	int waitstateSequentialTable[3] = { 1,1,1 };

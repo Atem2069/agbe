@@ -13,6 +13,13 @@ Timer::~Timer()
 
 }
 
+void Timer::registerAPUCallbacks(callbackFn timer0, callbackFn timer1, void* ctx)
+{
+	apuOverflowCallbacks[0] = timer0;
+	apuOverflowCallbacks[1] = timer1;
+	apuCtx = ctx;
+}
+
 void Timer::event()
 {
 	uint64_t currentTimestamp = m_scheduler->getEventTime();
@@ -20,7 +27,11 @@ void Timer::event()
 	int timerIdx = 0;
 	switch (m_scheduler->getLastFiredEvent())
 	{
+	case Event::TIMER0:
+		apuOverflowCallbacks[0](apuCtx);
+		break;
 	case Event::TIMER1:
+		apuOverflowCallbacks[1](apuCtx);
 		timerIdx = 1;
 		break;
 	case Event::TIMER2:

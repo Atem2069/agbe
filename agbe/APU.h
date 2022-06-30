@@ -1,6 +1,7 @@
 #pragma once
 
 #include"Logger.h"
+#include"Scheduler.h"
 
 #include<iostream>
 
@@ -17,33 +18,61 @@ struct AudioFIFO
 		endIdx = (endIdx + 1) & 0x1F;	//limit range to 0->31
 		size++;
 	}
-	int8_t pop()
+	void pop()
 	{
 		int8_t retVal = data[startIdx];
 		startIdx = (startIdx + 1) & 0x1F;
 		size--;
-		return retVal;
+		currentSample = retVal;
 	}
 	void empty()
 	{
 		startIdx = 0; endIdx = 0;
+		size = 0;
 	}
 
+	bool isEmpty()
+	{
+		return size == 0;
+	}
+
+	bool isFull()
+	{
+		return size == 32;
+	}
+
+	int8_t currentSample = 0;	//holds last sample from timer event
 };
 
 class APU
 {
 public:
-	APU();
+	APU(std::shared_ptr<Scheduler> scheduler);
 	~APU();
+
+	void registerDMACallback(callbackFn dmaCallback, void* context);
 
 	uint8_t readIO(uint32_t address);
 	void writeIO(uint32_t address, uint8_t value);
+
+	static void sampleEventCallback(void* context);
+	static void timer0Callback(void* context);
+	static void timer1Callback(void* context);
 private:
+	std::shared_ptr<Scheduler> m_scheduler;
 	AudioFIFO m_channels[2];
 
 	uint16_t SOUNDCNT_H = {};
 	uint8_t SOUNDCNT_X = {};
 	uint16_t SOUNDBIAS = {};
 
+	const int cyclesPerSample = 256;	//~64KHz sample rate, so we want to mix samples together roughly every that many cycles
+	const int sampleRate = 65536;
+
+	callbackFn FIFODMACallback;
+	void* dmaContext;
+
+	void onSampleEvent();
+	void onTimer0Overflow();
+	void onTimer1Overflow();
 };

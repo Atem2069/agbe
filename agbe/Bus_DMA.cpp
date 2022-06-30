@@ -258,6 +258,39 @@ void Bus::doDMATransfer(int channel)
 	dmaInProgress = true;
 	bool reloadDest = false;
 	dmaNonsequentialAccess = true;
+
+	int dmaType = ((curChannel.control >> 12) & 0b11);
+	if (dmaType == 3 && channel != 3)							//need to clean this up: audio fifo dma
+	{
+		if(dest != 0x040000A0 && dest!=0x040000A4)
+			std::cout << "bad write addr: " << std::hex << dest << '\n';
+		wordTransfer = true;
+		numWords = 4;	//4 32 bit words transferred
+		
+		for (int i = 0; i < 4; i++)
+		{
+			m_scheduler->addCycles(2);
+			uint32_t val = read32(src, AccessType::Nonsequential);
+			write32(dest, val,AccessType::Sequential);
+			
+			switch (srcAddrCtrl)
+			{
+			case 0:
+				src += 4;
+				break;
+			case 1:
+				src -= 4;
+				break;
+			}
+
+		}
+
+		if (!dmaWasInProgress)
+			dmaInProgress = false;
+
+		return;
+	}
+
 	for (int i = 0; i < numWords; i++)		//assuming all accesses are sequential, which is probs not right..
 	{
 		m_scheduler->addCycles(2);
@@ -393,6 +426,21 @@ void Bus::onVideoCapture()	//special video capture dma used by dma3 (scanlines 2
 	}
 }
 
+void Bus::onAudioFIFO()
+{
+	for (int i = 1; i < 3; i++)
+	{
+		uint16_t curCtrlReg = m_dmaChannels[i].control;
+		if ((curCtrlReg >> 15) & 0b1)
+		{
+			//dma enabled
+			uint8_t startTiming = ((curCtrlReg >> 12) & 0b11);
+			if (startTiming == 3)
+				doDMATransfer(i);								//todo: account for forced settings if audio fifo dma used !!
+		}
+	}
+}
+
 void Bus::DMA_VBlankCallback(void* context)
 {
 	Bus* thisPtr = (Bus*)context;
@@ -415,4 +463,10 @@ void Bus::DMA_VideoCaptureCallback(void* context)
 {
 	Bus* thisPtr = (Bus*)context;
 	thisPtr->onVideoCapture();
+}
+
+void Bus::DMA_AudioFIFOCallback(void* context)
+{
+	Bus* thisPtr = (Bus*)context;
+	((Bus*)busCtx)->onAudioFIFO();	//this is fucking horrible - some sort of corruption in the apu is causing ctx to get destroyed i think, so fix this!!
 }

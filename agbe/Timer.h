@@ -19,6 +19,7 @@ class Timer
 {
 public:
 	Timer(std::shared_ptr<InterruptManager> interruptManager, std::shared_ptr<Scheduler> scheduler);
+	void registerAPUCallbacks(callbackFn timer0, callbackFn timer1, void* ctx);
 	~Timer();
 
 	uint8_t readIO(uint32_t address);
@@ -32,6 +33,10 @@ private:
 	void checkCascade(int timerIdx);
 	void setCurrentClock(int idx, uint8_t prescalerSetting);
 	TimerRegister m_timers[4];
+
+	callbackFn apuOverflowCallbacks[2];
+	void* apuCtx;
+
 	std::shared_ptr<InterruptManager> m_interruptManager;
 	std::shared_ptr<Scheduler> m_scheduler;
 };
