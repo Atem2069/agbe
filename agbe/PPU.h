@@ -27,9 +27,10 @@ union SpriteAttribute
 	uint8_t attr;
 	struct
 	{
-		uint8_t priority : 6;
+		uint8_t priority : 5;
 		bool objWindow : 1;
 		bool transparent : 1;
+		bool mosaic : 1;
 	};
 };
 
@@ -167,4 +168,5 @@ private:
 	uint16_t BLDCNT = {};
 	uint16_t BLDALPHA = {};
 	uint8_t BLDY = {};
+	uint16_t MOSAIC = {};
 };

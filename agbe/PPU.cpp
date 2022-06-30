@@ -320,6 +320,7 @@ void PPU::renderMode5()
 void PPU::composeLayers()
 {
 	uint16_t backDrop = ((m_mem->paletteRAM[1] << 8) | m_mem->paletteRAM[0]);
+	int spriteMosaicHorizontal = ((MOSAIC >> 8) & 0xF) + 1;
 	for (int x = 0; x < 240; x++)
 	{	
 		uint16_t finalCol = backDrop;
@@ -353,14 +354,16 @@ void PPU::composeLayers()
 
 		if ((DISPCNT >> 12) & 0b1 && getPointDrawable(x,VCOUNT,0,true))
 		{
-			uint16_t spritePixel = m_spriteLineBuffer[x];
-			if (!((spritePixel >> 15) & 0b1) && m_spriteAttrBuffer[x].priority != 0x3F && m_spriteAttrBuffer[x].priority <= highestPriority)
+			//sprite mosaic seems to be a post process thing? idk
+			int spriteX = x;
+			if (m_spriteAttrBuffer[x].mosaic)
+				spriteX = (x / spriteMosaicHorizontal) * spriteMosaicHorizontal;
+			uint16_t spritePixel = m_spriteLineBuffer[spriteX];
+			if (!((spritePixel >> 15) & 0b1) && m_spriteAttrBuffer[spriteX].priority != 0x1F && m_spriteAttrBuffer[spriteX].priority <= highestPriority)
 			{
-				transparentSpriteTop = m_spriteAttrBuffer[x].transparent;
+				transparentSpriteTop = m_spriteAttrBuffer[spriteX].transparent;
 				finalCol = spritePixel;
 				blendAMask = (((BLDCNT >> 4) & 0b1) || transparentSpriteTop);
-				//if ((BLDCNT >> 12) & 0b1)
-				//	blendPixelB = finalCol;
 			}
 		}
 
@@ -396,6 +399,8 @@ void PPU::drawBackground(int bg)
 	uint32_t xScroll = 0, yScroll = 0;
 	bool isTarget1 = ((BLDCNT >> bg) & 0b1);
 	bool isTarget2 = ((BLDCNT >> (bg + 8)) & 0b1);
+	int mosaicHorizontal = (MOSAIC & 0xF) + 1;
+	int mosaicVertical = ((MOSAIC >> 4) & 0xF) + 1;
 	switch (bg)
 	{
 	case 0:
@@ -423,6 +428,8 @@ void PPU::drawBackground(int bg)
 	//xScroll &= 0x1FF;
 	//yScroll &= 0x1FF;
 
+	bool mosaicEnabled = ((ctrlReg >> 6) & 0b1);
+
 	uint8_t bgPriority = ctrlReg & 0b11;
 	uint32_t tileDataBaseBlock = ((ctrlReg >> 2) & 0b11);
 	bool hiColor = ((ctrlReg >> 7) & 0b1);
@@ -433,7 +440,11 @@ void PPU::drawBackground(int bg)
 	int xWrap = xSizeLut[screenSize];
 	int yWrap = ySizeLut[screenSize];
 
-	uint32_t fetcherY = ((VCOUNT + yScroll) & yWrap);
+	int y = VCOUNT;
+	if (mosaicEnabled)
+		y = (y / mosaicVertical) * mosaicVertical;
+
+	uint32_t fetcherY = ((y + yScroll) & yWrap);
 	if (screenSize && (fetcherY > 255))
 	{
 		fetcherY -= 256;
@@ -441,6 +452,7 @@ void PPU::drawBackground(int bg)
 		if (screenSize == 3)	//not completely sure
 			bgMapBaseBlock += 1;
 	}
+
 	uint32_t bgMapYIdx = ((fetcherY / 8) * 32) * 2; //each row is 32 chars - each char is 2 bytes
 
 	uint16_t cachedTile = 0;
@@ -452,7 +464,10 @@ void PPU::drawBackground(int bg)
 	for (int x = 0; x < 240; x++)
 	{
 		uint32_t plotAddr = (VCOUNT * 240) + x;
-		int xCoord = (x + xScroll) & xWrap;
+		int tempX = x;
+		if (mosaicEnabled)
+			tempX = (x / mosaicHorizontal) * mosaicHorizontal;
+		int xCoord = (tempX + xScroll) & xWrap;
 		int baseBlockOffset = 0;				//x scrolling can cause new baseblock to bee selected
 		if (screenSize && (xCoord > 255))
 		{
@@ -557,7 +572,6 @@ void PPU::drawRotationScalingBackground(int bg)
 			continue;
 		}
 		fetcherY = fetcherY % yWrap;
-		uint32_t bgMapYIdx = ((fetcherY / 8) * (xWrap>>3)); //each row is 32 chars; in rotation/scroll each entry is 1 byte
 
 		uint32_t xCoord = (uint32_t)((int32_t)xRef >> 8);
 		if ((xCoord >= xWrap) && !overflowWrap)
@@ -567,6 +581,7 @@ void PPU::drawRotationScalingBackground(int bg)
 		}
 		xCoord = xCoord % xWrap;
 
+		uint32_t bgMapYIdx = ((fetcherY / 8) * (xWrap >> 3)); //each row is 32 chars; in rotation/scroll each entry is 1 byte
 		uint32_t tileIdx = cachedTileIdx;
 		if (cachedXCoord != (xCoord>>3) || cachedYCoord != bgMapYIdx)
 		{
@@ -597,7 +612,10 @@ void PPU::drawSprites()
 	bool isBlendTarget2 = ((BLDCNT >> 12) & 0b1);
 	uint8_t blendMode = ((BLDCNT >> 6) & 0b11);
 
-	memset(m_spriteAttrBuffer, 0b00111111, 240);
+	int mosaicHorizontal = ((MOSAIC >> 8) & 0xF) + 1;
+	int mosaicVertical = ((MOSAIC >> 12) & 0xF) + 1;
+
+	memset(m_spriteAttrBuffer, 0b00011111, 240);
 
 	for (int i = 127; i >= 0; i--)
 	{
@@ -617,6 +635,7 @@ void PPU::drawSprites()
 
 		uint8_t objMode = (curSpriteEntry->attr0 >> 10) & 0b11;	
 		bool isObjWindow = (objMode == 2);
+		bool mosaic = (curSpriteEntry->attr0 >> 12) & 0b1;
 
 		int spriteTop = curSpriteEntry->attr0 & 0xFF;
 		if (spriteTop > 225)							//bit of a dumb hack to accommodate for when sprites are offscreen
@@ -659,6 +678,8 @@ void PPU::drawSprites()
 		if (hiColor)
 			rowPitch *= 2;
 
+		if (mosaic)
+			yOffsetIntoSprite = (yOffsetIntoSprite / mosaicVertical) * mosaicVertical;
 
 		//check y coord, then adjust tile id as necessary
 		while (yOffsetIntoSprite >= 8)
@@ -714,6 +735,7 @@ void PPU::drawSprites()
 				{
 					m_spriteAttrBuffer[plotCoord].priority = spritePriority & 0b111111;
 					m_spriteAttrBuffer[plotCoord].transparent = (objMode == 1);
+					m_spriteAttrBuffer[plotCoord].mosaic = mosaic;
 					m_spriteLineBuffer[plotCoord] = col;
 				}
 			}
@@ -1399,6 +1421,12 @@ void PPU::writeIO(uint32_t address, uint8_t value)
 		break;
 	case 0x04000054:
 		BLDY = value;
+		break;
+	case 0x0400004C:
+		MOSAIC &= 0xFF00; MOSAIC |= value;
+		break;
+	case 0x0400004D:
+		MOSAIC &= 0xFF; MOSAIC |= (value << 8);
 		break;
 	default:
 		break;
