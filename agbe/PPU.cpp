@@ -258,11 +258,28 @@ void PPU::renderMode3()
 	drawSprites();
 	if ((DISPCNT >> 10) & 0b1)
 	{
+		uint32_t xRef = BG2X & 0xFFFFFFF;
+		if ((xRef >> 27) & 0b1)
+			xRef |= 0xF0000000;
+		uint32_t yRef = BG2Y & 0xFFFFFFF;
+		if ((yRef >> 27) & 0b1)
+			yRef |= 0xF000000;
+
+		int16_t pA = (int16_t)BG2PA;
+		int16_t pC = (int16_t)BG2PC;
+
 		m_backgroundLayers[2].enabled = true;
 		m_backgroundLayers[2].priorityBits = BG2CNT & 0b11;
-		for (int i = 0; i < 240; i++)
+		for (int i = 0; i < 240; i++, xRef += pA, yRef += pC)
 		{
-			uint32_t address = (VCOUNT * 480) + (i * 2);
+			uint32_t xCoord = (xRef >> 8) & 0xFFFFF;
+			uint32_t yCoord = (yRef >> 8) & 0xFFFFF;
+			if (xCoord > 239 || yCoord > 159)
+			{
+				m_backgroundLayers[2].lineBuffer[i] = 0x8000;
+				continue;
+			}
+			uint32_t address = (yCoord * 480) + (xCoord * 2);
 			uint8_t colLow = m_mem->VRAM[address];
 			uint8_t colHigh = m_mem->VRAM[address + 1];
 			uint16_t col = ((colHigh << 8) | colLow);
@@ -271,6 +288,7 @@ void PPU::renderMode3()
 	}
 
 	composeLayers();
+	updateAffineRegisters(2);
 }
 
 void PPU::renderMode4()
@@ -282,11 +300,27 @@ void PPU::renderMode4()
 		base = 0xA000;
 	if ((DISPCNT >> 10) & 0b1)
 	{
+		uint32_t xRef = BG2X & 0xFFFFFFF;
+		if ((xRef >> 27) & 0b1)
+			xRef |= 0xF0000000;
+		uint32_t yRef = BG2Y & 0xFFFFFFF;
+		if ((yRef >> 27) & 0b1)
+			yRef |= 0xF000000;
+
+		int16_t pA = (int16_t)BG2PA;
+		int16_t pC = (int16_t)BG2PC;
 		m_backgroundLayers[2].enabled = true;
 		m_backgroundLayers[2].priorityBits = BG2CNT & 0b11;
-		for (int i = 0; i < 240; i++)
+		for (int i = 0; i < 240; i++, xRef += pA, yRef += pC)
 		{
-			uint32_t address = base + (VCOUNT * 240) + i;
+			uint32_t xCoord = (xRef >> 8) & 0xFFFFF;
+			uint32_t yCoord = (yRef >> 8) & 0xFFFFF;
+			if (xCoord > 239 || yCoord > 159)
+			{
+				m_backgroundLayers[2].lineBuffer[i] = 0x8000;
+				continue;
+			}
+			uint32_t address = base + (yCoord * 240) + xCoord;
 			uint8_t curPaletteIdx = m_mem->VRAM[address];
 			uint16_t paletteAddress = (uint16_t)curPaletteIdx * 2;
 			uint8_t paletteLow = m_mem->paletteRAM[paletteAddress];
@@ -298,6 +332,7 @@ void PPU::renderMode4()
 	}
 
 	composeLayers();
+	updateAffineRegisters(2);
 }
 
 void PPU::renderMode5()
@@ -309,17 +344,31 @@ void PPU::renderMode5()
 		baseAddr = 0xA000;
 	if ((DISPCNT >> 10) & 0b1)
 	{
+		uint32_t xRef = BG2X & 0xFFFFFFF;
+		if ((xRef >> 27) & 0b1)
+			xRef |= 0xF0000000;
+		uint32_t yRef = BG2Y & 0xFFFFFFF;
+		if ((yRef >> 27) & 0b1)
+			yRef |= 0xF000000;
+
+		int16_t pA = (int16_t)BG2PA;
+		int16_t pC = (int16_t)BG2PC;
+
 		m_backgroundLayers[2].enabled = true;
 		m_backgroundLayers[2].priorityBits = BG2CNT & 0b11;
-		for (int i = 0; i < 240; i++)
+		for (int i = 0; i < 240; i++, xRef+=pA, yRef+=pC)
 		{
-			if (i > 159 || VCOUNT > 127)
+
+			uint32_t xCoord = (xRef >> 8) & 0xFFFFF;
+			uint32_t yCoord = (yRef >> 8) & 0xFFFFF;
+			
+			if (xCoord > 159 || yCoord > 127)
 			{
 				m_backgroundLayers[2].lineBuffer[i] = 0x8000;
 				continue;
 			}
 
-			uint32_t address = baseAddr + (VCOUNT * 320) + (i * 2);
+			uint32_t address = baseAddr + (yCoord * 320) + (xCoord * 2);
 			uint8_t colLow = m_mem->VRAM[address];
 			uint8_t colHigh = m_mem->VRAM[address + 1];
 			uint16_t col = (colHigh << 8) | colLow;
@@ -328,6 +377,7 @@ void PPU::renderMode5()
 	}
 
 	composeLayers();
+	updateAffineRegisters(2);
 }
 
 void PPU::composeLayers()
