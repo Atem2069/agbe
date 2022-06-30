@@ -16,30 +16,42 @@ Timer::~Timer()
 void Timer::event()
 {
 	uint64_t currentTimestamp = m_scheduler->getEventTime();
-	for (int i = 0; i < 4; i++)
-	{
-		uint8_t ctrlreg = m_timers[i].CNT_H;
-		bool timerEnabled = (ctrlreg >> 7) & 0b1;
-		bool cascade = (ctrlreg >> 2) & 0b1;
-		if (timerEnabled && !cascade)
-		{
-			uint64_t timerOverflowTime = m_timers[i].overflowTime;
-			if (timerOverflowTime <= currentTimestamp)
-			{
-				//overflowed, need to handle
-				m_timers[i].initialClock = m_timers[i].CNT_L;
-				m_timers[i].clock = m_timers[i].initialClock;
-				calculateNextOverflow(i, timerOverflowTime,false);	//don't update with our current clock, because we might have overshot the overflow time slightly.
-				setCurrentClock(i, m_timers[i].CNT_H & 0b11);
-				checkCascade(i + 1);
-				bool doIrq = (ctrlreg >> 6) & 0b1;
-				if (doIrq)
-				{
-					InterruptType irqLUT[4] = { InterruptType::Timer0,InterruptType::Timer1,InterruptType::Timer2,InterruptType::Timer3 };
-					m_interruptManager->requestInterrupt(irqLUT[i]);
-				}
 
+	int timerIdx = 0;
+	switch (m_scheduler->getLastFiredEvent())
+	{
+	case Event::TIMER1:
+		timerIdx = 1;
+		break;
+	case Event::TIMER2:
+		timerIdx = 2;
+		break;
+	case Event::TIMER3:
+		timerIdx = 3;
+		break;
+	}
+
+	uint8_t ctrlreg = m_timers[timerIdx].CNT_H;
+	bool timerEnabled = (ctrlreg >> 7) & 0b1;
+	bool cascade = (ctrlreg >> 2) & 0b1;
+	if (timerEnabled && !cascade)
+	{
+		uint64_t timerOverflowTime = m_timers[timerIdx].overflowTime;
+		if (timerOverflowTime <= currentTimestamp)
+		{
+			//overflowed, need to handle
+			m_timers[timerIdx].initialClock = m_timers[timerIdx].CNT_L;
+			m_timers[timerIdx].clock = m_timers[timerIdx].initialClock;
+			calculateNextOverflow(timerIdx, timerOverflowTime,false);	//don't update with our current clock, because we might have overshot the overflow time slightly.
+			setCurrentClock(timerIdx, m_timers[timerIdx].CNT_H & 0b11);
+			checkCascade(timerIdx + 1);
+			bool doIrq = (ctrlreg >> 6) & 0b1;
+			if (doIrq)
+			{
+				InterruptType irqLUT[4] = { InterruptType::Timer0,InterruptType::Timer1,InterruptType::Timer2,InterruptType::Timer3 };
+				m_interruptManager->requestInterrupt(irqLUT[timerIdx]);
 			}
+
 		}
 	}
 }
@@ -82,15 +94,13 @@ void Timer::writeIO(uint32_t address, uint8_t value)
 		m_timers[timerIdx].CNT_L &= 0xFF; m_timers[timerIdx].CNT_L |= ((value << 8));
 		break;
 	case 2:
+		setCurrentClock(timerIdx, m_timers[timerIdx].CNT_H & 0b11);				//update clock first if possible
 		bool timerWasEnabled = (m_timers[timerIdx].CNT_H >> 7) & 0b1;
 		bool timerNowEnabled = (value >> 7) & 0b1;
 		bool countup = ((value >> 2) & 0b1);
 		bool wasCountup = (m_timers[timerIdx].CNT_H >> 2) & 0b1;
 		uint8_t oldPrescalerSetting = m_timers[timerIdx].CNT_H & 0b11;
 		uint8_t newPrescalerSetting = value & 0b11;
-
-		if ((timerWasEnabled && !timerNowEnabled) || (!wasCountup && countup))
-			setCurrentClock(timerIdx, oldPrescalerSetting);
 
 		m_timers[timerIdx].CNT_H &= 0xFF00; m_timers[timerIdx].CNT_H |= value;
 
@@ -100,21 +110,17 @@ void Timer::writeIO(uint32_t address, uint8_t value)
 			countup = false;
 		}
 
-		if (!timerWasEnabled && timerNowEnabled && countup)
-			m_timers[timerIdx].clock = m_timers[timerIdx].CNT_L;
-
-		if (!timerWasEnabled && timerNowEnabled && !countup)
+		if (!timerWasEnabled && timerNowEnabled)
 		{
-			m_timers[timerIdx].initialClock = m_timers[timerIdx].CNT_L;
-			m_timers[timerIdx].clock = m_timers[timerIdx].initialClock;
-			calculateNextOverflow(timerIdx, m_scheduler->getCurrentTimestamp(),true);
+			m_timers[timerIdx].clock = m_timers[timerIdx].CNT_L;	//load in reload value
+			if (!countup)
+			{
+				m_timers[timerIdx].initialClock = m_timers[timerIdx].clock;
+				calculateNextOverflow(timerIdx, m_scheduler->getCurrentTimestamp(), true);
+			}
 		}
-
 		if (timerWasEnabled && timerNowEnabled && (newPrescalerSetting != oldPrescalerSetting) && !countup)	//prescaler has changed!!
-		{
-			setCurrentClock(timerIdx, oldPrescalerSetting);	//update clock with old prescaler
-			calculateNextOverflow(timerIdx, m_scheduler->getCurrentTimestamp(),false);	//then find next overflow time
-		}
+			calculateNextOverflow(timerIdx, m_scheduler->getCurrentTimestamp(),false);	//calculate new overflow
 
 		break;
 	}

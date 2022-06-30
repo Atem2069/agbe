@@ -59,6 +59,7 @@ void Scheduler::jumpToNextEvent()
 
 	timestamp = entries[lowestEntryIdx].timestamp;
 	eventTime = timestamp;
+	m_lastFiredEvent = (Event)lowestEntryIdx;
 	entries[lowestEntryIdx].enabled = false;
 	entries[lowestEntryIdx].callback(entries[lowestEntryIdx].context);
 }
@@ -96,6 +97,7 @@ bool Scheduler::getEntryAtTimestamp(SchedulerEntry& entry)
 		if (curEntry.enabled && curEntry.timestamp <= timestamp)
 		{
 			entries[i].enabled = false;
+			m_lastFiredEvent = (Event)i;
 			entry = curEntry;
 			return true;
 		}
@@ -110,4 +112,9 @@ void Scheduler::invalidateAll()
 	eventTime = 0;
 	for (int i = 0; i < NUM_ENTRIES; i++)
 		entries[i].enabled = false;
+}
+
+Event Scheduler::getLastFiredEvent()
+{
+	return m_lastFiredEvent;
 }

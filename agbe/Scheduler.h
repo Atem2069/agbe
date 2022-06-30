@@ -33,12 +33,18 @@ public:
 	void addCycles(uint64_t cycles);
 	void forceSync(uint64_t delta);
 	void tick();
+
 	void jumpToNextEvent();
+
 	uint64_t getCurrentTimestamp();
 	uint64_t getEventTime();
+
 	void addEvent(Event type, callbackFn callback, void* context, uint64_t time);
 	void removeEvent(Event type);
+
 	void invalidateAll();
+
+	Event getLastFiredEvent();
 private:
 	bool getEntryAtTimestamp(SchedulerEntry& entry);
 	uint64_t timestamp;
@@ -48,4 +54,6 @@ private:
 	bool shouldSync = false;
 	SchedulerEntry entries[8];	//todo: add moree stuff to scheduler
 	const int NUM_ENTRIES = 8;
+
+	Event m_lastFiredEvent = Event::Frame;
 };
