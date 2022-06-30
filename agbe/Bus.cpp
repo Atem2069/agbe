@@ -201,6 +201,7 @@ uint16_t Bus::read16(uint32_t address, AccessType accessType)
 		tickPrefetcher(1);
 		return getValue16(m_mem->OAM, address & 0x3FF,0x3FF);
 	case 8: case 9: case 0xA: case 0xB: case 0xC: case 0xD:
+		dmaNonsequentialAccess = false;
 		cartCycles = ((accessType==AccessType::Sequential) && ((address & 0x1FF) != 0)) ? waitstateSequentialTable[((page - 8) >> 1)] : waitstateNonsequentialTable[((page - 8) >> 1)];
 		if (accessType != AccessType::Prefetch)
 		{
@@ -262,6 +263,7 @@ void Bus::write16(uint32_t address, uint16_t value, AccessType accessType)
 		setValue16(m_mem->OAM, address & 0x3FF, 0x3FF, value);
 		break;
 	case 8: case 9: case 0xA: case 0xB: case 0xC: case 0xD:
+		dmaNonsequentialAccess = false;
 		cartCycles = ((accessType==AccessType::Sequential) && ((address & 0x1FF) != 0)) ? waitstateSequentialTable[((page - 8) >> 1)] : waitstateNonsequentialTable[((page - 8) >> 1)];
 		m_scheduler->addCycles(cartCycles);
 		invalidatePrefetchBuffer();
@@ -326,6 +328,7 @@ uint32_t Bus::read32(uint32_t address, AccessType accessType)
 		tickPrefetcher(1);
 		return getValue32(m_mem->OAM, address & 0x3FF,0x3FF);
 	case 8: case 9: case 0xA: case 0xB: case 0xC: case 0xD:
+		dmaNonsequentialAccess = false;
 		cartCycles = ((accessType==AccessType::Sequential) && ((address & 0x1FF) != 0)) ? waitstateSequentialTable[((page - 8) >> 1)] : waitstateNonsequentialTable[((page - 8) >> 1)];
 		m_scheduler->addCycles(cartCycles + waitstateSequentialTable[((page-8)>>1)] + 1);	//first access is either nonseq/seq. second is *always* seq
 		if (accessType != AccessType::Prefetch)
@@ -385,6 +388,7 @@ void Bus::write32(uint32_t address, uint32_t value, AccessType accessType)
 		setValue32(m_mem->OAM, address & 0x3FF, 0x3FF, value);
 		break;
 	case 8: case 9: case 0xA: case 0xB: case 0xC: case 0xD:
+		dmaNonsequentialAccess = false;
 		cartCycles = ((accessType==AccessType::Sequential) && ((address & 0x1FF) != 0)) ? waitstateSequentialTable[((page - 8) >> 1)] : waitstateNonsequentialTable[((page - 8) >> 1)];
 		m_scheduler->addCycles(cartCycles + waitstateSequentialTable[((page - 8) >> 1)] + 1);	//same as for read32
 		Logger::getInstance()->msg(LoggerSeverity::Error, "Tried to write to cartridge space!!!");

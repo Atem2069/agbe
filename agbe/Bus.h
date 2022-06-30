@@ -103,6 +103,7 @@ private:
 
 	bool biosLockout = false;
 	bool dmaInProgress = false;
+	bool dmaNonsequentialAccess = true;
 
 	uint16_t getValue16(uint8_t* arr, int base, int mask);
 	void setValue16(uint8_t* arr, int base, int mask, uint16_t val);

@@ -257,22 +257,21 @@ void Bus::doDMATransfer(int channel)
 	bool wordTransfer = ((curChannel.control >> 10) & 0b1);
 	dmaInProgress = true;
 	bool reloadDest = false;
-	bool firstAccess = true;
+	dmaNonsequentialAccess = true;
 	for (int i = 0; i < numWords; i++)		//assuming all accesses are sequential, which is probs not right..
 	{
 		m_scheduler->addCycles(2);
 		if (wordTransfer)
 		{
-			uint32_t word = read32(src,(AccessType)!firstAccess);
-			write32(dest, word,AccessType::Sequential);									//hmm. first rom write is sequential? (this is wrong)	
+			uint32_t word = read32(src,(AccessType)!dmaNonsequentialAccess);
+			write32(dest, word,(AccessType)!dmaNonsequentialAccess);									//hmm. first rom write is sequential? (this is wrong)	
 		}
 		else
 		{
-			uint16_t halfword = read16(src,(AccessType)!firstAccess);
-			write16(dest, halfword,AccessType::Sequential);                               //same as above^^			
+			uint16_t halfword = read16(src,(AccessType)!dmaNonsequentialAccess);
+			write16(dest, halfword,(AccessType)!dmaNonsequentialAccess);                               //same as above^^			
 		}
 		m_scheduler->tick();
-		firstAccess = false;
 		int incrementAmount = (wordTransfer) ? 4 : 2;
 
 		//TODO: control mode 3 (increment/reload on dest)
