@@ -269,7 +269,7 @@ void ARM7TDMI::Thumb_PCRelativeLoad()
 
 	uint32_t val = m_bus->read32(PC + offset, AccessType::Nonsequential);
 	setReg(destRegIdx, val);
-	m_scheduler->addCycles(5);	//probs right? 1s+1n+1i for ldr, then 1s+1n for loading pc
+	m_scheduler->addCycles(3);	//probs right? 
 	m_bus->tickPrefetcher(1);
 	nextFetchNonsequential = true;
 }
@@ -493,9 +493,7 @@ void ARM7TDMI::Thumb_LoadAddress()
 		PC += offset;
 		setReg(destRegIdx, PC);
 	}
-	m_scheduler->addCycles(3);	//probs right?
-	m_bus->tickPrefetcher(1);
-	nextFetchNonsequential = true;
+	m_scheduler->addCycles(1);	//probs right?
 }
 
 void ARM7TDMI::Thumb_AddOffsetToStackPointer()
