@@ -120,14 +120,14 @@ void APU::onTimer0Overflow()
 	if (!channelATimerSelect && chanAEnabled)
 	{
 		m_channels[0].pop();
-		if (m_channels[0].size <= 16)
+		if (m_channels[0].size < 16)
 			needToDMA = true;
 	}
 	bool chanBEnabled = ((SOUNDCNT_H >> 13 & 0b1) || ((SOUNDCNT_H >> 12) & 0b1));
 	if (!channelBTimerSelect && chanBEnabled)
 	{
 		m_channels[1].pop();
-		if (m_channels[1].size <= 16)
+		if (m_channels[1].size < 16)
 			needToDMA = true;
 	}
 
@@ -150,13 +150,13 @@ void APU::onTimer1Overflow()
 	if (channelATimerSelect && chanAEnabled)
 	{
 		m_channels[0].pop();
-		if (m_channels[0].size <= 16)
+		if (m_channels[0].size < 16)
 			needToDMA = true;
 	}
 	if (channelBTimerSelect && chanBEnabled)
 	{
 		m_channels[1].pop();
-		if (m_channels[1].size <= 16)
+		if (m_channels[1].size < 16)
 			needToDMA = true;
 	}
 
