@@ -68,8 +68,12 @@ private:
 	uint8_t SOUNDCNT_X = {};
 	uint16_t SOUNDBIAS = {};
 
-	const int cyclesPerSample = 256;	//~64KHz sample rate, so we want to mix samples together roughly every that many cycles
-	const int sampleRate = 65536;
+	static constexpr int cyclesPerSample = 256;	//~64KHz sample rate, so we want to mix samples together roughly every that many cycles
+	static constexpr int sampleRate = 65536;
+	static constexpr int sampleBufferSize = 2048;
+
+	bool m_shouldDMA = false;
+	void updateDMAChannel(int channel);
 
 	callbackFn FIFODMACallback;
 	void* dmaContext;
@@ -79,8 +83,8 @@ private:
 	void onTimer1Overflow();
 
 	SDL_AudioDeviceID m_audioDevice = {};
-	float m_chanABuffer[1024] = {};
-	float m_chanBBuffer[1024] = {};
+	float m_chanABuffer[sampleBufferSize] = {};
+	float m_chanBBuffer[sampleBufferSize] = {};
 	int sampleIndex = 0;
 
 	float capacitor = 0.0f;

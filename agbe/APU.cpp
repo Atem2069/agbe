@@ -14,7 +14,7 @@ APU::APU(std::shared_ptr<Scheduler> scheduler)
 	desiredSpec.format = AUDIO_F32;	//might have to change this and make use of some actual resampling
 	desiredSpec.channels = 1;		//todo: support multiple channels too
 	desiredSpec.silence = 0;
-	desiredSpec.samples = 1024;		//1024 long sample buffer, we'll see how this goes
+	desiredSpec.samples = sampleBufferSize;	
 	m_audioDevice = SDL_OpenAudioDevice(nullptr, 0, &desiredSpec, &obtainedSpec, 0);
 	SDL_PauseAudioDevice(m_audioDevice, 0);
 }
@@ -85,22 +85,21 @@ void APU::writeIO(uint32_t address, uint8_t value)
 
 void APU::onSampleEvent()
 {
-
 	int8_t chanASample = m_channels[0].currentSample;
 	m_chanABuffer[sampleIndex] = (((float)chanASample) / 128.f);
 	int8_t chanBSample = m_channels[1].currentSample;
 	m_chanBBuffer[sampleIndex] = (((float)chanBSample) / 128.f);
 	sampleIndex++;
-	if (sampleIndex == 1024)
+	if (sampleIndex == sampleBufferSize)
 	{
-		float m_finalSamples[1024] = {};
-		SDL_MixAudioFormat((uint8_t*)m_finalSamples, (uint8_t*)m_chanABuffer, AUDIO_F32, 1024 * 4, SDL_MIX_MAXVOLUME / 64);
-		SDL_MixAudioFormat((uint8_t*)m_finalSamples, (uint8_t*)m_chanBBuffer, AUDIO_F32, 1024 * 4, SDL_MIX_MAXVOLUME / 64);
-		memset(m_chanABuffer, 0, 1024 * 4);
-		memset(m_chanBBuffer, 0, 1024 * 4);
 		sampleIndex = 0;
-		m_channels[0].currentSample = 0;
-		SDL_QueueAudio(m_audioDevice, (void*)m_finalSamples, 1024*4);
+		float m_finalSamples[sampleBufferSize] = {};
+		SDL_MixAudioFormat((uint8_t*)m_finalSamples, (uint8_t*)m_chanABuffer, AUDIO_F32, sampleBufferSize * 4, SDL_MIX_MAXVOLUME / 64);
+		SDL_MixAudioFormat((uint8_t*)m_finalSamples, (uint8_t*)m_chanBBuffer, AUDIO_F32, sampleBufferSize * 4, SDL_MIX_MAXVOLUME / 64);
+		SDL_QueueAudio(m_audioDevice, (void*)m_finalSamples, sampleBufferSize*4);
+
+		while (SDL_GetQueuedAudioSize(m_audioDevice) > sampleBufferSize * 4)
+			(void)0;
 	}
 
 	m_scheduler->addEvent(Event::AudioSample, &APU::sampleEventCallback, (void*)this, m_scheduler->getEventTime() + cyclesPerSample);
@@ -112,27 +111,16 @@ void APU::onTimer0Overflow()
 	if (!soundEnabled)
 		return;
 
-	bool needToDMA = false;
-
 	bool channelATimerSelect = ((SOUNDCNT_H >> 10) & 0b1);
 	bool channelBTimerSelect = ((SOUNDCNT_H >> 14) & 0b1);
-	bool chanAEnabled = ((SOUNDCNT_H >> 8) & 0b1) || ((SOUNDCNT_H >> 9) & 0b1);
-	if (!channelATimerSelect && chanAEnabled)
-	{
-		m_channels[0].pop();
-		if (m_channels[0].size < 16)
-			needToDMA = true;
-	}
-	bool chanBEnabled = ((SOUNDCNT_H >> 13 & 0b1) || ((SOUNDCNT_H >> 12) & 0b1));
-	if (!channelBTimerSelect && chanBEnabled)
-	{
-		m_channels[1].pop();
-		if (m_channels[1].size < 16)
-			needToDMA = true;
-	}
+	if (!channelATimerSelect)
+		updateDMAChannel(0);
+	if (!channelBTimerSelect)
+		updateDMAChannel(1);
 
-	if (needToDMA)
+	if (m_shouldDMA)
 		FIFODMACallback(dmaContext);
+	m_shouldDMA = false;
 }
 
 void APU::onTimer1Overflow()
@@ -141,27 +129,28 @@ void APU::onTimer1Overflow()
 	if (!soundEnabled)
 		return;
 
-	bool needToDMA = false;
-
 	bool channelATimerSelect = ((SOUNDCNT_H >> 10) & 0b1);
-	bool chanAEnabled = ((SOUNDCNT_H >> 8) & 0b1) || ((SOUNDCNT_H >> 9) & 0b1);
 	bool channelBTimerSelect = ((SOUNDCNT_H >> 14) & 0b1);
-	bool chanBEnabled = ((SOUNDCNT_H >> 13 & 0b1) || ((SOUNDCNT_H >> 12) & 0b1));
-	if (channelATimerSelect && chanAEnabled)
-	{
-		m_channels[0].pop();
-		if (m_channels[0].size < 16)
-			needToDMA = true;
-	}
-	if (channelBTimerSelect && chanBEnabled)
-	{
-		m_channels[1].pop();
-		if (m_channels[1].size < 16)
-			needToDMA = true;
-	}
+	if (channelATimerSelect)
+		updateDMAChannel(0);
+	if (channelBTimerSelect)
+		updateDMAChannel(1);
 
-	if (needToDMA)
+	if (m_shouldDMA)
 		FIFODMACallback(dmaContext);
+	m_shouldDMA = false;
+}
+
+void APU::updateDMAChannel(int channel)
+{
+	int baseEnableIdx = (channel == 0) ? 8 : 12;
+	bool channelEnabled = ((SOUNDCNT_H >> baseEnableIdx) & 0b1) || ((SOUNDCNT_H >> (baseEnableIdx + 1)) & 0b1);	//see if fifo channel is enabled on either L/R output channels
+	if (channelEnabled)
+	{
+		m_channels[channel].pop();
+		if (m_channels[channel].size < 16)	//need to request more data!!
+			m_shouldDMA = true;
+	}
 }
 
 void APU::sampleEventCallback(void* context)
