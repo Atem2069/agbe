@@ -346,7 +346,7 @@ void Bus::doDMATransfer(int channel)
 	}
 
 	bool repeatDMA = ((curChannel.control >> 9) & 0b1);
-	if (repeatDMA)
+	if (repeatDMA && dmaType!=0)
 	{
 		if (reloadDest)
 			m_dmaChannels[channel].internalDest = m_dmaChannels[channel].destAddress;
@@ -428,7 +428,9 @@ void Bus::onAudioFIFO()
 			//dma enabled
 			uint8_t startTiming = ((curCtrlReg >> 12) & 0b11);
 			if (startTiming == 3)
-				doDMATransfer(i);								//todo: account for forced settings if audio fifo dma used !!
+				doDMATransfer(i);
+			else
+				std::cout << "channel " << i << " is not fifo - " << ((curCtrlReg >> 12) & 0b11);
 		}
 	}
 }

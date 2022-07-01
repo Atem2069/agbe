@@ -59,15 +59,9 @@ void APU::writeIO(uint32_t address, uint8_t value)
 	case 0x04000083:
 		SOUNDCNT_H &= 0xFF; SOUNDCNT_H |= (value << 8);
 		if ((SOUNDCNT_H >> 11) & 0b1)
-		{
 			m_channels[0].empty();
-			FIFODMACallback(dmaContext);
-		}
 		if ((SOUNDCNT_H >> 15) & 0b1)
-		{
 			m_channels[1].empty();
-			FIFODMACallback(dmaContext);
-		}
 		break;
 	case 0x04000084:
 		SOUNDCNT_X = value;
@@ -86,7 +80,6 @@ void APU::writeIO(uint32_t address, uint8_t value)
 		if (!m_channels[1].isFull())
 			m_channels[1].push(value);
 		break;
-	//todo: audio fifo writes - and in addition the bits in SOUNDCNT_H that can reset the fifos
 	}
 }
 
