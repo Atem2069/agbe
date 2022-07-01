@@ -73,6 +73,8 @@ uint8_t Timer::readIO(uint32_t address)
 	uint32_t timerIdx = ((address - 0x4000100) / 4);	//4000100-4000103 = timer 0, etc.
 	uint32_t addrOffset = ((address - 0x4000100) % 4);	//figure out which byte we're writing (0-3)
 
+	setCurrentClock(timerIdx, m_timers[timerIdx].CNT_H & 0b11);
+
 	bool cascade = (m_timers[timerIdx].CNT_H >> 2) & 0b1;
 	if (cascade)
 		m_scheduler->tick();	//hehe - the aging cart cascade test requires quite tight timing, so force all pending events to fire first 
@@ -80,10 +82,8 @@ uint8_t Timer::readIO(uint32_t address)
 	switch (addrOffset)
 	{
 	case 0:
-		setCurrentClock(timerIdx, m_timers[timerIdx].CNT_H&0b11);
 		return m_timers[timerIdx].clock & 0xFF;
 	case 1:
-		setCurrentClock(timerIdx,m_timers[timerIdx].CNT_H&0b11);
 		return (m_timers[timerIdx].clock >> 8) & 0xFF;
 	case 2:
 		return m_timers[timerIdx].CNT_H & 0xFF;
@@ -131,8 +131,8 @@ void Timer::writeIO(uint32_t address, uint8_t value)
 				calculateNextOverflow(timerIdx, m_scheduler->getCurrentTimestamp(), true);
 			}
 		}
-		if (timerWasEnabled && timerNowEnabled && (newPrescalerSetting != oldPrescalerSetting) && !countup)	//prescaler has changed!!
-			calculateNextOverflow(timerIdx, m_scheduler->getCurrentTimestamp(),false);	//calculate new overflow
+		if(timerWasEnabled && timerNowEnabled)
+			calculateNextOverflow(timerIdx, m_scheduler->getCurrentTimestamp(), false);
 
 		break;
 	}

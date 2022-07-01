@@ -40,9 +40,11 @@ void SerialStub::writeIO(uint32_t address, uint8_t value)
 		SIOCNT &= 0xFF00; SIOCNT |= value;
 		break;
 	case 0x04000129:
+	{
 		SIOCNT &= 0xFF; SIOCNT |= (value << 8);
 		calculateNextEvent();
 		break;
+	}
 	case 0x0400012A:
 		SIODATA8 = value;
 		break;
@@ -63,6 +65,9 @@ void SerialStub::writeIO(uint32_t address, uint8_t value)
 
 void SerialStub::serialEvent()
 {
+	bool sioEnabled = ((SIOCNT >> 7) & 0b1);
+	if (!sioEnabled)
+		return;
 	eventInProgress = false;
 
 	bool wordTransfer = ((SIOCNT >> 12) & 0b1);
@@ -80,7 +85,8 @@ void SerialStub::serialEvent()
 void SerialStub::calculateNextEvent()
 {
 	bool isInternalClock = SIOCNT & 0b1;
-	if (!isInternalClock || eventInProgress)
+	bool transferEnabled = ((SIOCNT >> 7) & 0b1);
+	if (!isInternalClock || eventInProgress || !transferEnabled)
 		return;
 	eventInProgress = true;
 
