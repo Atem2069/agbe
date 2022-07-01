@@ -406,14 +406,16 @@ void PPU::composeLayers()
 				uint16_t colAtLayer = m_backgroundLayers[layer].lineBuffer[x];
 				if (!((colAtLayer >> 15) & 0b1))
 				{
+					bool isBlendTargetA = ((BLDCNT >> layer) & 0b1);
 					if ((m_backgroundLayers[layer].priorityBits <= highestPriority))
 					{
 						highestPriority = m_backgroundLayers[layer].priorityBits;
 						finalCol = colAtLayer;
-						blendAMask = ((BLDCNT >> layer) & 0b1);
+						blendAMask = isBlendTargetA;
 					}
 
-					if (((BLDCNT >> (layer + 8)) & 0b1) && m_backgroundLayers[layer].priorityBits <= blendPixelBPriority)
+					//choose highest priority b target that isn't also target a
+					if (((BLDCNT >> (layer + 8)) & 0b1) && !isBlendTargetA && m_backgroundLayers[layer].priorityBits <= blendPixelBPriority)
 					{
 						blendPixelB = colAtLayer;
 						blendPixelBPriority = m_backgroundLayers[layer].priorityBits;
@@ -430,11 +432,18 @@ void PPU::composeLayers()
 			if (m_spriteAttrBuffer[x].mosaic)
 				spriteX = (x / spriteMosaicHorizontal) * spriteMosaicHorizontal;
 			uint16_t spritePixel = m_spriteLineBuffer[spriteX];
-			if (!((spritePixel >> 15) & 0b1) && m_spriteAttrBuffer[spriteX].priority != 0x1F && m_spriteAttrBuffer[spriteX].priority <= highestPriority)
+			if (!((spritePixel >> 15) & 0b1) && m_spriteAttrBuffer[spriteX].priority != 0x1F)
 			{
-				transparentSpriteTop = m_spriteAttrBuffer[spriteX].transparent;
-				finalCol = spritePixel;
-				blendAMask = (((BLDCNT >> 4) & 0b1) || transparentSpriteTop);
+				bool isBlendTargetA = (((BLDCNT >> 4) & 0b1) || m_spriteAttrBuffer[spriteX].transparent);
+				if (m_spriteAttrBuffer[spriteX].priority <= highestPriority)
+				{
+					finalCol = spritePixel;
+					blendAMask = isBlendTargetA;
+
+				}
+				//only choose as target b if not target a (i.e. not transparent)
+				if (((BLDCNT >> 12) & 0b1) && m_spriteAttrBuffer[spriteX].priority <= blendPixelBPriority && !isBlendTargetA)
+						blendPixelB = spritePixel;
 			}
 		}
 

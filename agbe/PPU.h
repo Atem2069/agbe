@@ -8,7 +8,6 @@
 #include<array>
 #include<Windows.h>
 
-//this isn't a great approach to bg priority !!
 struct BG
 {
 	int priorityBits;
@@ -16,10 +15,6 @@ struct BG
 	bool enabled;
 	bool affine;
 	uint16_t lineBuffer[240];
-	static bool sortDescending(const BG& lhs, const BG& rhs)	//sort by decreasing priority
-	{
-		return lhs.priorityBits > rhs.priorityBits;
-	}
 };
 
 union SpriteAttribute
