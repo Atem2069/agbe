@@ -143,5 +143,6 @@ private:
 	uint16_t getPrefetchedValue(uint32_t pc);
 
 	uint64_t prefetchInternalCycles = 0;
+	uint64_t prefetchTargetCycles = 0;
 	uint32_t prefetchAddress = 0;
 };

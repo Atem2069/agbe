@@ -236,7 +236,7 @@ void Bus::doDMATransfer(int channel)
 {
 	bool dmaWasInProgress = dmaInProgress;
 	if(!dmaWasInProgress)
-		m_scheduler->addCycles(2);	//2 cycle startup delay?
+		m_scheduler->addCycles(1);	//2 cycle startup delay?
 	//we assume the transfer is going to take place by the time this function is called
 	DMAChannel curChannel = m_dmaChannels[channel];
 
@@ -356,8 +356,11 @@ void Bus::doDMATransfer(int channel)
 	else
 		m_dmaChannels[channel].control &= 0x7FFF;	//clear DMA enable
 
-	if(!dmaWasInProgress)
+	if (!dmaWasInProgress)
+	{
 		dmaInProgress = false;
+		m_scheduler->addCycles(1);
+	}
 }
 
 void Bus::onVBlank()

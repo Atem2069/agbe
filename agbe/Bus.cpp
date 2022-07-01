@@ -93,6 +93,9 @@ uint8_t Bus::read8(uint32_t address, AccessType accessType)
 		return m_mem->ROM[address & 0x01FFFFFF];
 	case 0xE: case 0xF:
 		m_scheduler->addCycles(SRAMCycles);	//hm.
+		if (prefetchInProgress)
+			m_scheduler->addCycles(1);
+		invalidatePrefetchBuffer();
 		if (isFlash)
 			return m_flash->read(address);
 		return m_mem->SRAM[address & 0xFFFF];
@@ -146,6 +149,8 @@ void Bus::write8(uint32_t address, uint8_t value, AccessType accessType)
 		cartCycles = ((accessType==AccessType::Sequential) && ((address & 0x1FF) != 0)) ? waitstateSequentialTable[((page - 8) >> 1)] : waitstateNonsequentialTable[((page - 8) >> 1)];
 		m_scheduler->addCycles(cartCycles);
 		Logger::getInstance()->msg(LoggerSeverity::Error, "Tried writing to ROM - ignoring");
+		if (prefetchInProgress)
+			m_scheduler->addCycles(1);
 		invalidatePrefetchBuffer();
 		break;
 	case 0xE: case 0xF:
@@ -269,6 +274,8 @@ void Bus::write16(uint32_t address, uint16_t value, AccessType accessType)
 		dmaNonsequentialAccess = false;
 		cartCycles = ((accessType==AccessType::Sequential) && ((address & 0x1FF) != 0)) ? waitstateSequentialTable[((page - 8) >> 1)] : waitstateNonsequentialTable[((page - 8) >> 1)];
 		m_scheduler->addCycles(cartCycles);
+		if (prefetchInProgress)
+			m_scheduler->addCycles(1);
 		invalidatePrefetchBuffer();
 		if (address >= 0x0D000000 && address <= 0x0DFFFFFF)
 		{
@@ -335,6 +342,7 @@ uint32_t Bus::read32(uint32_t address, AccessType accessType)
 		cartCycles = ((accessType==AccessType::Sequential) && ((address & 0x1FF) != 0)) ? waitstateSequentialTable[((page - 8) >> 1)] : waitstateNonsequentialTable[((page - 8) >> 1)];
 		m_scheduler->addCycles(cartCycles + waitstateSequentialTable[((page-8)>>1)] + 1);	//first access is either nonseq/seq. second is *always* seq
 		if (accessType != AccessType::Prefetch)
+
 			invalidatePrefetchBuffer();
 		if ((address & 0x01FFFFFF) >= romSize)
 			return ((address / 2) & 0xFFFF) | (((address + 2) / 2) & 0xFFFF) << 16;
@@ -394,7 +402,8 @@ void Bus::write32(uint32_t address, uint32_t value, AccessType accessType)
 		dmaNonsequentialAccess = false;
 		cartCycles = ((accessType==AccessType::Sequential) && ((address & 0x1FF) != 0)) ? waitstateSequentialTable[((page - 8) >> 1)] : waitstateNonsequentialTable[((page - 8) >> 1)];
 		m_scheduler->addCycles(cartCycles + waitstateSequentialTable[((page - 8) >> 1)] + 1);	//same as for read32
-		Logger::getInstance()->msg(LoggerSeverity::Error, "Tried to write to cartridge space!!!");
+		if (prefetchInProgress)
+			m_scheduler->addCycles(1);
 		invalidatePrefetchBuffer();
 		break;
 	case 0xE: case 0xF:
@@ -653,6 +662,7 @@ void Bus::tickPrefetcher(uint64_t cycles)
 {
 	uint8_t page = (prefetchAddress >> 24) & 0xFF;
 	uint64_t waitstates = waitstateSequentialTable[((page - 8) >> 1)];
+	prefetchTargetCycles = waitstates;
 	if (prefetchInProgress && prefetchEnabled && !dmaInProgress)
 	{
 		prefetchInternalCycles += cycles;
