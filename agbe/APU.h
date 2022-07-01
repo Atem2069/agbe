@@ -68,8 +68,8 @@ private:
 	uint8_t SOUNDCNT_X = {};
 	uint16_t SOUNDBIAS = {};
 
-	const int cyclesPerSample = 512;	//~32KHz sample rate, so we want to mix samples together roughly every that many cycles
-	const int sampleRate = 32768;
+	const int cyclesPerSample = 256;	//~64KHz sample rate, so we want to mix samples together roughly every that many cycles
+	const int sampleRate = 65536;
 
 	callbackFn FIFODMACallback;
 	void* dmaContext;
