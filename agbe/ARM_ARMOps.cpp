@@ -180,6 +180,7 @@ void ARM7TDMI::ARM_DataProcessing()
 	if (destRegIdx == 15)
 	{
 		m_scheduler->addCycles(2);
+		nextFetchNonsequential = true;
 		if (setCPSR)
 		{
 			uint32_t newPSR = getSPSR();
@@ -292,9 +293,12 @@ void ARM7TDMI::ARM_Multiply()
 	}
 
 
-	uint64_t cycles = calculateMultiplyCycles(operand2, accumulate, true);
-	m_scheduler->addCycles(cycles);
-	m_bus->tickPrefetcher(cycles - 1);
+	uint64_t internalCycles = calculateMultiplyCycles(operand2, true);
+	if (accumulate)
+		internalCycles++;
+
+	m_scheduler->addCycles(internalCycles + 1);
+	m_bus->tickPrefetcher(internalCycles);
 	nextFetchNonsequential = true;	//hm
 }
 
@@ -310,6 +314,7 @@ void ARM7TDMI::ARM_MultiplyLong()
 
 	uint64_t src1 = getReg(src1RegIdx);
 	uint64_t src2 = getReg(src2RegIdx);
+	uint32_t oldSrc2 = src2;
 
 	uint64_t accumLow = getReg(destRegLoIdx);
 	uint64_t accumHi = getReg(destRegHiIdx);
@@ -339,9 +344,12 @@ void ARM7TDMI::ARM_MultiplyLong()
 	setReg(destRegLoIdx, result & 0xFFFFFFFF);
 	setReg(destRegHiIdx, ((result >> 32) & 0xFFFFFFFF));
 
-	uint64_t cycles = calculateMultiplyCycles(src2, accumulate, isSigned) + 1;
-	m_scheduler->addCycles(cycles);
-	m_bus->tickPrefetcher(cycles - 1);
+	uint64_t internalCycles = calculateMultiplyCycles(oldSrc2, isSigned) + 1;
+	if (accumulate)
+		internalCycles++;
+
+	m_scheduler->addCycles(internalCycles + 1);
+	m_bus->tickPrefetcher(internalCycles);
 	nextFetchNonsequential = true;
 }
 
@@ -372,6 +380,7 @@ void ARM7TDMI::ARM_SingleDataSwap()
 		setReg(destRegIdx, swapVal);
 	}
 	m_scheduler->addCycles(4);
+	m_bus->tickPrefetcher(1);
 	nextFetchNonsequential = true;
 }
 
@@ -819,6 +828,7 @@ void ARM7TDMI::ARM_BlockDataTransfer()
 		else //Store R15
 		{
 			setReg(15, m_bus->read32(base_addr, AccessType::Nonsequential));
+			m_scheduler->addCycles(3);
 		}
 
 		//Add 0x40 to base address if ascending stack, writeback into base register

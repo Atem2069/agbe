@@ -190,7 +190,7 @@ void APU::onSquare2FreqTimer()
 	m_square2.frequency = (2048 - (SOUND2CNT_H & 0x7FF)) * 16;
 
 	m_square2.output = ((dutyTable[m_square2.dutyPattern] >> (m_square2.dutyIdx)) & 0b1) ? 1 : -1;
-	m_square2.output *= (m_square2.volume * 8);
+	m_square2.output *= (m_square2.volume * 4);
 
 	m_scheduler->addEvent(Event::Square2, &APU::square2EventCallback, (void*)this, m_scheduler->getEventTime() + m_square2.frequency);
 }
