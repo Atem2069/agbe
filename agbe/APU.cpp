@@ -34,6 +34,18 @@ uint8_t APU::readIO(uint32_t address)
 {
 	switch (address)
 	{
+	case 0x04000068:
+		return SOUND2CNT_L & 0xFF;
+	case 0x04000069:
+		return ((SOUND2CNT_L >> 8) & 0xFF);
+	case 0x0400006C:
+		return SOUND2CNT_H & 0xFF;
+	case 0x0400006D:
+		return ((SOUND2CNT_H >> 8) & 0xFF);
+	case 0x04000080:
+		return (SOUNDCNT_L & 0xFF);
+	case 0x04000081:
+		return ((SOUNDCNT_L >> 8) & 0xFF);
 	case 0x04000082:
 		return (SOUNDCNT_H & 0xFF);
 	case 0x04000083:
@@ -53,6 +65,33 @@ void APU::writeIO(uint32_t address, uint8_t value)
 {
 	switch (address)
 	{
+	case 0x04000068:
+		SOUND2CNT_L &= 0xFF00; SOUND2CNT_L |= value;
+		break;
+	case 0x04000069:
+		SOUND2CNT_L &= 0xFF; SOUND2CNT_L |= (value << 8);
+		break;
+	case 0x0400006C:
+		SOUND2CNT_H &= 0xFF00; SOUND2CNT_H |= value;
+		break;
+	case 0x0400006D:
+		SOUND2CNT_H &= 0xFF; SOUND2CNT_H |= (value << 8);
+		if ((value >> 7) & 0b1)	//reload channel
+		{
+			m_square2.frequency = (2048 - (SOUND2CNT_H & 0x7FF)) * 16;
+			m_square2.enabled = true;
+			m_square2.dutyPattern = (SOUND2CNT_L >> 6) & 0b11;
+			m_square2.doLength = ((SOUND2CNT_H >> 14) & 0b1);
+			m_square2.volume = ((SOUND2CNT_L >> 12) & 0xF);
+			m_scheduler->addEvent(Event::Square2, &APU::square2EventCallback, (void*)this, m_scheduler->getCurrentTimestamp() + m_square2.frequency);
+		}
+		break;
+	case 0x04000080:
+		SOUNDCNT_L &= 0xFF00; SOUNDCNT_L |= value;
+		break;
+	case 0x04000081:
+		SOUNDCNT_L &= 0xFF; SOUNDCNT_L |= (value << 8);
+		break;
 	case 0x04000082:
 		SOUNDCNT_H &= 0xFF00; SOUNDCNT_H |= value;
 		break;
@@ -89,6 +128,11 @@ void APU::onSampleEvent()
 	m_chanABuffer[sampleIndex] = (((float)chanASample) / 128.f);
 	int8_t chanBSample = m_channels[1].currentSample;
 	m_chanBBuffer[sampleIndex] = (((float)chanBSample) / 128.f);
+
+	bool square2OutputEnabled = (((SOUNDCNT_L >> 9) & 0b1)) || (((SOUNDCNT_L >> 13)) & 0b1);
+	int8_t square2Sample = m_square2.output >> (2 - (SOUNDCNT_H & 0b11));
+	m_square2Buffer[sampleIndex] = highPass(square2Sample, square2OutputEnabled && m_square2.enabled);
+
 	sampleIndex++;
 	if (sampleIndex == sampleBufferSize)
 	{
@@ -96,6 +140,7 @@ void APU::onSampleEvent()
 		float m_finalSamples[sampleBufferSize] = {};
 		SDL_MixAudioFormat((uint8_t*)m_finalSamples, (uint8_t*)m_chanABuffer, AUDIO_F32, sampleBufferSize * 4, SDL_MIX_MAXVOLUME / 64);
 		SDL_MixAudioFormat((uint8_t*)m_finalSamples, (uint8_t*)m_chanBBuffer, AUDIO_F32, sampleBufferSize * 4, SDL_MIX_MAXVOLUME / 64);
+		//SDL_MixAudioFormat((uint8_t*)m_finalSamples, (uint8_t*)m_square2Buffer, AUDIO_F32, sampleBufferSize * 4, SDL_MIX_MAXVOLUME / 64);
 		SDL_QueueAudio(m_audioDevice, (void*)m_finalSamples, sampleBufferSize*4);
 
 		while (SDL_GetQueuedAudioSize(m_audioDevice) > sampleBufferSize * 4)
@@ -141,6 +186,18 @@ void APU::onTimer1Overflow()
 	m_shouldDMA = false;
 }
 
+void APU::onSquare2FreqTimer()
+{
+	m_square2.dutyIdx++;
+	m_square2.dutyIdx &= 7;
+	m_square2.frequency = (2048 - (SOUND2CNT_H & 0x7FF)) * 16;
+
+	m_square2.output = (dutyTable[m_square2.dutyPattern] >> (m_square2.dutyIdx)) & 0b1;
+	m_square2.output *= (m_square2.volume>>1);
+
+	m_scheduler->addEvent(Event::Square2, &APU::square2EventCallback, (void*)this, m_scheduler->getEventTime() + m_square2.frequency);
+}
+
 void APU::updateDMAChannel(int channel)
 {
 	int baseEnableIdx = (channel == 0) ? 8 : 12;
@@ -171,8 +228,16 @@ void APU::timer1Callback(void* context)
 	thisPtr->onTimer1Overflow();
 }
 
-float APU::highPass(float in)
+void APU::square2EventCallback(void* context)
 {
+	APU* thisPtr = (APU*)context;
+	thisPtr->onSquare2FreqTimer();
+}
+
+float APU::highPass(float in, bool enable)
+{
+	if (!enable)
+		return 0.0;
 	float out = 0.0f;
 	out = in - capacitor;
 	capacitor = in - out * 0.996336;

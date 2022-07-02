@@ -46,6 +46,18 @@ struct AudioFIFO
 	int8_t currentSample = 0;	//holds last sample from timer event
 };
 
+struct SquareChannel2
+{
+	bool enabled;
+	bool doLength;
+	int lengthCounter;
+	int dutyPattern;
+	int frequency;
+	int dutyIdx;
+	int volume;
+	int8_t output;
+};
+
 class APU
 {
 public:
@@ -58,19 +70,32 @@ public:
 	void writeIO(uint32_t address, uint8_t value);
 
 	static void sampleEventCallback(void* context);
+	static void square2EventCallback(void* context);
 	static void timer0Callback(void* context);
 	static void timer1Callback(void* context);
 private:
 	std::shared_ptr<Scheduler> m_scheduler;
 	AudioFIFO m_channels[2];
+	SquareChannel2 m_square2 = {};
 
+	uint16_t SOUNDCNT_L = {};
 	uint16_t SOUNDCNT_H = {};
 	uint8_t SOUNDCNT_X = {};
 	uint16_t SOUNDBIAS = {};
+	uint16_t SOUND2CNT_L = {};
+	uint16_t SOUND2CNT_H = {};
 
 	static constexpr int cyclesPerSample = 256;	//~64KHz sample rate, so we want to mix samples together roughly every that many cycles
 	static constexpr int sampleRate = 65536;
 	static constexpr int sampleBufferSize = 2048;
+
+	static constexpr uint8_t dutyTable[4] =
+	{
+		0b00000001,
+		0b00000011,
+		0b00001111,
+		0b11111100
+	};
 
 	bool m_shouldDMA = false;
 	void updateDMAChannel(int channel);
@@ -81,12 +106,14 @@ private:
 	void onSampleEvent();
 	void onTimer0Overflow();
 	void onTimer1Overflow();
+	void onSquare2FreqTimer();
 
 	SDL_AudioDeviceID m_audioDevice = {};
 	float m_chanABuffer[sampleBufferSize] = {};
 	float m_chanBBuffer[sampleBufferSize] = {};
+	float m_square2Buffer[sampleBufferSize] = {};
 	int sampleIndex = 0;
 
 	float capacitor = 0.0f;
-	float highPass(float in);
+	float highPass(float in, bool enable);
 };
