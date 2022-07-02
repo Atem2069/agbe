@@ -145,4 +145,5 @@ private:
 	uint64_t prefetchInternalCycles = 0;
 	uint64_t prefetchTargetCycles = 0;
 	uint32_t prefetchAddress = 0;
+	bool prefetchShouldDelay = false;
 };
