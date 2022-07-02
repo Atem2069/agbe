@@ -109,9 +109,7 @@ private:
 	void onSquare2FreqTimer();
 
 	SDL_AudioDeviceID m_audioDevice = {};
-	float m_chanABuffer[sampleBufferSize] = {};
-	float m_chanBBuffer[sampleBufferSize] = {};
-	float m_square2Buffer[sampleBufferSize] = {};
+	int16_t m_sampleBuffer[sampleBufferSize] = {};
 	int sampleIndex = 0;
 
 	float capacitor = 0.0f;

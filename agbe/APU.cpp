@@ -11,7 +11,7 @@ APU::APU(std::shared_ptr<Scheduler> scheduler)
 	SDL_Init(SDL_INIT_AUDIO);
 	SDL_AudioSpec desiredSpec = {}, obtainedSpec = {};
 	desiredSpec.freq = sampleRate;
-	desiredSpec.format = AUDIO_F32;	//might have to change this and make use of some actual resampling
+	desiredSpec.format = AUDIO_S16;	//might have to change this and make use of some actual resampling
 	desiredSpec.channels = 1;		//todo: support multiple channels too
 	desiredSpec.silence = 0;
 	desiredSpec.samples = sampleBufferSize;	
@@ -125,25 +125,22 @@ void APU::writeIO(uint32_t address, uint8_t value)
 void APU::onSampleEvent()
 {
 	int8_t chanASample = m_channels[0].currentSample;
-	m_chanABuffer[sampleIndex] = (((float)chanASample) / 128.f);
 	int8_t chanBSample = m_channels[1].currentSample;
-	m_chanBBuffer[sampleIndex] = (((float)chanBSample) / 128.f);
 
 	bool square2OutputEnabled = (((SOUNDCNT_L >> 9) & 0b1)) || (((SOUNDCNT_L >> 13)) & 0b1);
 	int8_t square2Sample = m_square2.output >> (2 - (SOUNDCNT_H & 0b11));
-	m_square2Buffer[sampleIndex] = highPass(square2Sample, square2OutputEnabled && m_square2.enabled);
+	int16_t finalSample = (chanASample + chanBSample + square2Sample)*4;
+	m_sampleBuffer[sampleIndex] = finalSample;
 
 	sampleIndex++;
 	if (sampleIndex == sampleBufferSize)
 	{
 		sampleIndex = 0;
-		float m_finalSamples[sampleBufferSize] = {};
-		SDL_MixAudioFormat((uint8_t*)m_finalSamples, (uint8_t*)m_chanABuffer, AUDIO_F32, sampleBufferSize * 4, SDL_MIX_MAXVOLUME / 64);
-		SDL_MixAudioFormat((uint8_t*)m_finalSamples, (uint8_t*)m_chanBBuffer, AUDIO_F32, sampleBufferSize * 4, SDL_MIX_MAXVOLUME / 64);
-		//SDL_MixAudioFormat((uint8_t*)m_finalSamples, (uint8_t*)m_square2Buffer, AUDIO_F32, sampleBufferSize * 4, SDL_MIX_MAXVOLUME / 64);
-		SDL_QueueAudio(m_audioDevice, (void*)m_finalSamples, sampleBufferSize*4);
+		int16_t m_finalSamples[sampleBufferSize] = {};
+		memcpy((void*)m_finalSamples, (void*)m_sampleBuffer, sampleBufferSize * 2);
+		SDL_QueueAudio(m_audioDevice, (void*)m_finalSamples, sampleBufferSize*2);
 
-		while (SDL_GetQueuedAudioSize(m_audioDevice) > sampleBufferSize * 4)
+		while (SDL_GetQueuedAudioSize(m_audioDevice) > sampleBufferSize * 2)
 			(void)0;
 	}
 
@@ -192,8 +189,8 @@ void APU::onSquare2FreqTimer()
 	m_square2.dutyIdx &= 7;
 	m_square2.frequency = (2048 - (SOUND2CNT_H & 0x7FF)) * 16;
 
-	m_square2.output = (dutyTable[m_square2.dutyPattern] >> (m_square2.dutyIdx)) & 0b1;
-	m_square2.output *= (m_square2.volume>>1);
+	m_square2.output = ((dutyTable[m_square2.dutyPattern] >> (m_square2.dutyIdx)) & 0b1) ? 1 : -1;
+	m_square2.output *= (m_square2.volume * 8);
 
 	m_scheduler->addEvent(Event::Square2, &APU::square2EventCallback, (void*)this, m_scheduler->getEventTime() + m_square2.frequency);
 }
