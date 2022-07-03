@@ -235,9 +235,9 @@ void APU::writeIO(uint32_t address, uint8_t value)
 				m_noiseChannel.lengthCounter = 64;
 			m_noiseChannel.doLength = ((SOUND4CNT_H >> 14) & 0b1);
 			m_noiseChannel.widthMode = ((SOUND4CNT_H >> 3) & 0b1);
-			m_noiseChannel.LFSR = 0x40;
+			m_noiseChannel.LFSR = 0x7FFF;
 			if (!m_noiseChannel.widthMode)
-				m_noiseChannel.LFSR <<= 8;	//make it 0x4000
+				m_noiseChannel.LFSR = 0x7F;	
 
 			int divisor = divisorMappings[m_noiseChannel.divisorCode];
 			m_noiseChannel.frequency = divisor << m_noiseChannel.shiftAmount;
@@ -425,19 +425,26 @@ void APU::onNoiseFreqTimer()
 {
 	int divisor = divisorMappings[m_noiseChannel.divisorCode];
 	m_noiseChannel.frequency = divisor << m_noiseChannel.shiftAmount;
-	int xorRes = (m_noiseChannel.LFSR & 0b1) ^ ((m_noiseChannel.LFSR >> 1) & 0b1);
-	m_noiseChannel.LFSR = (m_noiseChannel.LFSR >> 1) | (xorRes << 14);
-	if (m_noiseChannel.widthMode)	
-	{
-		m_noiseChannel.LFSR &= 0b1111111110111111;
-		m_noiseChannel.LFSR |= xorRes << 6;
-	}
-
-	m_noiseChannel.output = 0;
 	if (m_noiseChannel.enabled)
 	{
-		uint8_t chan4Amplitude = ~(m_noiseChannel.LFSR) & 0b1;
-		m_noiseChannel.output = (chan4Amplitude * m_noiseChannel.volume) * 8;
+		bool wasCarry = m_noiseChannel.LFSR & 0b1;
+		m_noiseChannel.LFSR >>= 1;
+
+		m_noiseChannel.output = (wasCarry * m_noiseChannel.volume) * 8;
+
+		if (wasCarry)
+		{
+			if (m_noiseChannel.widthMode)
+			{
+				m_noiseChannel.LFSR ^= 0x60;
+				m_noiseChannel.LFSR &= 0x7F;
+			}
+			else
+			{
+				m_noiseChannel.LFSR ^= 0x6000;
+				m_noiseChannel.LFSR &= 0x7FFF;
+			}
+		}
 	}
 	m_scheduler->addEvent(Event::Noise, &APU::noiseEventCallback, (void*)this, m_scheduler->getEventTime() + m_noiseChannel.frequency);
 }
