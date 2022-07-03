@@ -86,6 +86,22 @@ struct SquareChannel2
 	bool envelopeIncrease;
 };
 
+struct WaveChannel
+{
+	bool enabled;
+	bool canEnable;
+	bool doLength;
+	int lengthCounter;
+	int frequency;
+	int sampleIndex;
+	int volumeCode;
+	int8_t output;
+
+	bool twoDimensionBanking;
+	bool currentBankNumber;
+	uint8_t waveRam[2][16];	//two banks of wave ram, each holds 32 4 bit samples
+};
+
 class APU
 {
 public:
@@ -100,6 +116,7 @@ public:
 	static void sampleEventCallback(void* context);
 	static void square1EventCallback(void* context);
 	static void square2EventCallback(void* context);
+	static void waveEventCallback(void* context);
 	static void frameSequencerCallback(void* context);
 	static void timer0Callback(void* context);
 	static void timer1Callback(void* context);
@@ -108,16 +125,23 @@ private:
 	AudioFIFO m_channels[2];
 	SquareChannel1 m_square1 = {};
 	SquareChannel2 m_square2 = {};
+	WaveChannel m_waveChannel = {};
 
 	uint16_t SOUNDCNT_L = {};
 	uint16_t SOUNDCNT_H = {};
 	uint8_t SOUNDCNT_X = {};
 	uint16_t SOUNDBIAS = {};
-	uint16_t SOUND2CNT_L = {};
-	uint16_t SOUND2CNT_H = {};
+
 	uint8_t SOUND1CNT_L = {};
 	uint16_t SOUND1CNT_H = {};
 	uint16_t SOUND1CNT_X = {};
+
+	uint16_t SOUND2CNT_L = {};
+	uint16_t SOUND2CNT_H = {};
+
+	uint8_t SOUND3CNT_L = {};
+	uint16_t SOUND3CNT_H = {};
+	uint16_t SOUND3CNT_X = {};
 
 	static constexpr int cyclesPerSample = 256;	//~64KHz sample rate, so we want to mix samples together roughly every that many cycles
 	static constexpr int sampleRate = 65536;
@@ -142,6 +166,7 @@ private:
 	void onTimer1Overflow();
 	void onSquare1FreqTimer();
 	void onSquare2FreqTimer();
+	void onWaveFreqTimer();
 	void onFrameSequencerEvent();
 
 	//Frameseq related stuff

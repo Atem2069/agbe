@@ -53,6 +53,16 @@ uint8_t APU::readIO(uint32_t address)
 		return SOUND2CNT_H & 0xFF;
 	case 0x0400006D:
 		return ((SOUND2CNT_H >> 8) & 0xFF);
+	case 0x04000070:
+		return SOUND3CNT_L;
+	case 0x04000072:
+		return (SOUND3CNT_H & 0xFF);
+	case 0x04000073:
+		return ((SOUND3CNT_H >> 8) & 0xFF);
+	case 0x04000074:
+		return (SOUND3CNT_X & 0xFF);
+	case 0x04000075:
+		return ((SOUND3CNT_X >> 8) & 0xFF);
 	case 0x04000080:
 		return (SOUNDCNT_L & 0xFF);
 	case 0x04000081:
@@ -67,6 +77,11 @@ uint8_t APU::readIO(uint32_t address)
 		return SOUNDBIAS & 0xFF;
 	case 0x04000089:
 		return ((SOUNDBIAS >> 8) & 0xFF);
+
+	case 0x04000090: case 0x04000091: case 0x04000092: case 0x04000093: case 0x04000094: case 0x04000095: case 0x04000096: case 0x04000097:
+	case 0x04000098: case 0x04000099: case 0x0400009A: case 0x0400009B: case 0x0400009C: case 0x0400009D: case 0x0400009E: case 0x0400009F:
+		return m_waveChannel.waveRam[!m_waveChannel.currentBankNumber][address - 0x04000090];
+
 	}
 
 	return 0;
@@ -144,6 +159,47 @@ void APU::writeIO(uint32_t address, uint8_t value)
 			m_scheduler->addEvent(Event::Square2, &APU::square2EventCallback, (void*)this, m_scheduler->getCurrentTimestamp() + m_square2.frequency);
 		}
 		break;
+	case 0x04000070:
+		SOUND3CNT_L = value;
+		m_waveChannel.twoDimensionBanking = ((value >> 5) & 0b1);
+		m_waveChannel.currentBankNumber = ((value >> 6) & 0b1);
+		m_waveChannel.canEnable = ((value >> 7) & 0b1);	//<-- enable bit
+		if (!m_waveChannel.canEnable)
+		{
+			m_waveChannel.enabled = false;
+			SOUNDCNT_X &= ~0b100;
+		}
+		break;
+	case 0x04000072:
+		SOUND3CNT_H &= 0xFF00; SOUND3CNT_H |= value;
+		break;
+	case 0x04000073:
+		SOUND3CNT_H &= 0xFF; SOUND3CNT_H |= (value << 8);
+		m_waveChannel.lengthCounter = 256 - (SOUND3CNT_H & 0xFF);
+		m_waveChannel.volumeCode = ((SOUND3CNT_H >> 13) & 0b11);
+		//THIS IS A HACK: should be 75% of volume
+		if ((SOUND3CNT_H >> 15) & 0b1)
+			m_waveChannel.volumeCode = 1;
+		break;
+	case 0x04000074:
+		SOUND3CNT_X &= 0xFF00; SOUND3CNT_X |= value;
+		break;
+	case 0x04000075:
+		SOUND3CNT_X &= 0xFF; SOUND3CNT_X |= (value << 8);
+		if (((value >> 7) & 0b1) && m_waveChannel.canEnable)
+		{
+			SOUNDCNT_X |= 0b100;
+			m_waveChannel.enabled = true;
+
+			if (m_waveChannel.lengthCounter == 0)
+				m_waveChannel.lengthCounter = 256;
+			m_waveChannel.frequency = (2048 - (SOUND3CNT_X & 0x7FF)) * 8;
+			m_waveChannel.sampleIndex = 0;
+			m_waveChannel.currentBankNumber = (SOUND3CNT_L >> 6) & 0b1;	//todo: doublecheck if this is right;
+			m_waveChannel.doLength = ((SOUND3CNT_X >> 14) & 0b1);
+			m_scheduler->addEvent(Event::Wave, &APU::waveEventCallback, (void*)this, m_scheduler->getCurrentTimestamp() + m_waveChannel.frequency);
+		}
+		break;
 	case 0x04000080:
 		SOUNDCNT_L &= 0xFF00; SOUNDCNT_L |= value;
 		break;
@@ -177,6 +233,11 @@ void APU::writeIO(uint32_t address, uint8_t value)
 		if (!m_channels[1].isFull())
 			m_channels[1].push(value);
 		break;
+
+	case 0x04000090: case 0x04000091: case 0x04000092: case 0x04000093: case 0x04000094: case 0x04000095: case 0x04000096: case 0x04000097:
+	case 0x04000098: case 0x04000099: case 0x0400009A: case 0x0400009B: case 0x0400009C: case 0x0400009D: case 0x0400009E: case 0x0400009F:
+		m_waveChannel.waveRam[!m_waveChannel.currentBankNumber][address - 0x04000090] = value;
+		break;
 	}
 }
 
@@ -190,7 +251,11 @@ void APU::onSampleEvent()
 
 	bool square2OutputEnabled = (((SOUNDCNT_L >> 9) & 0b1)) || (((SOUNDCNT_L >> 13)) & 0b1);
 	int8_t square2Sample = m_square2.output >> (2 - (SOUNDCNT_H & 0b11));
-	int16_t finalSample = (chanASample + chanBSample + square1Sample + square2Sample)*4;
+
+	bool waveOutputEnabled = ((((SOUNDCNT_L >> 10) & 0b1)) || (((SOUNDCNT_L >> 14)) & 0b1)) && m_waveChannel.enabled;
+	int8_t waveSample = m_waveChannel.output >> (2 - (SOUNDCNT_H & 0b11));
+
+	int16_t finalSample = (chanASample + chanBSample + square1Sample + square2Sample + waveSample)*4;
 	m_sampleBuffer[sampleIndex] = finalSample;
 
 	sampleIndex++;
@@ -249,7 +314,7 @@ void APU::onSquare1FreqTimer()
 	m_square1.dutyIdx++;
 	m_square1.dutyIdx &= 7;
 	m_square1.frequency = (2048 - (SOUND1CNT_X & 0x7FF)) * 16;
-
+	m_square1.output = 0;
 	if (m_square1.enabled)
 	{
 		m_square1.output = ((dutyTable[m_square1.dutyPattern] >> (m_square1.dutyIdx)) & 0b1) ? 1 : -1;
@@ -264,7 +329,7 @@ void APU::onSquare2FreqTimer()
 	m_square2.dutyIdx++;
 	m_square2.dutyIdx &= 7;
 	m_square2.frequency = (2048 - (SOUND2CNT_H & 0x7FF)) * 16;
-
+	m_square2.output = 0;
 	if (m_square2.enabled)
 	{
 		m_square2.output = ((dutyTable[m_square2.dutyPattern] >> (m_square2.dutyIdx)) & 0b1) ? 1 : -1;
@@ -272,6 +337,41 @@ void APU::onSquare2FreqTimer()
 	}
 
 	m_scheduler->addEvent(Event::Square2, &APU::square2EventCallback, (void*)this, m_scheduler->getEventTime() + m_square2.frequency);
+}
+
+void APU::onWaveFreqTimer()
+{
+	m_waveChannel.frequency = (2048 - (SOUND3CNT_X & 0x7FF)) * 8;
+	m_waveChannel.output = 0;
+	if (m_waveChannel.enabled)
+	{
+		int8_t byteRow = m_waveChannel.waveRam[m_waveChannel.currentBankNumber][m_waveChannel.sampleIndex >> 1];
+		int8_t sample = 0;
+		if (m_waveChannel.sampleIndex & 0b1)	//can potentially remove this if with something cleaner
+			sample = byteRow & 0xF;
+		else
+			sample = (byteRow >> 4) & 0xF;
+
+		switch (m_waveChannel.volumeCode)
+		{
+		case 0:
+			sample = 0;
+			break;
+		case 2:
+			sample >>= 1;
+			break;
+		case 3:
+			sample >>= 2;
+			break;
+		}
+		
+		m_waveChannel.output = sample * 8;
+	}
+
+	m_waveChannel.sampleIndex = (m_waveChannel.sampleIndex + 1) & 31;
+	if (m_waveChannel.sampleIndex == 0 && m_waveChannel.twoDimensionBanking)
+		m_waveChannel.currentBankNumber = !m_waveChannel.currentBankNumber;
+	m_scheduler->addEvent(Event::Wave, &APU::waveEventCallback, (void*)this, m_scheduler->getEventTime() + m_waveChannel.frequency);
 }
 
 void APU::onFrameSequencerEvent()
@@ -308,6 +408,17 @@ void APU::clockLengthCounters()
 		{
 			m_square2.enabled = false;
 			SOUNDCNT_X &= ~0b10;
+		}
+	}
+
+	if (m_waveChannel.doLength)
+	{
+		if (m_waveChannel.lengthCounter > 0)
+			m_waveChannel.lengthCounter--;
+		if (m_waveChannel.lengthCounter == 0)
+		{
+			m_waveChannel.enabled = false;
+			SOUNDCNT_X &= ~0b100;
 		}
 	}
 }
@@ -421,6 +532,12 @@ void APU::square2EventCallback(void* context)
 {
 	APU* thisPtr = (APU*)context;
 	thisPtr->onSquare2FreqTimer();
+}
+
+void APU::waveEventCallback(void* context)
+{
+	APU* thisPtr = (APU*)context;
+	thisPtr->onWaveFreqTimer();
 }
 
 void APU::frameSequencerCallback(void* context)
