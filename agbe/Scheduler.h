@@ -23,8 +23,9 @@ enum class Event
 	Serial=6,
 	Frame=7,
 	AudioSample=8,
-	Square1=9,
-	Square2=10
+	FrameSequencer=9,
+	Square1=10,
+	Square2=11
 };
 
 class Scheduler
@@ -55,8 +56,8 @@ private:
 	uint64_t pendingCycles = 0;
 	uint64_t syncDelta = 0;
 	bool shouldSync = false;
-	SchedulerEntry entries[11];	//todo: add moree stuff to scheduler
-	const int NUM_ENTRIES = 11;
+	SchedulerEntry entries[12];	//todo: add moree stuff to scheduler
+	const int NUM_ENTRIES = 12;
 
 	Event m_lastFiredEvent = Event::Frame;
 };

@@ -7,6 +7,7 @@ APU::APU(std::shared_ptr<Scheduler> scheduler)
 
 	m_scheduler = scheduler;
 	m_scheduler->addEvent(Event::AudioSample, &APU::sampleEventCallback, (void*)this, cyclesPerSample);
+	m_scheduler->addEvent(Event::FrameSequencer, &APU::frameSequencerCallback, (void*)this, 32768);
 
 	SDL_Init(SDL_INIT_AUDIO);
 	SDL_AudioSpec desiredSpec = {}, obtainedSpec = {};
@@ -87,6 +88,10 @@ void APU::writeIO(uint32_t address, uint8_t value)
 	case 0x04000063:
 		SOUND1CNT_H &= 0xFF; SOUND1CNT_H |= (value << 8);
 		m_square1.lengthCounter = 64 - (SOUND1CNT_H & 0x1F);
+		m_square1.envelopePeriod = ((SOUND1CNT_H >> 8) & 0b111);
+		m_square1.envelopeTimer = m_square1.envelopePeriod;
+		m_square1.envelopeIncrease = ((SOUND1CNT_H >> 11) & 0b1);
+		m_square1.volume = ((SOUND1CNT_H >> 12) & 0xF);
 		break;
 	case 0x04000064:
 		SOUND1CNT_X &= 0xFF00; SOUND1CNT_X |= value;
@@ -103,6 +108,7 @@ void APU::writeIO(uint32_t address, uint8_t value)
 			m_square1.enabled = true;
 			m_square1.dutyPattern = (SOUND1CNT_H >> 6) & 0b11;
 			m_square1.doLength = ((SOUND1CNT_X >> 14) & 0b1);
+			m_square1.envelopeTimer = m_square1.envelopePeriod;
 			m_square1.volume = ((SOUND1CNT_H >> 12) & 0xF);
 			m_scheduler->addEvent(Event::Square1, &APU::square1EventCallback, (void*)this, m_scheduler->getCurrentTimestamp() + m_square1.frequency);
 		}
@@ -113,6 +119,10 @@ void APU::writeIO(uint32_t address, uint8_t value)
 	case 0x04000069:
 		SOUND2CNT_L &= 0xFF; SOUND2CNT_L |= (value << 8);
 		m_square2.lengthCounter = 64 - (SOUND2CNT_L & 0x1F);
+		m_square2.envelopePeriod = ((SOUND2CNT_L >> 8) & 0b111);
+		m_square2.envelopeTimer = m_square2.envelopePeriod;
+		m_square2.envelopeIncrease = ((SOUND2CNT_L >> 11) & 0b1);
+		m_square2.volume = ((SOUND2CNT_L >> 12) & 0xF);
 		break;
 	case 0x0400006C:
 		SOUND2CNT_H &= 0xFF00; SOUND2CNT_H |= value;
@@ -129,6 +139,7 @@ void APU::writeIO(uint32_t address, uint8_t value)
 			m_square2.enabled = true;
 			m_square2.dutyPattern = (SOUND2CNT_L >> 6) & 0b11;
 			m_square2.doLength = ((SOUND2CNT_H >> 14) & 0b1);
+			m_square2.envelopeTimer = m_square2.envelopePeriod;
 			m_square2.volume = ((SOUND2CNT_L >> 12) & 0xF);
 			m_scheduler->addEvent(Event::Square2, &APU::square2EventCallback, (void*)this, m_scheduler->getCurrentTimestamp() + m_square2.frequency);
 		}
@@ -239,8 +250,11 @@ void APU::onSquare1FreqTimer()
 	m_square1.dutyIdx &= 7;
 	m_square1.frequency = (2048 - (SOUND1CNT_X & 0x7FF)) * 16;
 
-	m_square1.output = ((dutyTable[m_square1.dutyPattern] >> (m_square1.dutyIdx)) & 0b1) ? 1 : -1;
-	m_square1.output *= (m_square1.volume * 8);
+	if (m_square1.enabled)
+	{
+		m_square1.output = ((dutyTable[m_square1.dutyPattern] >> (m_square1.dutyIdx)) & 0b1) ? 1 : -1;
+		m_square1.output *= (m_square1.volume * 8);
+	}
 
 	m_scheduler->addEvent(Event::Square1, &APU::square1EventCallback, (void*)this, m_scheduler->getEventTime() + m_square1.frequency);
 }
@@ -251,10 +265,120 @@ void APU::onSquare2FreqTimer()
 	m_square2.dutyIdx &= 7;
 	m_square2.frequency = (2048 - (SOUND2CNT_H & 0x7FF)) * 16;
 
-	m_square2.output = ((dutyTable[m_square2.dutyPattern] >> (m_square2.dutyIdx)) & 0b1) ? 1 : -1;
-	m_square2.output *= (m_square2.volume * 8);
+	if (m_square2.enabled)
+	{
+		m_square2.output = ((dutyTable[m_square2.dutyPattern] >> (m_square2.dutyIdx)) & 0b1) ? 1 : -1;
+		m_square2.output *= (m_square2.volume * 8);
+	}
 
 	m_scheduler->addEvent(Event::Square2, &APU::square2EventCallback, (void*)this, m_scheduler->getEventTime() + m_square2.frequency);
+}
+
+void APU::onFrameSequencerEvent()
+{
+	if ((frameSequencerClock & 1) == 0)
+		clockLengthCounters();
+	if ((frameSequencerClock & 7) == 7)
+		clockVolumeEnvelope();
+	if ((frameSequencerClock & 3) == 2)
+		clockFrequencySweep();
+
+	frameSequencerClock = (frameSequencerClock + 1) & 7;
+	m_scheduler->addEvent(Event::FrameSequencer, &APU::frameSequencerCallback, (void*)this, m_scheduler->getEventTime() + 32768);
+}
+
+void APU::clockLengthCounters()
+{
+	if (m_square1.doLength)
+	{
+		if (m_square1.lengthCounter > 0)
+			m_square1.lengthCounter--;
+		if (m_square1.lengthCounter == 0)
+		{
+			m_square1.enabled = false;
+			SOUNDCNT_X &= ~0b1;
+		}
+	}
+
+	if (m_square2.doLength)
+	{
+		if (m_square2.lengthCounter > 0)
+			m_square2.lengthCounter--;
+		if (m_square2.lengthCounter == 0)
+		{
+			m_square2.enabled = false;
+			SOUNDCNT_X &= ~0b10;
+		}
+	}
+}
+
+void APU::clockVolumeEnvelope()
+{
+	if (m_square1.enabled)
+	{
+		if (m_square1.envelopePeriod != 0)
+		{
+			m_square1.envelopeTimer--;
+			if (m_square1.envelopeTimer == 0)
+			{
+				m_square1.envelopeTimer = m_square1.envelopePeriod;
+				if (m_square1.envelopeIncrease && m_square1.volume < 15)
+					m_square1.volume++;
+				if (!m_square1.envelopeIncrease && m_square1.volume > 0)
+					m_square1.volume--;
+			}
+		}
+	}
+
+	if (m_square2.enabled)
+	{
+		if (m_square2.envelopePeriod != 0)
+		{
+			m_square2.envelopeTimer--;
+			if (m_square2.envelopeTimer == 0)
+			{
+				m_square2.envelopeTimer = m_square2.envelopePeriod;
+				if (m_square2.envelopeIncrease && m_square2.volume < 15)
+					m_square2.volume++;
+				if (!m_square2.envelopeIncrease && m_square2.volume > 0)
+					m_square2.volume--;
+			}
+		}
+	}
+}
+
+void APU::clockFrequencySweep()
+{
+	//this code is disgusting: not sure why i wrote it like this but it's how my gb emu does it :P. 
+
+	if (m_square1.sweepPeriod != 0)
+	{
+		if (m_square1.sweepTimer > 0)
+			m_square1.sweepTimer--;
+
+		if (m_square1.sweepTimer == 0)
+		{
+			m_square1.sweepTimer = m_square1.sweepPeriod;
+			
+			int oldFreq = SOUND1CNT_X & 0x7FF;
+			int newFreq = oldFreq >> m_square1.sweepShift;
+			if (m_square1.sweepNegate)
+				newFreq = oldFreq - newFreq;
+			else
+				newFreq = oldFreq + newFreq;
+
+			if (newFreq > 2047)				//overflow disable channel
+			{
+				m_square1.enabled = false;
+				SOUNDCNT_X &= ~0b1;
+			}
+			else
+			{
+				SOUND1CNT_X &= ~0x7FF;
+				SOUND1CNT_X |= (newFreq & 0x7FF);	//<----wtf? why did i do this?
+			}
+		}
+	}
 }
 
 void APU::updateDMAChannel(int channel)
@@ -297,6 +421,12 @@ void APU::square2EventCallback(void* context)
 {
 	APU* thisPtr = (APU*)context;
 	thisPtr->onSquare2FreqTimer();
+}
+
+void APU::frameSequencerCallback(void* context)
+{
+	APU* thisPtr = (APU*)context;
+	thisPtr->onFrameSequencerEvent();
 }
 
 float APU::highPass(float in, bool enable)

@@ -54,11 +54,17 @@ struct SquareChannel1
 	int dutyPattern;
 	int frequency;
 	int dutyIdx;
-	int volume;
 	int8_t output;
+
+	//envelope
+	int volume;
+	int envelopePeriod;
+	int envelopeTimer;
+	bool envelopeIncrease;
 
 	//chan 1 specific stuff
 	int sweepPeriod;
+	int sweepTimer;
 	int sweepShift;
 	bool sweepNegate;
 };
@@ -71,8 +77,13 @@ struct SquareChannel2
 	int dutyPattern;
 	int frequency;
 	int dutyIdx;
-	int volume;
 	int8_t output;
+
+	//envelope
+	int volume;
+	int envelopePeriod;
+	int envelopeTimer;
+	bool envelopeIncrease;
 };
 
 class APU
@@ -89,6 +100,7 @@ public:
 	static void sampleEventCallback(void* context);
 	static void square1EventCallback(void* context);
 	static void square2EventCallback(void* context);
+	static void frameSequencerCallback(void* context);
 	static void timer0Callback(void* context);
 	static void timer1Callback(void* context);
 private:
@@ -130,6 +142,15 @@ private:
 	void onTimer1Overflow();
 	void onSquare1FreqTimer();
 	void onSquare2FreqTimer();
+	void onFrameSequencerEvent();
+
+	//Frameseq related stuff
+	int frameSequencerClock = 0;
+
+	void clockLengthCounters();
+	void clockVolumeEnvelope();
+	void clockFrequencySweep();
+
 
 	SDL_AudioDeviceID m_audioDevice = {};
 	int16_t m_sampleBuffer[sampleBufferSize] = {};
