@@ -102,6 +102,25 @@ struct WaveChannel
 	uint8_t waveRam[2][16];	//two banks of wave ram, each holds 32 4 bit samples
 };
 
+struct NoiseChannel
+{
+	bool enabled;
+	bool doLength;
+	int lengthCounter;
+	int frequency;
+	uint16_t LFSR;
+	int divisorCode;
+	bool widthMode;
+	int shiftAmount;
+	int8_t output;
+
+	//envelope
+	int volume;
+	int envelopePeriod;
+	int envelopeTimer;
+	bool envelopeIncrease;
+};
+
 class APU
 {
 public:
@@ -117,6 +136,7 @@ public:
 	static void square1EventCallback(void* context);
 	static void square2EventCallback(void* context);
 	static void waveEventCallback(void* context);
+	static void noiseEventCallback(void* context);
 	static void frameSequencerCallback(void* context);
 	static void timer0Callback(void* context);
 	static void timer1Callback(void* context);
@@ -126,6 +146,7 @@ private:
 	SquareChannel1 m_square1 = {};
 	SquareChannel2 m_square2 = {};
 	WaveChannel m_waveChannel = {};
+	NoiseChannel m_noiseChannel = {};
 
 	uint16_t SOUNDCNT_L = {};
 	uint16_t SOUNDCNT_H = {};
@@ -143,17 +164,22 @@ private:
 	uint16_t SOUND3CNT_H = {};
 	uint16_t SOUND3CNT_X = {};
 
+	uint16_t SOUND4CNT_L = {};
+	uint16_t SOUND4CNT_H = {};
+
 	static constexpr int cyclesPerSample = 256;	//~64KHz sample rate, so we want to mix samples together roughly every that many cycles
 	static constexpr int sampleRate = 65536;
 	static constexpr int sampleBufferSize = 2048;
 
-	static constexpr uint8_t dutyTable[4] =
+	static constexpr uint8_t dutyTable[4] =		//fixed duty table for square wave channels
 	{
 		0b00000001,
 		0b00000011,
 		0b00001111,
 		0b11111100
 	};
+
+	static constexpr int divisorMappings[8] = { 8,16,32,48,64,80,96,112 };	//divisor mappings for calculating noise channel frequency
 
 	bool m_shouldDMA = false;
 	void updateDMAChannel(int channel);
@@ -167,6 +193,7 @@ private:
 	void onSquare1FreqTimer();
 	void onSquare2FreqTimer();
 	void onWaveFreqTimer();
+	void onNoiseFreqTimer();
 	void onFrameSequencerEvent();
 
 	//Frameseq related stuff

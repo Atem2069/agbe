@@ -18,6 +18,8 @@ APU::APU(std::shared_ptr<Scheduler> scheduler)
 	desiredSpec.samples = sampleBufferSize;	
 	m_audioDevice = SDL_OpenAudioDevice(nullptr, 0, &desiredSpec, &obtainedSpec, 0);
 	SDL_PauseAudioDevice(m_audioDevice, 0);
+
+	m_noiseChannel.LFSR = 0xFFFF;
 }
 
 APU::~APU()
@@ -63,6 +65,14 @@ uint8_t APU::readIO(uint32_t address)
 		return (SOUND3CNT_X & 0xFF);
 	case 0x04000075:
 		return ((SOUND3CNT_X >> 8) & 0xFF);
+	case 0x04000078:
+		return (SOUND4CNT_L & 0xFF);
+	case 0x04000079:
+		return ((SOUND4CNT_L >> 8) & 0xFF);
+	case 0x0400007C:
+		return (SOUND4CNT_H & 0xFF);
+	case 0x0400007D:
+		return ((SOUND4CNT_H >> 8) & 0xFF);
 	case 0x04000080:
 		return (SOUNDCNT_L & 0xFF);
 	case 0x04000081:
@@ -81,9 +91,7 @@ uint8_t APU::readIO(uint32_t address)
 	case 0x04000090: case 0x04000091: case 0x04000092: case 0x04000093: case 0x04000094: case 0x04000095: case 0x04000096: case 0x04000097:
 	case 0x04000098: case 0x04000099: case 0x0400009A: case 0x0400009B: case 0x0400009C: case 0x0400009D: case 0x0400009E: case 0x0400009F:
 		return m_waveChannel.waveRam[!m_waveChannel.currentBankNumber][address - 0x04000090];
-
 	}
-
 	return 0;
 }
 
@@ -102,7 +110,7 @@ void APU::writeIO(uint32_t address, uint8_t value)
 		break;
 	case 0x04000063:
 		SOUND1CNT_H &= 0xFF; SOUND1CNT_H |= (value << 8);
-		m_square1.lengthCounter = 64 - (SOUND1CNT_H & 0x1F);
+		m_square1.lengthCounter = 64 - (SOUND1CNT_H & 0x3F);
 		m_square1.envelopePeriod = ((SOUND1CNT_H >> 8) & 0b111);
 		m_square1.envelopeTimer = m_square1.envelopePeriod;
 		m_square1.envelopeIncrease = ((SOUND1CNT_H >> 11) & 0b1);
@@ -133,7 +141,7 @@ void APU::writeIO(uint32_t address, uint8_t value)
 		break;
 	case 0x04000069:
 		SOUND2CNT_L &= 0xFF; SOUND2CNT_L |= (value << 8);
-		m_square2.lengthCounter = 64 - (SOUND2CNT_L & 0x1F);
+		m_square2.lengthCounter = 64 - (SOUND2CNT_L & 0x3F);
 		m_square2.envelopePeriod = ((SOUND2CNT_L >> 8) & 0b111);
 		m_square2.envelopeTimer = m_square2.envelopePeriod;
 		m_square2.envelopeIncrease = ((SOUND2CNT_L >> 11) & 0b1);
@@ -200,6 +208,42 @@ void APU::writeIO(uint32_t address, uint8_t value)
 			m_scheduler->addEvent(Event::Wave, &APU::waveEventCallback, (void*)this, m_scheduler->getCurrentTimestamp() + m_waveChannel.frequency);
 		}
 		break;
+	case 0x04000078:
+		SOUND4CNT_L &= 0xFF00; SOUND4CNT_L |= value;
+		break;
+	case 0x04000079:
+		SOUND4CNT_L &= 0xFF; SOUND4CNT_L |= (value << 8);
+		m_noiseChannel.lengthCounter = 64 - (SOUND4CNT_L & 0x3F);
+		m_noiseChannel.envelopePeriod = ((SOUND4CNT_L >> 8) & 0b111);
+		m_noiseChannel.envelopeTimer = m_noiseChannel.envelopePeriod;
+		m_noiseChannel.envelopeIncrease = ((SOUND4CNT_L >> 11) & 0b1);
+		m_noiseChannel.volume = ((SOUND4CNT_L >> 12) & 0xF);
+		break;
+	case 0x0400007C:
+		SOUND4CNT_H &= 0xFF00; SOUND4CNT_H |= value;
+		break;
+	case 0x0400007D:
+		SOUND4CNT_H &= 0xFF; SOUND4CNT_H |= (value << 8);
+		m_noiseChannel.divisorCode = SOUND4CNT_H & 0b111;
+		m_noiseChannel.shiftAmount = ((SOUND4CNT_H >> 4) & 0xF);
+		if ((value >> 7) & 0b1)
+		{
+			SOUNDCNT_X |= 0b1000;
+			m_noiseChannel.enabled = true;
+			
+			if (m_noiseChannel.lengthCounter == 0)
+				m_noiseChannel.lengthCounter = 64;
+			m_noiseChannel.doLength = ((SOUND4CNT_H >> 14) & 0b1);
+			m_noiseChannel.widthMode = ((SOUND4CNT_H >> 3) & 0b1);
+			m_noiseChannel.LFSR = 0x40;
+			if (!m_noiseChannel.widthMode)
+				m_noiseChannel.LFSR <<= 8;	//make it 0x4000
+
+			int divisor = divisorMappings[m_noiseChannel.divisorCode];
+			m_noiseChannel.frequency = divisor << m_noiseChannel.shiftAmount;
+			m_scheduler->addEvent(Event::Noise, &APU::noiseEventCallback, (void*)this, m_scheduler->getCurrentTimestamp() + m_noiseChannel.frequency);
+		}
+		break;
 	case 0x04000080:
 		SOUNDCNT_L &= 0xFF00; SOUNDCNT_L |= value;
 		break;
@@ -255,7 +299,10 @@ void APU::onSampleEvent()
 	bool waveOutputEnabled = ((((SOUNDCNT_L >> 10) & 0b1)) || (((SOUNDCNT_L >> 14)) & 0b1)) && m_waveChannel.enabled;
 	int8_t waveSample = m_waveChannel.output >> (2 - (SOUNDCNT_H & 0b11));
 
-	int16_t finalSample = (chanASample + chanBSample + square1Sample + square2Sample + waveSample)*4;
+	bool noiseOutputEnabled = ((((SOUNDCNT_L >> 11) & 0b1)) || (((SOUNDCNT_L >> 15)) & 0b1));
+	int8_t noiseSample = m_noiseChannel.output >> (2 - (SOUNDCNT_H & 0b11));
+
+	int16_t finalSample = (chanASample + chanBSample + square1Sample + square2Sample + waveSample + noiseSample)*4;
 	m_sampleBuffer[sampleIndex] = finalSample;
 
 	sampleIndex++;
@@ -374,6 +421,27 @@ void APU::onWaveFreqTimer()
 	m_scheduler->addEvent(Event::Wave, &APU::waveEventCallback, (void*)this, m_scheduler->getEventTime() + m_waveChannel.frequency);
 }
 
+void APU::onNoiseFreqTimer()
+{
+	int divisor = divisorMappings[m_noiseChannel.divisorCode];
+	m_noiseChannel.frequency = divisor << m_noiseChannel.shiftAmount;
+	int xorRes = (m_noiseChannel.LFSR & 0b1) ^ ((m_noiseChannel.LFSR >> 1) & 0b1);
+	m_noiseChannel.LFSR = (m_noiseChannel.LFSR >> 1) | (xorRes << 14);
+	if (m_noiseChannel.widthMode)	
+	{
+		m_noiseChannel.LFSR &= 0b1111111110111111;
+		m_noiseChannel.LFSR |= xorRes << 6;
+	}
+
+	m_noiseChannel.output = 0;
+	if (m_noiseChannel.enabled)
+	{
+		uint8_t chan4Amplitude = ~(m_noiseChannel.LFSR) & 0b1;
+		m_noiseChannel.output = (chan4Amplitude * m_noiseChannel.volume) * 8;
+	}
+	m_scheduler->addEvent(Event::Noise, &APU::noiseEventCallback, (void*)this, m_scheduler->getEventTime() + m_noiseChannel.frequency);
+}
+
 void APU::onFrameSequencerEvent()
 {
 	if ((frameSequencerClock & 1) == 0)
@@ -421,6 +489,17 @@ void APU::clockLengthCounters()
 			SOUNDCNT_X &= ~0b100;
 		}
 	}
+
+	if (m_noiseChannel.doLength)
+	{
+		if (m_noiseChannel.lengthCounter > 0)
+			m_noiseChannel.lengthCounter--;
+		if (m_noiseChannel.lengthCounter == 0)
+		{
+			m_noiseChannel.enabled = false;
+			SOUNDCNT_X &= ~0b1000;
+		}
+	}
 }
 
 void APU::clockVolumeEnvelope()
@@ -453,6 +532,22 @@ void APU::clockVolumeEnvelope()
 					m_square2.volume++;
 				if (!m_square2.envelopeIncrease && m_square2.volume > 0)
 					m_square2.volume--;
+			}
+		}
+	}
+
+	if (m_noiseChannel.enabled)
+	{
+		if (m_noiseChannel.envelopePeriod != 0)
+		{
+			m_noiseChannel.envelopeTimer--;
+			if (m_noiseChannel.envelopeTimer == 0)
+			{
+				m_noiseChannel.envelopeTimer = m_noiseChannel.envelopePeriod;
+				if (m_noiseChannel.envelopeIncrease && m_noiseChannel.volume < 15)
+					m_noiseChannel.volume++;
+				if (!m_noiseChannel.envelopeIncrease && m_noiseChannel.volume > 0)
+					m_noiseChannel.volume--;
 			}
 		}
 	}
@@ -538,6 +633,12 @@ void APU::waveEventCallback(void* context)
 {
 	APU* thisPtr = (APU*)context;
 	thisPtr->onWaveFreqTimer();
+}
+
+void APU::noiseEventCallback(void* context)
+{
+	APU* thisPtr = (APU*)context;
+	thisPtr->onNoiseFreqTimer();
 }
 
 void APU::frameSequencerCallback(void* context)
