@@ -106,6 +106,7 @@ uint8_t Bus::read8(uint32_t address, AccessType accessType)
 	}
 
 	Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Out of bounds/invalid read addr={:#x}", address));
+	tickPrefetcher(1);
 	return m_openBusVals.mem;
 }
 
@@ -169,6 +170,7 @@ void Bus::write8(uint32_t address, uint8_t value, AccessType accessType)
 		break;
 	default:
 		Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Out of bounds/invalid write addr={:#x}", address));
+		tickPrefetcher(1);
 		break;
 	}
 }
@@ -235,6 +237,7 @@ uint16_t Bus::read16(uint32_t address, AccessType accessType)
 	}
 
 	Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Out of bounds/invalid read addr={:#x}", address));
+	tickPrefetcher(1);
 	return m_openBusVals.mem;
 }
 
@@ -300,6 +303,7 @@ void Bus::write16(uint32_t address, uint16_t value, AccessType accessType)
 		break;
 	default:
 		Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Out of bounds/invalid write addr={:#x}", address));
+		tickPrefetcher(1);
 		break;
 	}
 }
@@ -348,8 +352,9 @@ uint32_t Bus::read32(uint32_t address, AccessType accessType)
 		return getValue32(m_mem->OAM, address & 0x3FF,0x3FF);
 	case 8: case 9: case 0xA: case 0xB: case 0xC: case 0xD:
 		dmaNonsequentialAccess = false;
-		cartCycles = ((accessType==AccessType::Sequential) && ((address & 0x1FF) != 0)) ? waitstateSequentialTable[((page - 8) >> 1)] : waitstateNonsequentialTable[((page - 8) >> 1)];
-		m_scheduler->addCycles(cartCycles + waitstateSequentialTable[((page-8)>>1)] + 1);	//first access is either nonseq/seq. second is *always* seq
+		cartCycles = ((accessType == AccessType::Sequential) && ((address & 0x1FF) != 0)) ? waitstateSequentialTable[((page - 8) >> 1)] : waitstateNonsequentialTable[((page - 8) >> 1)];
+		cartCycles += (((address + 2) & 0x1FF) != 0) ? waitstateSequentialTable[((page - 8) >> 1)] : waitstateNonsequentialTable[((page - 8) >> 1)];
+		m_scheduler->addCycles(cartCycles + 1);	//first access is either nonseq/seq. second is *always* seq
 		if (accessType != AccessType::Prefetch)
 		{
 			if (prefetchShouldDelay && prefetchInProgress)
@@ -362,13 +367,14 @@ uint32_t Bus::read32(uint32_t address, AccessType accessType)
 		}
 		if ((address & 0x01FFFFFF) >= romSize)
 			return ((address / 2) & 0xFFFF) | (((address + 2) / 2) & 0xFFFF) << 16;
-		return getValue32(m_mem->ROM, address & 0x01FFFFFF,0xFFFFFFFF);
+		return getValue32(m_mem->ROM, address & 0x01FFFFFF, 0xFFFFFFFF);
 	case 0xE: case 0xF:
 		m_scheduler->addCycles(SRAMCycles);
 		return m_mem->SRAM[originalAddress & 0xFFFF] * 0x01010101;
 	}
 
 	Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Out of bounds/invalid read addr={:#x}", address));
+	tickPrefetcher(1);
 	return m_openBusVals.mem;
 }
 
@@ -417,7 +423,8 @@ void Bus::write32(uint32_t address, uint32_t value, AccessType accessType)
 	case 8: case 9: case 0xA: case 0xB: case 0xC: case 0xD:
 		dmaNonsequentialAccess = false;
 		cartCycles = ((accessType==AccessType::Sequential) && ((address & 0x1FF) != 0)) ? waitstateSequentialTable[((page - 8) >> 1)] : waitstateNonsequentialTable[((page - 8) >> 1)];
-		m_scheduler->addCycles(cartCycles + waitstateSequentialTable[((page - 8) >> 1)] + 1);	//same as for read32
+		cartCycles += (((address + 2) & 0x1FF) != 0) ? waitstateSequentialTable[((page - 8) >> 1)] : waitstateNonsequentialTable[((page - 8) >> 1)];
+		m_scheduler->addCycles(cartCycles + 1);	//same setup as for read32
 		if (prefetchInProgress && prefetchShouldDelay)
 		{
 			tickPrefetcher(1);
@@ -432,6 +439,7 @@ void Bus::write32(uint32_t address, uint32_t value, AccessType accessType)
 		break;
 	default:
 		Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Out of bounds/invalid write addr={:#x}", address));
+		tickPrefetcher(1);
 		break;
 	}
 }
