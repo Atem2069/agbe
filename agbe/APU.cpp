@@ -296,16 +296,16 @@ void APU::onSampleEvent()
 	int16_t chanBSample = m_channels[1].currentSample*2;
 
 	bool square1OutputEnabled = (((SOUNDCNT_L >> 8) & 0b1)) || (((SOUNDCNT_L >> 12)) & 0b1);
-	int8_t square1Sample = m_square1.output >> (2 - (SOUNDCNT_H & 0b11));
+	int16_t square1Sample = m_square1.output >> (2 - (SOUNDCNT_H & 0b11));
 
 	bool square2OutputEnabled = (((SOUNDCNT_L >> 9) & 0b1)) || (((SOUNDCNT_L >> 13)) & 0b1);
-	int8_t square2Sample = m_square2.output >> (2 - (SOUNDCNT_H & 0b11));
+	int16_t square2Sample = m_square2.output >> (2 - (SOUNDCNT_H & 0b11));
 
 	bool waveOutputEnabled = ((((SOUNDCNT_L >> 10) & 0b1)) || (((SOUNDCNT_L >> 14)) & 0b1)) && m_waveChannel.enabled;
-	int8_t waveSample = m_waveChannel.output >> (2 - (SOUNDCNT_H & 0b11));
+	int16_t waveSample = m_waveChannel.output >> (2 - (SOUNDCNT_H & 0b11));
 
 	bool noiseOutputEnabled = ((((SOUNDCNT_L >> 11) & 0b1)) || (((SOUNDCNT_L >> 15)) & 0b1));
-	int8_t noiseSample = m_noiseChannel.output >> (2 - (SOUNDCNT_H & 0b11));
+	int16_t noiseSample = m_noiseChannel.output >> (2 - (SOUNDCNT_H & 0b11));
 
 	int16_t finalSample = (chanASample + chanBSample + square1Sample + square2Sample + waveSample + noiseSample)*4;
 	m_sampleBuffer[sampleIndex] = finalSample;
@@ -364,11 +364,16 @@ void APU::onTimer1Overflow()
 void APU::updateSquare1()
 {
 	if (!m_square1.enabled)
+	{
+		m_square1.output = 0;
 		return;
-	uint64_t curTime = m_scheduler->getEventTime();
+	}
+	uint64_t curTime = m_scheduler->getCurrentTimestamp();
 	uint64_t timeDiff = curTime - m_square1.lastCheckTimestamp;
 	while (timeDiff >= m_square1.frequency)
 	{
+		if (m_square1.frequency == 0)
+			break;
 		timeDiff -= m_square1.frequency;
 		m_square1.dutyIdx++;
 		m_square1.dutyIdx &= 7;
@@ -387,11 +392,16 @@ void APU::updateSquare1()
 void APU::updateSquare2()
 {
 	if (!m_square2.enabled)
+	{
+		m_square2.output = 0;
 		return;
-	uint64_t curTime = m_scheduler->getEventTime();
+	}
+	uint64_t curTime = m_scheduler->getCurrentTimestamp();
 	uint64_t timeDiff = curTime - m_square2.lastCheckTimestamp;
 	while (timeDiff >= m_square2.frequency)
 	{
+		if (m_square2.frequency == 0)
+			break;
 		timeDiff -= m_square2.frequency;
 		m_square2.dutyIdx++;
 		m_square2.dutyIdx &= 7;
@@ -410,11 +420,16 @@ void APU::updateSquare2()
 void APU::updateWave()
 {
 	if (!m_waveChannel.enabled)
+	{
+		m_waveChannel.output = 0;
 		return;
-	uint64_t curTime = m_scheduler->getEventTime();
+	}
+	uint64_t curTime = m_scheduler->getCurrentTimestamp();
 	uint64_t timeDiff = curTime - m_waveChannel.lastCheckTimestamp;
 	while (timeDiff >= m_waveChannel.frequency)
 	{
+		if (m_waveChannel.frequency == 0)
+			break;
 		timeDiff -= m_waveChannel.frequency;
 		m_waveChannel.frequency = (2048 - (SOUND3CNT_X & 0x7FF)) * 8;
 		m_waveChannel.output = 0;
@@ -440,7 +455,7 @@ void APU::updateWave()
 				break;
 			}
 
-			m_waveChannel.output = sample * 8;
+			m_waveChannel.output = sample * 16;
 		}
 
 		m_waveChannel.sampleIndex = (m_waveChannel.sampleIndex + 1) & 31;
@@ -454,20 +469,27 @@ void APU::updateWave()
 void APU::updateNoise()
 {
 	if (!m_noiseChannel.enabled)
+	{
+		m_noiseChannel.output = 0;
 		return;
-	uint64_t curTime = m_scheduler->getEventTime();
+	}
+	uint64_t curTime = m_scheduler->getCurrentTimestamp();
 	uint64_t timeDiff = curTime - m_noiseChannel.lastCheckTimestamp;
 	while (timeDiff >= m_noiseChannel.frequency)
 	{
+		if (m_noiseChannel.frequency == 0)
+			break;
 		timeDiff -= m_noiseChannel.frequency;
 		int divisor = divisorMappings[m_noiseChannel.divisorCode];
 		m_noiseChannel.frequency = divisor << m_noiseChannel.shiftAmount;
+		m_noiseChannel.output = 0;
 		if (m_noiseChannel.enabled)
 		{
 			bool wasCarry = m_noiseChannel.LFSR & 0b1;
 			m_noiseChannel.LFSR >>= 1;
 
-			m_noiseChannel.output = (wasCarry * m_noiseChannel.volume) * 8;
+			m_noiseChannel.output = (wasCarry) ? 1 : -1;
+			m_noiseChannel.output *= m_noiseChannel.volume * 8;
 
 			if (wasCarry)
 			{

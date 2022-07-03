@@ -54,7 +54,7 @@ struct SquareChannel1
 	int dutyPattern;
 	int frequency;
 	int dutyIdx;
-	int8_t output;
+	int16_t output;
 
 	//envelope
 	int volume;
@@ -79,7 +79,7 @@ struct SquareChannel2
 	int dutyPattern;
 	int frequency;
 	int dutyIdx;
-	int8_t output;
+	int16_t output;
 
 	//envelope
 	int volume;
@@ -99,7 +99,7 @@ struct WaveChannel
 	int frequency;
 	int sampleIndex;
 	int volumeCode;
-	int8_t output;
+	int16_t output;
 
 	bool twoDimensionBanking;
 	bool currentBankNumber;
@@ -118,7 +118,7 @@ struct NoiseChannel
 	int divisorCode;
 	bool widthMode;
 	int shiftAmount;
-	int8_t output;
+	int16_t output;
 
 	//envelope
 	int volume;
