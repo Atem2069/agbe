@@ -46,6 +46,23 @@ struct AudioFIFO
 	int8_t currentSample = 0;	//holds last sample from timer event
 };
 
+struct SquareChannel1
+{
+	bool enabled;
+	bool doLength;
+	int lengthCounter;
+	int dutyPattern;
+	int frequency;
+	int dutyIdx;
+	int volume;
+	int8_t output;
+
+	//chan 1 specific stuff
+	int sweepPeriod;
+	int sweepShift;
+	bool sweepNegate;
+};
+
 struct SquareChannel2
 {
 	bool enabled;
@@ -70,12 +87,14 @@ public:
 	void writeIO(uint32_t address, uint8_t value);
 
 	static void sampleEventCallback(void* context);
+	static void square1EventCallback(void* context);
 	static void square2EventCallback(void* context);
 	static void timer0Callback(void* context);
 	static void timer1Callback(void* context);
 private:
 	std::shared_ptr<Scheduler> m_scheduler;
 	AudioFIFO m_channels[2];
+	SquareChannel1 m_square1 = {};
 	SquareChannel2 m_square2 = {};
 
 	uint16_t SOUNDCNT_L = {};
@@ -84,6 +103,9 @@ private:
 	uint16_t SOUNDBIAS = {};
 	uint16_t SOUND2CNT_L = {};
 	uint16_t SOUND2CNT_H = {};
+	uint8_t SOUND1CNT_L = {};
+	uint16_t SOUND1CNT_H = {};
+	uint16_t SOUND1CNT_X = {};
 
 	static constexpr int cyclesPerSample = 256;	//~64KHz sample rate, so we want to mix samples together roughly every that many cycles
 	static constexpr int sampleRate = 65536;
@@ -106,6 +128,7 @@ private:
 	void onSampleEvent();
 	void onTimer0Overflow();
 	void onTimer1Overflow();
+	void onSquare1FreqTimer();
 	void onSquare2FreqTimer();
 
 	SDL_AudioDeviceID m_audioDevice = {};
