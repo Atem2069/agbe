@@ -67,6 +67,8 @@ struct SquareChannel1
 	int sweepTimer;
 	int sweepShift;
 	bool sweepNegate;
+
+	uint64_t lastCheckTimestamp;
 };
 
 struct SquareChannel2
@@ -84,6 +86,8 @@ struct SquareChannel2
 	int envelopePeriod;
 	int envelopeTimer;
 	bool envelopeIncrease;
+
+	uint64_t lastCheckTimestamp;
 };
 
 struct WaveChannel
@@ -100,6 +104,8 @@ struct WaveChannel
 	bool twoDimensionBanking;
 	bool currentBankNumber;
 	uint8_t waveRam[2][16];	//two banks of wave ram, each holds 32 4 bit samples
+
+	uint64_t lastCheckTimestamp;
 };
 
 struct NoiseChannel
@@ -119,6 +125,8 @@ struct NoiseChannel
 	int envelopePeriod;
 	int envelopeTimer;
 	bool envelopeIncrease;
+
+	uint64_t lastCheckTimestamp;
 };
 
 class APU
@@ -133,10 +141,6 @@ public:
 	void writeIO(uint32_t address, uint8_t value);
 
 	static void sampleEventCallback(void* context);
-	static void square1EventCallback(void* context);
-	static void square2EventCallback(void* context);
-	static void waveEventCallback(void* context);
-	static void noiseEventCallback(void* context);
 	static void frameSequencerCallback(void* context);
 	static void timer0Callback(void* context);
 	static void timer1Callback(void* context);
@@ -190,10 +194,10 @@ private:
 	void onSampleEvent();
 	void onTimer0Overflow();
 	void onTimer1Overflow();
-	void onSquare1FreqTimer();
-	void onSquare2FreqTimer();
-	void onWaveFreqTimer();
-	void onNoiseFreqTimer();
+	void updateSquare1();
+	void updateSquare2();
+	void updateWave();
+	void updateNoise();
 	void onFrameSequencerEvent();
 
 	//Frameseq related stuff

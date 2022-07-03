@@ -133,7 +133,7 @@ void APU::writeIO(uint32_t address, uint8_t value)
 			m_square1.doLength = ((SOUND1CNT_X >> 14) & 0b1);
 			m_square1.envelopeTimer = m_square1.envelopePeriod;
 			m_square1.volume = ((SOUND1CNT_H >> 12) & 0xF);
-			m_scheduler->addEvent(Event::Square1, &APU::square1EventCallback, (void*)this, m_scheduler->getCurrentTimestamp() + m_square1.frequency);
+			m_square1.lastCheckTimestamp = m_scheduler->getCurrentTimestamp();
 		}
 		break;
 	case 0x04000068:
@@ -164,7 +164,7 @@ void APU::writeIO(uint32_t address, uint8_t value)
 			m_square2.doLength = ((SOUND2CNT_H >> 14) & 0b1);
 			m_square2.envelopeTimer = m_square2.envelopePeriod;
 			m_square2.volume = ((SOUND2CNT_L >> 12) & 0xF);
-			m_scheduler->addEvent(Event::Square2, &APU::square2EventCallback, (void*)this, m_scheduler->getCurrentTimestamp() + m_square2.frequency);
+			m_square2.lastCheckTimestamp = m_scheduler->getCurrentTimestamp();
 		}
 		break;
 	case 0x04000070:
@@ -205,7 +205,7 @@ void APU::writeIO(uint32_t address, uint8_t value)
 			m_waveChannel.sampleIndex = 0;
 			m_waveChannel.currentBankNumber = (SOUND3CNT_L >> 6) & 0b1;	//todo: doublecheck if this is right;
 			m_waveChannel.doLength = ((SOUND3CNT_X >> 14) & 0b1);
-			m_scheduler->addEvent(Event::Wave, &APU::waveEventCallback, (void*)this, m_scheduler->getCurrentTimestamp() + m_waveChannel.frequency);
+			m_waveChannel.lastCheckTimestamp = m_scheduler->getCurrentTimestamp();
 		}
 		break;
 	case 0x04000078:
@@ -241,7 +241,7 @@ void APU::writeIO(uint32_t address, uint8_t value)
 
 			int divisor = divisorMappings[m_noiseChannel.divisorCode];
 			m_noiseChannel.frequency = divisor << m_noiseChannel.shiftAmount;
-			m_scheduler->addEvent(Event::Noise, &APU::noiseEventCallback, (void*)this, m_scheduler->getCurrentTimestamp() + m_noiseChannel.frequency);
+			m_noiseChannel.lastCheckTimestamp = m_scheduler->getCurrentTimestamp();
 		}
 		break;
 	case 0x04000080:
@@ -287,6 +287,11 @@ void APU::writeIO(uint32_t address, uint8_t value)
 
 void APU::onSampleEvent()
 {
+	updateSquare1();
+	updateSquare2();
+	updateWave();
+	updateNoise();
+
 	int16_t chanASample = m_channels[0].currentSample*2;
 	int16_t chanBSample = m_channels[1].currentSample*2;
 
@@ -356,97 +361,131 @@ void APU::onTimer1Overflow()
 	m_shouldDMA = false;
 }
 
-void APU::onSquare1FreqTimer()
+void APU::updateSquare1()
 {
-	m_square1.dutyIdx++;
-	m_square1.dutyIdx &= 7;
-	m_square1.frequency = (2048 - (SOUND1CNT_X & 0x7FF)) * 16;
-	m_square1.output = 0;
-	if (m_square1.enabled)
+	if (!m_square1.enabled)
+		return;
+	uint64_t curTime = m_scheduler->getEventTime();
+	uint64_t timeDiff = curTime - m_square1.lastCheckTimestamp;
+	while (timeDiff >= m_square1.frequency)
 	{
-		m_square1.output = ((dutyTable[m_square1.dutyPattern] >> (m_square1.dutyIdx)) & 0b1) ? 1 : -1;
-		m_square1.output *= (m_square1.volume * 8);
-	}
-
-	m_scheduler->addEvent(Event::Square1, &APU::square1EventCallback, (void*)this, m_scheduler->getEventTime() + m_square1.frequency);
-}
-
-void APU::onSquare2FreqTimer()
-{
-	m_square2.dutyIdx++;
-	m_square2.dutyIdx &= 7;
-	m_square2.frequency = (2048 - (SOUND2CNT_H & 0x7FF)) * 16;
-	m_square2.output = 0;
-	if (m_square2.enabled)
-	{
-		m_square2.output = ((dutyTable[m_square2.dutyPattern] >> (m_square2.dutyIdx)) & 0b1) ? 1 : -1;
-		m_square2.output *= (m_square2.volume * 8);
-	}
-
-	m_scheduler->addEvent(Event::Square2, &APU::square2EventCallback, (void*)this, m_scheduler->getEventTime() + m_square2.frequency);
-}
-
-void APU::onWaveFreqTimer()
-{
-	m_waveChannel.frequency = (2048 - (SOUND3CNT_X & 0x7FF)) * 8;
-	m_waveChannel.output = 0;
-	if (m_waveChannel.enabled)
-	{
-		int8_t byteRow = m_waveChannel.waveRam[m_waveChannel.currentBankNumber][m_waveChannel.sampleIndex >> 1];
-		int8_t sample = 0;
-		if (m_waveChannel.sampleIndex & 0b1)	//can potentially remove this if with something cleaner
-			sample = byteRow & 0xF;
-		else
-			sample = (byteRow >> 4) & 0xF;
-
-		switch (m_waveChannel.volumeCode)
+		timeDiff -= m_square1.frequency;
+		m_square1.dutyIdx++;
+		m_square1.dutyIdx &= 7;
+		m_square1.frequency = (2048 - (SOUND1CNT_X & 0x7FF)) * 16;
+		m_square1.output = 0;
+		if (m_square1.enabled)
 		{
-		case 0:
-			sample = 0;
-			break;
-		case 2:
-			sample >>= 1;
-			break;
-		case 3:
-			sample >>= 2;
-			break;
+			m_square1.output = ((dutyTable[m_square1.dutyPattern] >> (m_square1.dutyIdx)) & 0b1) ? 1 : -1;
+			m_square1.output *= (m_square1.volume * 8);
 		}
-		
-		m_waveChannel.output = sample * 8;
 	}
-
-	m_waveChannel.sampleIndex = (m_waveChannel.sampleIndex + 1) & 31;
-	if (m_waveChannel.sampleIndex == 0 && m_waveChannel.twoDimensionBanking)
-		m_waveChannel.currentBankNumber = !m_waveChannel.currentBankNumber;
-	m_scheduler->addEvent(Event::Wave, &APU::waveEventCallback, (void*)this, m_scheduler->getEventTime() + m_waveChannel.frequency);
+	m_square1.frequency -= timeDiff;
+	m_square1.lastCheckTimestamp = curTime;
 }
 
-void APU::onNoiseFreqTimer()
+void APU::updateSquare2()
 {
-	int divisor = divisorMappings[m_noiseChannel.divisorCode];
-	m_noiseChannel.frequency = divisor << m_noiseChannel.shiftAmount;
-	if (m_noiseChannel.enabled)
+	if (!m_square2.enabled)
+		return;
+	uint64_t curTime = m_scheduler->getEventTime();
+	uint64_t timeDiff = curTime - m_square2.lastCheckTimestamp;
+	while (timeDiff >= m_square2.frequency)
 	{
-		bool wasCarry = m_noiseChannel.LFSR & 0b1;
-		m_noiseChannel.LFSR >>= 1;
-
-		m_noiseChannel.output = (wasCarry * m_noiseChannel.volume) * 8;
-
-		if (wasCarry)
+		timeDiff -= m_square2.frequency;
+		m_square2.dutyIdx++;
+		m_square2.dutyIdx &= 7;
+		m_square2.frequency = (2048 - (SOUND2CNT_H & 0x7FF)) * 16;
+		m_square2.output = 0;
+		if (m_square2.enabled)
 		{
-			if (m_noiseChannel.widthMode)
-			{
-				m_noiseChannel.LFSR ^= 0x60;
-				m_noiseChannel.LFSR &= 0x7F;
-			}
+			m_square2.output = ((dutyTable[m_square2.dutyPattern] >> (m_square2.dutyIdx)) & 0b1) ? 1 : -1;
+			m_square2.output *= (m_square2.volume * 8);
+		}
+	}
+	m_square2.frequency -= timeDiff;
+	m_square2.lastCheckTimestamp = curTime;
+}
+
+void APU::updateWave()
+{
+	if (!m_waveChannel.enabled)
+		return;
+	uint64_t curTime = m_scheduler->getEventTime();
+	uint64_t timeDiff = curTime - m_waveChannel.lastCheckTimestamp;
+	while (timeDiff >= m_waveChannel.frequency)
+	{
+		timeDiff -= m_waveChannel.frequency;
+		m_waveChannel.frequency = (2048 - (SOUND3CNT_X & 0x7FF)) * 8;
+		m_waveChannel.output = 0;
+		if (m_waveChannel.enabled)
+		{
+			int8_t byteRow = m_waveChannel.waveRam[m_waveChannel.currentBankNumber][m_waveChannel.sampleIndex >> 1];
+			int8_t sample = 0;
+			if (m_waveChannel.sampleIndex & 0b1)	//can potentially remove this if with something cleaner
+				sample = byteRow & 0xF;
 			else
+				sample = (byteRow >> 4) & 0xF;
+
+			switch (m_waveChannel.volumeCode)
 			{
-				m_noiseChannel.LFSR ^= 0x6000;
-				m_noiseChannel.LFSR &= 0x7FFF;
+			case 0:
+				sample = 0;
+				break;
+			case 2:
+				sample >>= 1;
+				break;
+			case 3:
+				sample >>= 2;
+				break;
+			}
+
+			m_waveChannel.output = sample * 8;
+		}
+
+		m_waveChannel.sampleIndex = (m_waveChannel.sampleIndex + 1) & 31;
+		if (m_waveChannel.sampleIndex == 0 && m_waveChannel.twoDimensionBanking)
+			m_waveChannel.currentBankNumber = !m_waveChannel.currentBankNumber;
+	}
+	m_waveChannel.frequency -= timeDiff;
+	m_waveChannel.lastCheckTimestamp = curTime;
+}
+
+void APU::updateNoise()
+{
+	if (!m_noiseChannel.enabled)
+		return;
+	uint64_t curTime = m_scheduler->getEventTime();
+	uint64_t timeDiff = curTime - m_noiseChannel.lastCheckTimestamp;
+	while (timeDiff >= m_noiseChannel.frequency)
+	{
+		timeDiff -= m_noiseChannel.frequency;
+		int divisor = divisorMappings[m_noiseChannel.divisorCode];
+		m_noiseChannel.frequency = divisor << m_noiseChannel.shiftAmount;
+		if (m_noiseChannel.enabled)
+		{
+			bool wasCarry = m_noiseChannel.LFSR & 0b1;
+			m_noiseChannel.LFSR >>= 1;
+
+			m_noiseChannel.output = (wasCarry * m_noiseChannel.volume) * 8;
+
+			if (wasCarry)
+			{
+				if (m_noiseChannel.widthMode)
+				{
+					m_noiseChannel.LFSR ^= 0x60;
+					m_noiseChannel.LFSR &= 0x7F;
+				}
+				else
+				{
+					m_noiseChannel.LFSR ^= 0x6000;
+					m_noiseChannel.LFSR &= 0x7FFF;
+				}
 			}
 		}
 	}
-	m_scheduler->addEvent(Event::Noise, &APU::noiseEventCallback, (void*)this, m_scheduler->getEventTime() + m_noiseChannel.frequency);
+	m_noiseChannel.frequency -= timeDiff;
+	m_noiseChannel.lastCheckTimestamp = curTime;
 }
 
 void APU::onFrameSequencerEvent()
@@ -622,30 +661,6 @@ void APU::timer1Callback(void* context)
 {
 	APU* thisPtr = (APU*)context;
 	thisPtr->onTimer1Overflow();
-}
-
-void APU::square1EventCallback(void* context)
-{
-	APU* thisPtr = (APU*)context;
-	thisPtr->onSquare1FreqTimer();
-}
-
-void APU::square2EventCallback(void* context)
-{
-	APU* thisPtr = (APU*)context;
-	thisPtr->onSquare2FreqTimer();
-}
-
-void APU::waveEventCallback(void* context)
-{
-	APU* thisPtr = (APU*)context;
-	thisPtr->onWaveFreqTimer();
-}
-
-void APU::noiseEventCallback(void* context)
-{
-	APU* thisPtr = (APU*)context;
-	thisPtr->onNoiseFreqTimer();
 }
 
 void APU::frameSequencerCallback(void* context)
