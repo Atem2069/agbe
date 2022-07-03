@@ -824,11 +824,11 @@ void ARM7TDMI::ARM_BlockDataTransfer()
 	else //Special case, empty RList
 	{
 		//Load R15
-		if (loadStore == 0) { m_bus->write32(base_addr, getReg(15) + 4, AccessType::Nonsequential); }
+		if (loadStore == 0) { m_bus->write32(base_addr, getReg(15) + 4, AccessType::Nonsequential); m_scheduler->addCycles(1); }
 		else //Store R15
 		{
 			setReg(15, m_bus->read32(base_addr, AccessType::Nonsequential));
-			m_scheduler->addCycles(3);
+			m_scheduler->addCycles(2);
 		}
 
 		//Add 0x40 to base address if ascending stack, writeback into base register
@@ -836,7 +836,7 @@ void ARM7TDMI::ARM_BlockDataTransfer()
 
 		//Subtract 0x40 from base address if descending stack, writeback into base register
 		else { setReg(baseReg, (base_addr - 0x40)); }
-
+		m_scheduler->addCycles(1);
 	}
 
 	// Restore old mode

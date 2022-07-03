@@ -98,8 +98,6 @@ bool ARM7TDMI::dispatchInterrupt()
 	if (!m_interruptManager->getInterrupt(false))	//final check: if interrupt actually requested
 		return false;
 
-	//std::cout << "irq dispatch" << '\n';
-
 	//irq bits: 10010
 	uint32_t oldCPSR = CPSR;
 

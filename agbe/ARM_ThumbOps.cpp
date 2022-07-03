@@ -227,7 +227,10 @@ void ARM7TDMI::Thumb_HiRegisterOperations()
 		result = operand1 + operand2;
 		setReg(dstRegIdx, result);
 		if (dstRegIdx == 15)
+		{
 			setReg(dstRegIdx, result & ~0b1);
+			m_scheduler->addCycles(2);
+		}
 		break;
 	case 1:
 		result = operand1 - operand2;
@@ -237,7 +240,10 @@ void ARM7TDMI::Thumb_HiRegisterOperations()
 		result = operand2;
 		setReg(dstRegIdx, result);
 		if (dstRegIdx == 15)
+		{
 			setReg(dstRegIdx, result & ~0b1);
+			m_scheduler->addCycles(2);
+		}
 		break;
 	case 3:
 		if (!(operand2 & 0b1))
@@ -537,10 +543,10 @@ void ARM7TDMI::Thumb_PushPopRegisters()
 
 		if (R)
 		{
-			uint32_t newPC = m_bus->read32(SP,AccessType::Sequential);
+			uint32_t newPC = m_bus->read32(SP,(AccessType)!firstTransfer);
 			setReg(15, newPC & ~0b1);
 			SP += 4;
-			m_scheduler->addCycles(1);
+			m_scheduler->addCycles(2);
 		}
 		m_scheduler->addCycles(transferCount + 2);
 		m_bus->tickPrefetcher(1);
@@ -658,9 +664,15 @@ void ARM7TDMI::Thumb_MultipleLoadStore()
 	if (regListOriginal == 0)
 	{
 		if (loadStore)
-			setReg(15, m_bus->read32(base,(AccessType)false));
+		{
+			setReg(15, m_bus->read32(base, (AccessType)false));
+			m_scheduler->addCycles(3);
+		}
 		else
-			m_bus->write32(base, getReg(15)+2,(AccessType)false);
+		{
+			m_bus->write32(base, getReg(15) + 2, (AccessType)false);
+			m_scheduler->addCycles(2);	//<--not sure if 2
+		}
 		base += 0x40;
 	}
 	if (!loadStore || (loadStore && !baseIncluded))
@@ -680,7 +692,10 @@ void ARM7TDMI::Thumb_ConditionalBranch()
 	if (condition == 14 || condition == 15)
 		Logger::getInstance()->msg(LoggerSeverity::Error, "Invalid condition code - opcode decoding is likely wrong!!");
 	if (!checkConditions(condition))
+	{
+		m_scheduler->addCycles(1);
 		return;
+	}
 
 	setReg(15, getReg(15) + offset);
 	m_scheduler->addCycles(3);
@@ -725,6 +740,7 @@ void ARM7TDMI::Thumb_LongBranchWithLink()
 		if (offset & 0x400000) { offset |= 0xFF800000; }
 		uint32_t res = getReg(15) + offset;
 		setReg(14, res & ~0b1);
+		m_scheduler->addCycles(1);
 	}
 	else			//H=1: leftshift by 1 and add to LR - then copy LR to PC. copy old PC (-2) to LR and set bit 0
 	{
@@ -733,6 +749,6 @@ void ARM7TDMI::Thumb_LongBranchWithLink()
 		LR += offset;
 		setReg(14, ((getReg(15) - 2) | 0b1));	//set LR to point to instruction after this one
 		setReg(15, LR);				//set PC to old LR contents (plus the offset)
-		m_scheduler->addCycles(4);
+		m_scheduler->addCycles(3);
 	}
 }
