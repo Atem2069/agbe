@@ -209,7 +209,7 @@ private:
 
 
 	SDL_AudioDeviceID m_audioDevice = {};
-	int16_t m_sampleBuffer[sampleBufferSize] = {};
+	int16_t m_sampleBuffer[sampleBufferSize*2] = {};
 	int sampleIndex = 0;
 
 	float capacitor = 0.0f;

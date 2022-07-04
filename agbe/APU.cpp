@@ -12,8 +12,8 @@ APU::APU(std::shared_ptr<Scheduler> scheduler)
 	SDL_Init(SDL_INIT_AUDIO);
 	SDL_AudioSpec desiredSpec = {}, obtainedSpec = {};
 	desiredSpec.freq = sampleRate;
-	desiredSpec.format = AUDIO_S16;	//might have to change this and make use of some actual resampling
-	desiredSpec.channels = 1;		//todo: support multiple channels too
+	desiredSpec.format = AUDIO_S16;	
+	desiredSpec.channels = 2;		
 	desiredSpec.silence = 0;
 	desiredSpec.samples = sampleBufferSize;	
 	m_audioDevice = SDL_OpenAudioDevice(nullptr, 0, &desiredSpec, &obtainedSpec, 0);
@@ -221,11 +221,12 @@ void APU::writeIO(uint32_t address, uint8_t value)
 		break;
 	case 0x0400007C:
 		SOUND4CNT_H &= 0xFF00; SOUND4CNT_H |= value;
+		m_noiseChannel.divisorCode = SOUND4CNT_H & 0b111;
+		m_noiseChannel.widthMode = ((SOUND4CNT_H >> 3) & 0b1);
+		m_noiseChannel.shiftAmount = ((SOUND4CNT_H >> 4) & 0xF);
 		break;
 	case 0x0400007D:
 		SOUND4CNT_H &= 0xFF; SOUND4CNT_H |= (value << 8);
-		m_noiseChannel.divisorCode = SOUND4CNT_H & 0b111;
-		m_noiseChannel.shiftAmount = ((SOUND4CNT_H >> 4) & 0xF);
 		if ((value >> 7) & 0b1)
 		{
 			SOUNDCNT_X |= 0b1000;
@@ -234,10 +235,9 @@ void APU::writeIO(uint32_t address, uint8_t value)
 			if (m_noiseChannel.lengthCounter == 0)
 				m_noiseChannel.lengthCounter = 64;
 			m_noiseChannel.doLength = ((SOUND4CNT_H >> 14) & 0b1);
-			m_noiseChannel.widthMode = ((SOUND4CNT_H >> 3) & 0b1);
-			m_noiseChannel.LFSR = 0x7FFF;
+			m_noiseChannel.LFSR = 0x40;
 			if (!m_noiseChannel.widthMode)
-				m_noiseChannel.LFSR = 0x7F;	
+				m_noiseChannel.LFSR <<= 8;	
 
 			int divisor = divisorMappings[m_noiseChannel.divisorCode];
 			m_noiseChannel.frequency = divisor << m_noiseChannel.shiftAmount;
@@ -292,33 +292,36 @@ void APU::onSampleEvent()
 	updateWave();
 	updateNoise();
 
-	int16_t chanASample = m_channels[0].currentSample*2;
-	int16_t chanBSample = m_channels[1].currentSample*2;
+	int16_t chanASample = m_channels[0].currentSample << 1+((SOUNDCNT_H  >> 2) & 0b1);		//applies sound a/b volume. 100% = left shift by 1 (*2), 50% = no change
+	int16_t chanBSample = m_channels[1].currentSample << 1+((SOUNDCNT_H >> 3) & 0b1);
 
-	bool square1OutputEnabled = (((SOUNDCNT_L >> 8) & 0b1)) || (((SOUNDCNT_L >> 12)) & 0b1);
-	int16_t square1Sample = m_square1.output >> (2 - (SOUNDCNT_H & 0b11));
+	int psgVolumeShift = (2 - (SOUNDCNT_H & 0b11));	//shift applied to all psg channels
 
-	bool square2OutputEnabled = (((SOUNDCNT_L >> 9) & 0b1)) || (((SOUNDCNT_L >> 13)) & 0b1);
-	int16_t square2Sample = m_square2.output >> (2 - (SOUNDCNT_H & 0b11));
+	int16_t square1Sample = m_square1.output >> psgVolumeShift;
+	int16_t square2Sample = m_square2.output >> psgVolumeShift;
+	int16_t waveSample = m_waveChannel.output >> psgVolumeShift;
+	int16_t noiseSample = m_noiseChannel.output >> psgVolumeShift;
 
-	bool waveOutputEnabled = ((((SOUNDCNT_L >> 10) & 0b1)) || (((SOUNDCNT_L >> 14)) & 0b1)) && m_waveChannel.enabled;
-	int16_t waveSample = m_waveChannel.output >> (2 - (SOUNDCNT_H & 0b11));
+	//both of these are messy - but it extracts L/R enable bits to see if each channel is enabled for each output (L/R)
+	int16_t leftSample = (((SOUNDCNT_H >> 9) & 0b1) * chanASample) + (((SOUNDCNT_H >> 13) & 0b1) * chanBSample) + (((SOUNDCNT_L >> 12) & 0b1) * square1Sample)
+		+ (((SOUNDCNT_L >> 13) & 0b1) * square2Sample) + (((SOUNDCNT_L >> 14) & 0b1) * waveSample) + (((SOUNDCNT_L >> 15) & 0b1) * noiseSample);
+	leftSample <<= 2;
 
-	bool noiseOutputEnabled = ((((SOUNDCNT_L >> 11) & 0b1)) || (((SOUNDCNT_L >> 15)) & 0b1));
-	int16_t noiseSample = m_noiseChannel.output >> (2 - (SOUNDCNT_H & 0b11));
-
-	int16_t finalSample = (chanASample + chanBSample + square1Sample + square2Sample + waveSample + noiseSample)*4;
-	m_sampleBuffer[sampleIndex] = finalSample;
+	int16_t rightSample = (((SOUNDCNT_H >> 8) & 0b1) * chanASample) + (((SOUNDCNT_H >> 12) & 0b1) * chanBSample) + (((SOUNDCNT_L >> 8) & 0b1) * square1Sample)
+		+ (((SOUNDCNT_L >> 9) & 0b1) * square2Sample) + (((SOUNDCNT_L >> 10) & 0b1) * waveSample) + (((SOUNDCNT_L >> 11) & 0b1) * noiseSample);
+	rightSample <<= 2;
+	m_sampleBuffer[sampleIndex << 1] = leftSample;
+	m_sampleBuffer[(sampleIndex << 1) | 1] = rightSample;
 
 	sampleIndex++;
 	if (sampleIndex == sampleBufferSize)
 	{
 		sampleIndex = 0;
-		int16_t m_finalSamples[sampleBufferSize] = {};
-		memcpy((void*)m_finalSamples, (void*)m_sampleBuffer, sampleBufferSize * 2);
-		SDL_QueueAudio(m_audioDevice, (void*)m_finalSamples, sampleBufferSize*2);
+		int16_t m_finalSamples[sampleBufferSize*2] = {};
+		memcpy((void*)m_finalSamples, (void*)m_sampleBuffer, sampleBufferSize * 4);
+		SDL_QueueAudio(m_audioDevice, (void*)m_finalSamples, sampleBufferSize*4);
 
-		while (SDL_GetQueuedAudioSize(m_audioDevice) > sampleBufferSize * 2)
+		while (SDL_GetQueuedAudioSize(m_audioDevice) > sampleBufferSize * 4)
 			(void)0;
 	}
 
@@ -494,16 +497,13 @@ void APU::updateNoise()
 			if (wasCarry)
 			{
 				if (m_noiseChannel.widthMode)
-				{
 					m_noiseChannel.LFSR ^= 0x60;
-					m_noiseChannel.LFSR &= 0x7F;
-				}
 				else
-				{
 					m_noiseChannel.LFSR ^= 0x6000;
-					m_noiseChannel.LFSR &= 0x7FFF;
-				}
 			}
+			m_noiseChannel.LFSR &= 0x7FFF;
+			if (m_noiseChannel.widthMode)
+				m_noiseChannel.LFSR &= 0x7F;
 		}
 	}
 	m_noiseChannel.frequency -= timeDiff;
