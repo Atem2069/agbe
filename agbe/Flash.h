@@ -1,7 +1,7 @@
 #pragma once
 
 #include"Logger.h"
-
+#include"BackupBase.h"
 #include<iostream>
 
 enum class FlashState
@@ -16,10 +16,10 @@ enum class FlashState
 	SwitchBank
 };
 
-class Flash
+class Flash : public BackupBase
 {
 public:
-	Flash();
+	Flash(BackupType type);
 	~Flash();
 
 	uint8_t read(uint32_t address);

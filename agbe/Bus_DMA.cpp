@@ -260,8 +260,20 @@ void Bus::doDMATransfer(int channel)
 			numWords = 0x10000;	//channel 3 has higher word count
 	}
 
-	if (channel == 3 && (numWords == 9))
-		std::cout << "weird eeprom?" << '\n';
+	if (channel == 3 && !backupInitialised && (numWords==9 || numWords==17))
+	{
+		//TODO: check address. this isn't completely accurate and might have false positives
+		backupInitialised = true;
+		m_backupType = BackupType::EEPROM4K;
+		if (numWords == 17)
+		{
+			Logger::getInstance()->msg(LoggerSeverity::Info, "Auto-detected 64K EEPROM chip access!!");
+			m_backupType = BackupType::EEPROM64K;
+		}
+		else
+			Logger::getInstance()->msg(LoggerSeverity::Info, "Auto-detected 4K EEPROM chip access!!");
+		m_backupMemory = std::make_shared<EEPROM>(m_backupType);
+	}
 	//std::cout << "DMA src = " << std::hex << src << " dst= " << std::hex << dest << " length= " << std::hex << numWords << '\n';
 
 	uint8_t srcAddrCtrl = ((curChannel.control >> 7) & 0b11);

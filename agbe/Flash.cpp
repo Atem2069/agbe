@@ -1,7 +1,8 @@
 #include"Flash.h"
 
-Flash::Flash()
+Flash::Flash(BackupType type)
 {
+	//TODO: account for backup type affecting size
 	m_state = FlashState::Ready;
 	bank = 0;
 

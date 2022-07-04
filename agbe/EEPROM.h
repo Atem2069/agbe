@@ -1,7 +1,7 @@
 #pragma once
 
 #include"Logger.h"
-
+#include"BackupBase.h"
 #include<iostream>
 
 enum class WriteState
@@ -11,10 +11,10 @@ enum class WriteState
 	Data
 };
 
-class EEPROM
+class EEPROM : public BackupBase
 {
 public:
-	EEPROM();
+	EEPROM(BackupType type);
 	~EEPROM();
 
 	//data width wouldn't matter bc we only care about the least significant bit of whatever's being sent

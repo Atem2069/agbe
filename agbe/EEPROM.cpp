@@ -1,7 +1,8 @@
 #include"EEPROM.h"
 
-EEPROM::EEPROM()
+EEPROM::EEPROM(BackupType type)
 {
+	//TODO: account for backup type 
 	state = WriteState::RequestType;
 	readbackCount = 0;
 }

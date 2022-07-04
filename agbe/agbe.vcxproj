@@ -175,6 +175,7 @@
     <ClCompile Include="PPU.cpp" />
     <ClCompile Include="Scheduler.cpp" />
     <ClCompile Include="SerialStub.cpp" />
+    <ClCompile Include="SRAM.cpp" />
     <ClCompile Include="Timer.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -189,6 +190,7 @@
     <ClInclude Include="..\lib\imgui\imstb_truetype.h" />
     <ClInclude Include="APU.h" />
     <ClInclude Include="ARM7TDMI.h" />
+    <ClInclude Include="BackupBase.h" />
     <ClInclude Include="Bus.h" />
     <ClInclude Include="Config.h" />
     <ClInclude Include="Display.h" />
@@ -205,6 +207,7 @@
     <ClInclude Include="SerialStub.h" />
     <ClInclude Include="Shaders\fragment.h" />
     <ClInclude Include="Shaders\vertex.h" />
+    <ClInclude Include="SRAM.h" />
     <ClInclude Include="Timer.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

@@ -12,6 +12,4 @@ struct GBAMem
 	uint8_t VRAM[96 * 1024];
 	uint8_t OAM[1024];
 	uint8_t ROM[32 * 1024 * 1024];
-	uint8_t SRAM[65536];	//<-- FWIW I should implement this properly. but this is a good stub to stop my console spamming me about unimplemented SRAM writes
-	//TODO^^ fix this some day? :)
 };

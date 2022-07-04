@@ -13,8 +13,6 @@ Bus::Bus(std::vector<uint8_t> BIOS, std::vector<uint8_t> cartData, std::shared_p
 	m_apu = std::make_shared<APU>(m_scheduler);
 	m_timer->registerAPUCallbacks((callbackFn)&APU::timer0Callback, (callbackFn)&APU::timer1Callback, (void*)m_apu.get());
 	m_apu->registerDMACallback((callbackFn)&Bus::DMA_AudioFIFOCallback, busCtx);
-	m_eeprom = std::make_shared<EEPROM>();
-	m_flash = std::make_shared<Flash>();
 	m_serial = std::make_shared<SerialStub>(m_scheduler, m_interruptManager);
 	m_ppu->registerMemory(m_mem);
 	m_ppu->registerDMACallbacks(&Bus::DMA_HBlankCallback, &Bus::DMA_VBlankCallback, &Bus::DMA_VideoCaptureCallback, (void*)this);
@@ -35,9 +33,32 @@ Bus::Bus(std::vector<uint8_t> BIOS, std::vector<uint8_t> cartData, std::shared_p
 	memcpy(m_mem->BIOS, &BIOS[0], BIOS.size());
 	memcpy(m_mem->ROM, &cartData[0], cartData.size());	//ROM seems to be mirrored if size <= 16mb. should add later (classic nes might rely on it?)
 
+
 	const auto romAsString = std::string_view(reinterpret_cast<const char*>(m_mem->ROM), 32 * 1024 * 1024);
-	if (romAsString.find("FLASH") != std::string_view::npos)
-		isFlash = true;
+	if (romAsString.find("FLASH512") != std::string_view::npos)
+	{
+		backupInitialised = true;
+		Logger::getInstance()->msg(LoggerSeverity::Info, "Init 512Kbit flash memory!!");
+		m_backupType = BackupType::FLASH512K;
+		m_backupMemory = std::make_shared<Flash>(m_backupType);
+	}
+	if (romAsString.find("FLASH1M") != std::string::npos)
+	{
+		backupInitialised = true;
+		Logger::getInstance()->msg(LoggerSeverity::Info, "Init 1Mbit flash memory!!");
+		m_backupType = BackupType::FLASH1M;
+		m_backupMemory = std::make_shared<Flash>(m_backupType);
+	}
+	if (romAsString.find("SRAM") != std::string::npos)
+	{
+		backupInitialised = true;
+		Logger::getInstance()->msg(LoggerSeverity::Info, "Init SRAM backup memory!!");
+		m_backupType = BackupType::SRAM;
+		m_backupMemory = std::make_shared<SRAM>(m_backupType);
+	}
+
+	if (!backupInitialised)
+		Logger::getInstance()->msg(LoggerSeverity::Warn, "Failed to auto-detect savetype. The ROM may be using EEPROM or masking its savetype!");
 
 }
 
@@ -100,9 +121,8 @@ uint8_t Bus::read8(uint32_t address, AccessType accessType)
 			m_scheduler->addCycles(1);
 		prefetchShouldDelay = false;
 		invalidatePrefetchBuffer();
-		if (isFlash)
-			return m_flash->read(address);
-		return m_mem->SRAM[address & 0xFFFF];
+		if (m_backupType == BackupType::FLASH1M || m_backupType == BackupType::FLASH512K || m_backupType == BackupType::SRAM)
+			return m_backupMemory->read(address);
 	}
 
 	Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Out of bounds/invalid read addr={:#x}", address));
@@ -161,12 +181,8 @@ void Bus::write8(uint32_t address, uint8_t value, AccessType accessType)
 		break;
 	case 0xE: case 0xF:
 		m_scheduler->addCycles(SRAMCycles);
-		if (isFlash)
-		{
-			m_flash->write(address,value);
-			break;
-		}
-		m_mem->SRAM[address & 0xFFFF] = value;
+		if (m_backupType == BackupType::FLASH1M || m_backupType == BackupType::FLASH512K || m_backupType == BackupType::SRAM)
+			m_backupMemory->write(address, value);
 		break;
 	default:
 		Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Out of bounds/invalid write addr={:#x}", address));
@@ -226,14 +242,18 @@ uint16_t Bus::read16(uint32_t address, AccessType accessType)
 			invalidatePrefetchBuffer();
 			m_scheduler->addCycles(cartCycles);
 		}
-		if (address >= 0x0D000000 && address <= 0x0DFFFFFF)		//not strictly accurate, bc not like the cart will always have eeprom
-			return m_eeprom->read(address);
+		if (page==0xD)
+		{
+			if(m_backupType == BackupType::EEPROM4K || m_backupType == BackupType::EEPROM64K)
+				return m_backupMemory->read(address);
+		}
 		if ((address & 0x01FFFFFF) >= romSize)
 			return (address / 2) & 0xFFFF;
 		return getValue16(m_mem->ROM, address & 0x01FFFFFF,0xFFFFFFFF);
 	case 0xE: case 0xF:
 		m_scheduler->addCycles(SRAMCycles);
-		return (m_mem->SRAM[originalAddress&0xFFFF]) * 0x0101;
+		if (m_backupType == BackupType::SRAM)
+			return m_backupMemory->read(originalAddress) * 0x0101;
 	}
 
 	Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Out of bounds/invalid read addr={:#x}", address));
@@ -289,17 +309,20 @@ void Bus::write16(uint32_t address, uint16_t value, AccessType accessType)
 			m_scheduler->addCycles(1);
 		prefetchShouldDelay = false;
 		invalidatePrefetchBuffer();
-		if (address >= 0x0D000000 && address <= 0x0DFFFFFF)
+		if (page==0xD && (m_backupType == BackupType::EEPROM4K || m_backupType == BackupType::EEPROM64K))
 		{
-			m_eeprom->write(address, value);
+			m_backupMemory->write(address, value);
 			break;
 		}
 		Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Tried to write to cartridge space!!! addr={:#x}",address));
 		break;
 	case 0xE: case 0xF:
 		m_scheduler->addCycles(SRAMCycles);
-		value = (std::rotr(value, (originalAddress * 8))) & 0xFF;
-		m_mem->SRAM[originalAddress&0xFFFF] = value;
+		if (m_backupType == BackupType::SRAM)
+		{
+			value = (std::rotr(value, (originalAddress * 8))) & 0xFF;
+			m_backupMemory->write(originalAddress & 0xFFFF, value);
+		}
 		break;
 	default:
 		Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Out of bounds/invalid write addr={:#x}", address));
@@ -370,7 +393,8 @@ uint32_t Bus::read32(uint32_t address, AccessType accessType)
 		return getValue32(m_mem->ROM, address & 0x01FFFFFF, 0xFFFFFFFF);
 	case 0xE: case 0xF:
 		m_scheduler->addCycles(SRAMCycles);
-		return m_mem->SRAM[originalAddress & 0xFFFF] * 0x01010101;
+		if (m_backupType == BackupType::SRAM)
+			return m_backupMemory->read(originalAddress) * 0x01010101;
 	}
 
 	Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Out of bounds/invalid read addr={:#x}", address));
@@ -435,7 +459,8 @@ void Bus::write32(uint32_t address, uint32_t value, AccessType accessType)
 		break;
 	case 0xE: case 0xF:
 		m_scheduler->addCycles(SRAMCycles);
-		m_mem->SRAM[originalAddress & 0xFFFF] = std::rotr(value, originalAddress * 8) & 0xFF;
+		if (m_backupType == BackupType::SRAM)
+			m_backupMemory->write(originalAddress, (std::rotr(value, originalAddress * 8) & 0xFF));
 		break;
 	default:
 		Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Out of bounds/invalid write addr={:#x}", address));

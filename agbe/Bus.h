@@ -8,6 +8,7 @@
 #include"Timer.h"
 #include"EEPROM.h"
 #include"Flash.h"
+#include"SRAM.h"
 #include"Scheduler.h"
 #include"APU.h"
 #include"SerialStub.h"
@@ -91,9 +92,11 @@ private:
 	std::shared_ptr<Input> m_input;
 	std::shared_ptr<Timer> m_timer;
 	std::shared_ptr<APU> m_apu;
-	std::shared_ptr<EEPROM> m_eeprom;
-	std::shared_ptr<Flash> m_flash;
 	std::shared_ptr<SerialStub> m_serial;
+
+	std::shared_ptr<BackupBase> m_backupMemory;
+	BackupType m_backupType = BackupType::None;
+	bool backupInitialised = false;	//<--this might be bad, but necessary for EEPROM detection bc we use DMA
 
 	uint32_t romSize = 0;
 	OpenBus m_openBusVals = {};
