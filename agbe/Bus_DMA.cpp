@@ -361,6 +361,7 @@ void Bus::doDMATransfer(int channel)
 		dmaInProgress = false;
 		m_scheduler->addCycles(1);
 	}
+	prefetcherHalted = false;
 }
 
 void Bus::onVBlank()

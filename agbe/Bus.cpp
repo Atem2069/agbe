@@ -691,7 +691,7 @@ void Bus::tickPrefetcher(uint64_t cycles)
 	uint8_t page = (prefetchAddress >> 24) & 0xFF;
 	uint64_t waitstates = waitstateSequentialTable[((page - 8) >> 1)];
 	prefetchTargetCycles = waitstates;
-	if (prefetchInProgress && prefetchEnabled && !dmaInProgress)
+	if (prefetchInProgress && prefetchEnabled && !prefetcherHalted)
 	{
 		prefetchInternalCycles += cycles;
 		while (prefetchInternalCycles > waitstates && prefetchSize < 8)
@@ -709,6 +709,11 @@ void Bus::tickPrefetcher(uint64_t cycles)
 
 void Bus::invalidatePrefetchBuffer()
 {
+	if (dmaInProgress)
+	{
+		prefetcherHalted = true;
+		return;
+	}
 	prefetchInProgress = false;
 	prefetchStart = 0;
 	prefetchEnd = 0;

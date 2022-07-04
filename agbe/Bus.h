@@ -139,6 +139,7 @@ private:
 	int prefetchSize = 0;
 	int prefetchStart = 0, prefetchEnd = 0;
 	bool prefetchInProgress = false;
+	bool prefetcherHalted = false;
 
 	uint16_t getPrefetchedValue(uint32_t pc);
 
