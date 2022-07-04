@@ -34,22 +34,34 @@ Bus::Bus(std::vector<uint8_t> BIOS, std::vector<uint8_t> cartData, std::shared_p
 	memcpy(m_mem->ROM, &cartData[0], cartData.size());	//ROM seems to be mirrored if size <= 16mb. should add later (classic nes might rely on it?)
 
 
-	const auto romAsString = std::string_view(reinterpret_cast<const char*>(m_mem->ROM), 32 * 1024 * 1024);
-	if (romAsString.find("FLASH512") != std::string_view::npos)
+	auto romAsString = std::string_view(reinterpret_cast<const char*>(m_mem->ROM), 32 * 1024 * 1024);
+	attemptSaveAutodetection(romAsString);
+
+}
+
+Bus::~Bus()
+{
+	m_mem.reset();
+	m_timer.reset();
+}
+
+void Bus::attemptSaveAutodetection(std::string_view& romData)
+{
+	if ((romData.find("FLASH512") != std::string_view::npos) || (romData.find("FLASH_V") != std::string_view::npos))
 	{
 		backupInitialised = true;
 		Logger::getInstance()->msg(LoggerSeverity::Info, "Init 512Kbit flash memory!!");
 		m_backupType = BackupType::FLASH512K;
 		m_backupMemory = std::make_shared<Flash>(m_backupType);
 	}
-	if (romAsString.find("FLASH1M") != std::string::npos)
+	if (romData.find("FLASH1M") != std::string::npos)
 	{
 		backupInitialised = true;
 		Logger::getInstance()->msg(LoggerSeverity::Info, "Init 1Mbit flash memory!!");
 		m_backupType = BackupType::FLASH1M;
 		m_backupMemory = std::make_shared<Flash>(m_backupType);
 	}
-	if (romAsString.find("SRAM") != std::string::npos)
+	if (romData.find("SRAM") != std::string::npos)
 	{
 		backupInitialised = true;
 		Logger::getInstance()->msg(LoggerSeverity::Info, "Init SRAM backup memory!!");
@@ -59,13 +71,6 @@ Bus::Bus(std::vector<uint8_t> BIOS, std::vector<uint8_t> cartData, std::shared_p
 
 	if (!backupInitialised)
 		Logger::getInstance()->msg(LoggerSeverity::Warn, "Failed to auto-detect savetype. The ROM may be using EEPROM or masking its savetype!");
-
-}
-
-Bus::~Bus()
-{
-	m_mem.reset();
-	m_timer.reset();
 }
 
 uint8_t Bus::read8(uint32_t address, AccessType accessType)
