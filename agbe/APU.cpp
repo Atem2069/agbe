@@ -240,7 +240,7 @@ void APU::writeIO(uint32_t address, uint8_t value)
 				m_noiseChannel.LFSR <<= 8;	
 
 			int divisor = divisorMappings[m_noiseChannel.divisorCode];
-			m_noiseChannel.frequency = divisor << m_noiseChannel.shiftAmount;
+			m_noiseChannel.frequency = divisor << (m_noiseChannel.shiftAmount + 2);	//<-- +2 accounts for us measuring cycles at 16.7MHz
 			m_noiseChannel.lastCheckTimestamp = m_scheduler->getCurrentTimestamp();
 		}
 		break;
@@ -484,7 +484,7 @@ void APU::updateNoise()
 			break;
 		timeDiff -= m_noiseChannel.frequency;
 		int divisor = divisorMappings[m_noiseChannel.divisorCode];
-		m_noiseChannel.frequency = divisor << m_noiseChannel.shiftAmount;
+		m_noiseChannel.frequency = divisor << (m_noiseChannel.shiftAmount + 2);	//same situation with the '+2'
 		m_noiseChannel.output = 0;
 		if (m_noiseChannel.enabled)
 		{
