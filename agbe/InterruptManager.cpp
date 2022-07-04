@@ -1,8 +1,9 @@
 #include"InterruptManager.h"
 
-InterruptManager::InterruptManager()
+InterruptManager::InterruptManager(std::shared_ptr<Scheduler> scheduler)
 {
-
+	m_scheduler = scheduler;
+	shadowIF = 0;
 }
 
 InterruptManager::~InterruptManager()
@@ -42,13 +43,19 @@ void InterruptManager::requestInterrupt(InterruptType type)
 		IF |= 0b1000000000000; break;
 
 	}
+	if (!irqPending)
+	{
+		irqPending = true;
+		m_scheduler->addEvent(Event::IRQ, &InterruptManager::eventHandler, (void*)this, m_scheduler->getCurrentTimestamp() + 4);
+		m_scheduler->forceSync(4);
+	}
 }
 
 bool InterruptManager::getInterrupt(bool bypassIMECheck)
 {
 	if (!IME && !bypassIMECheck)
 		return false;
-	return IF & IE & 0b0011111111111111;	//probs a better way but oh well
+	return shadowIF & IE & 0b0011111111111111;	//probs a better way but oh well
 }
 
 uint8_t InterruptManager::readIO(uint32_t address)
@@ -83,8 +90,26 @@ void InterruptManager::writeIO(uint32_t address, uint8_t value)
 	case 0x04000201:
 		IE &= 0x00FF; IE |= ((value << 8)); break;
 	case 0x04000202:				//double check this!
-		IF &= ~(value); break;
+		if(!irqPending)
+			shadowIF &= ~(value);
+		IF = shadowIF;
+		break;
 	case 0x04000203:
-		IF &= ~((value << 8)); break;
+		if(!irqPending)
+			shadowIF &= ~((value << 8)); 
+		IF = shadowIF;
+		break;
 	}
+}
+
+void InterruptManager::onEvent()
+{
+	irqPending = false;
+	shadowIF = IF;
+}
+
+void InterruptManager::eventHandler(void* context)
+{
+	InterruptManager* thisPtr = (InterruptManager*)context;
+	thisPtr->onEvent();
 }
