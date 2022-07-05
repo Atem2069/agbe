@@ -22,14 +22,8 @@ public:
 	void write(uint32_t address, uint8_t value);
 private:
 	uint64_t ROMData[1024];
-	//uint64_t requestData = 0;
-	//uint64_t dataToWrite = 0;
-	//uint16_t curAddress = 0;
-	//int requestProgress = 0;
-	//bool isRead = false;
-
-	//uint64_t readbackData = 0;
-	//int readbackProgress = 0;
+	
+	int addressSize = 0;
 
 	uint32_t writeCount = 0;
 	uint32_t readbackCount = 0;

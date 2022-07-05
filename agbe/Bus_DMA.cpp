@@ -296,23 +296,22 @@ void Bus::doDMATransfer(int channel)
 		curChannel.control |= 0x200;
 	}
 
-	for (int i = 0; i < numWords; i++)		//assuming all accesses are sequential, which is probs not right..
+	for (int i = 0; i < numWords; i++)		
 	{
 		m_scheduler->addCycles(2);
 		if (wordTransfer)
 		{
 			uint32_t word = read32(src,(AccessType)!dmaNonsequentialAccess);
-			write32(dest, word,(AccessType)!dmaNonsequentialAccess);									//hmm. first rom write is sequential? (this is wrong)	
+			write32(dest, word,(AccessType)!dmaNonsequentialAccess);									
 		}
 		else
 		{
 			uint16_t halfword = read16(src,(AccessType)!dmaNonsequentialAccess);
-			write16(dest, halfword,(AccessType)!dmaNonsequentialAccess);                               //same as above^^			
+			write16(dest, halfword,(AccessType)!dmaNonsequentialAccess);                        			
 		}
 		m_scheduler->tick();
 		int incrementAmount = (wordTransfer) ? 4 : 2;
 
-		//TODO: control mode 3 (increment/reload on dest)
 		switch (srcAddrCtrl)
 		{
 		case 0:
@@ -445,8 +444,6 @@ void Bus::onAudioFIFO()
 			uint8_t startTiming = ((curCtrlReg >> 12) & 0b11);
 			if (startTiming == 3)
 				doDMATransfer(i);
-			else
-				std::cout << "channel " << i << " is not fifo - " << ((curCtrlReg >> 12) & 0b11);
 		}
 	}
 }

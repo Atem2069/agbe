@@ -388,6 +388,9 @@ void PPU::composeLayers()
 {
 	uint16_t backDrop = ((m_mem->paletteRAM[1] << 8) | m_mem->paletteRAM[0]);
 	int spriteMosaicHorizontal = ((MOSAIC >> 8) & 0xF) + 1;
+	int spriteHorizontalMosaicCounter = 0;
+	int spriteMosaicX = 0;
+	bool mosaicInProcess = false;
 	for (int x = 0; x < 240; x++)
 	{	
 		uint16_t finalCol = backDrop;
@@ -454,8 +457,11 @@ void PPU::composeLayers()
 		{
 			//sprite mosaic seems to be a post process thing? idk
 			int spriteX = x;
-			if (m_spriteAttrBuffer[x].mosaic)
-				spriteX = (x / spriteMosaicHorizontal) * spriteMosaicHorizontal;
+			if (m_spriteAttrBuffer[x].mosaic || (!m_spriteAttrBuffer[x].mosaic && m_spriteAttrBuffer[x].priority == 0x1F && mosaicInProcess))	//second bit is dumb hack :D
+			{
+				mosaicInProcess = true;
+				spriteX = spriteMosaicX;
+			}
 			uint16_t spritePixel = m_spriteLineBuffer[spriteX];
 			if (!((spritePixel >> 15) & 0b1) && m_spriteAttrBuffer[spriteX].priority != 0x1F)
 			{
@@ -497,6 +503,15 @@ void PPU::composeLayers()
 		}
 
 		m_renderBuffer[pageIdx][(240 * VCOUNT) + x] = col16to32(finalCol);
+
+		spriteHorizontalMosaicCounter++;
+		if (spriteHorizontalMosaicCounter == spriteMosaicHorizontal)
+		{
+			spriteHorizontalMosaicCounter = 0;
+			spriteMosaicX += spriteMosaicHorizontal;
+			//reset when mosaic x increases, to stop sprite rendering for too many lines potentially
+			mosaicInProcess = false;
+		}
 	}
 }
 

@@ -1,10 +1,16 @@
 #include"EEPROM.h"
 
 EEPROM::EEPROM(BackupType type)
-{
-	//TODO: account for backup type 
-	state = WriteState::RequestType;
+{	state = WriteState::RequestType;
 	readbackCount = 0;
+
+	switch (type)
+	{
+	case BackupType::EEPROM4K:
+		addressSize = 6; break;
+	case BackupType::EEPROM64K:
+		addressSize = 14; break;
+	}
 }
 
 EEPROM::~EEPROM()
@@ -57,8 +63,8 @@ void EEPROM::write(uint32_t address, uint8_t value)
 		}
 		break;
 	case WriteState::Address:
-		readAddress |= ((uint16_t)value << (13- (writeCount-1)));
-		if (writeCount == 14)	//todo: account for smaller address
+		readAddress |= ((uint16_t)value << ((addressSize-1) - (writeCount - 1)));
+		if (writeCount == addressSize)	//todo: account for smaller address
 		{
 			if (readAddress > 1024)
 				readAddress &= 0b1111111111;

@@ -47,6 +47,7 @@ Bus::~Bus()
 
 void Bus::attemptSaveAutodetection(std::string_view& romData)
 {
+	//this doesn't seem to be perfect. some games have strings for multiple backup types bc they're evil :(
 	if ((romData.find("FLASH512") != std::string_view::npos) || (romData.find("FLASH_V") != std::string_view::npos))
 	{
 		backupInitialised = true;
@@ -54,14 +55,14 @@ void Bus::attemptSaveAutodetection(std::string_view& romData)
 		m_backupType = BackupType::FLASH512K;
 		m_backupMemory = std::make_shared<Flash>(m_backupType);
 	}
-	if (romData.find("FLASH1M") != std::string::npos)
+	else if (romData.find("FLASH1M") != std::string::npos)
 	{
 		backupInitialised = true;
 		Logger::getInstance()->msg(LoggerSeverity::Info, "Init 1Mbit flash memory!!");
 		m_backupType = BackupType::FLASH1M;
 		m_backupMemory = std::make_shared<Flash>(m_backupType);
 	}
-	if (romData.find("SRAM") != std::string::npos)
+	else if (romData.find("SRAM") != std::string::npos)
 	{
 		backupInitialised = true;
 		Logger::getInstance()->msg(LoggerSeverity::Info, "Init SRAM backup memory!!");
