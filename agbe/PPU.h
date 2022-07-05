@@ -17,6 +17,13 @@ struct BG
 	uint16_t lineBuffer[240];
 };
 
+struct BlendAttribute
+{
+	uint16_t color;
+	bool blendB;
+	int priority;
+};
+
 union SpriteAttribute
 {
 	uint8_t attr;

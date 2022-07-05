@@ -391,16 +391,23 @@ void PPU::composeLayers()
 	for (int x = 0; x < 240; x++)
 	{	
 		uint16_t finalCol = backDrop;
-		bool blendAMask = ((BLDCNT >> 5) & 0b1);	//initially set 1st target mask to backdrop. if something displays above it, then it's disabled !
 		bool transparentSpriteTop = false;
 		uint16_t blendPixelB = 0x8000;
-		int blendPixelBPriority = 255;
 		if (((BLDCNT >> 13) & 0b1))
 			blendPixelB = backDrop;
+		uint16_t blendPixelA = 0x8000;
+		if (((BLDCNT >> 5) & 0b1))
+			blendPixelA = backDrop;
+
+		BlendAttribute m_blendLayers[4];
+
+		int highestBlendBPrio = 255, highestBlendAPrio = -1;
 
 		int highestPriority = 255;
 		for (int layer = 3; layer >= 0; layer--)
 		{
+			m_blendLayers[layer] = {};
+			m_blendLayers[layer].priority = 999;
 			if (m_backgroundLayers[layer].enabled && getPointDrawable(x, VCOUNT, layer, false))	//layer activated
 			{
 				uint16_t colAtLayer = m_backgroundLayers[layer].lineBuffer[x];
@@ -411,17 +418,31 @@ void PPU::composeLayers()
 					{
 						highestPriority = m_backgroundLayers[layer].priorityBits;
 						finalCol = colAtLayer;
-						blendAMask = isBlendTargetA;
-					}
+						blendPixelA = 0x8000;					//blend target A must be top visible layer, so if this isn't a blend target it gets disabled
+						highestBlendAPrio = -1;
+						if ((BLDCNT >> layer) & 0b1)
+						{
+							highestBlendAPrio = highestPriority;
+							blendPixelA = finalCol;
+						}
 
-					//choose highest priority b target that isn't also target a
-					if (((BLDCNT >> (layer + 8)) & 0b1) && !isBlendTargetA && m_backgroundLayers[layer].priorityBits <= blendPixelBPriority)
-					{
-						blendPixelB = colAtLayer;
-						blendPixelBPriority = m_backgroundLayers[layer].priorityBits;
 					}
+					//could maybe do something better..
+					m_blendLayers[layer].blendB = ((BLDCNT >> (layer + 8)) & 0b1);
+					m_blendLayers[layer].priority = m_backgroundLayers[layer].priorityBits;
+					m_blendLayers[layer].color = colAtLayer;
 				}
 
+			}
+		}
+
+		for (int layer = 3; layer >= 0; layer--)
+		{
+			//try to find highest priority layer that is *also* lower priority than the blend A layer (if applicable)
+			if ((m_blendLayers[layer].priority <= highestBlendBPrio) && m_blendLayers[layer].priority > highestBlendAPrio && m_blendLayers[layer].blendB)
+			{
+				highestBlendBPrio = m_blendLayers[layer].priority;
+				blendPixelB = m_blendLayers[layer].color;
 			}
 		}
 
@@ -438,11 +459,13 @@ void PPU::composeLayers()
 				if (m_spriteAttrBuffer[spriteX].priority <= highestPriority)
 				{
 					finalCol = spritePixel;
-					blendAMask = isBlendTargetA;
+					blendPixelA = 0x8000;
+					if (isBlendTargetA)
+						blendPixelA = finalCol;
 
 				}
 				//only choose as target b if not target a (i.e. not transparent)
-				if (((BLDCNT >> 12) & 0b1) && m_spriteAttrBuffer[spriteX].priority <= blendPixelBPriority && !isBlendTargetA)
+				if (((BLDCNT >> 12) & 0b1) && !isBlendTargetA && m_spriteAttrBuffer[spriteX].priority > highestBlendAPrio)
 						blendPixelB = spritePixel;
 			}
 		}
@@ -455,16 +478,16 @@ void PPU::composeLayers()
 			switch (blendMode)
 			{
 			case 1:
-				if(blendAMask && !(blendPixelB>>15))
-					finalCol = blendAlpha(finalCol, blendPixelB);
+				if(!(blendPixelA >> 15) && !(blendPixelB >> 15))
+					finalCol = blendAlpha(blendPixelA, blendPixelB);
 				break;
 			case 2:
-				if (blendAMask)
-					finalCol = blendBrightness(finalCol, true);
+				if (!(blendPixelA>>15))
+					finalCol = blendBrightness(blendPixelA, true);
 				break;
 			case 3:
-				if (blendAMask)
-					finalCol = blendBrightness(finalCol, false);
+				if (!(blendPixelA>>15))
+					finalCol = blendBrightness(blendPixelA, false);
 				break;
 			}
 		}
