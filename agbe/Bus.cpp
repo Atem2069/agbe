@@ -381,7 +381,7 @@ uint32_t Bus::read32(uint32_t address, AccessType accessType)
 	case 8: case 9: case 0xA: case 0xB: case 0xC: case 0xD:
 		dmaNonsequentialAccess = false;
 		cartCycles = ((accessType == AccessType::Sequential) && ((address & 0x1FF) != 0)) ? waitstateSequentialTable[((page - 8) >> 1)] : waitstateNonsequentialTable[((page - 8) >> 1)];
-		cartCycles += (((address + 2) & 0x1FF) != 0) ? waitstateSequentialTable[((page - 8) >> 1)] : waitstateNonsequentialTable[((page - 8) >> 1)];
+		cartCycles += waitstateSequentialTable[((page - 8) >> 1)];
 		m_scheduler->addCycles(cartCycles + 1);	//first access is either nonseq/seq. second is *always* seq
 		if (accessType != AccessType::Prefetch)
 		{
@@ -452,7 +452,7 @@ void Bus::write32(uint32_t address, uint32_t value, AccessType accessType)
 	case 8: case 9: case 0xA: case 0xB: case 0xC: case 0xD:
 		dmaNonsequentialAccess = false;
 		cartCycles = ((accessType==AccessType::Sequential) && ((address & 0x1FF) != 0)) ? waitstateSequentialTable[((page - 8) >> 1)] : waitstateNonsequentialTable[((page - 8) >> 1)];
-		cartCycles += (((address + 2) & 0x1FF) != 0) ? waitstateSequentialTable[((page - 8) >> 1)] : waitstateNonsequentialTable[((page - 8) >> 1)];
+		cartCycles += waitstateSequentialTable[((page - 8) >> 1)];
 		m_scheduler->addCycles(cartCycles + 1);	//same setup as for read32
 		if (prefetchInProgress && prefetchShouldDelay)
 		{
@@ -486,7 +486,8 @@ uint32_t Bus::fetch32(uint32_t address, AccessType accessType)
 		uint16_t valHigh = fetch16(address + 2, accessType);
 		val = ((valHigh << 16) | valLow);
 		m_openBusVals.mem = val;
-		m_scheduler->addCycles(1);		//extra S cycle bc the access is split into two 16 bit prefetch buffer reads
+		if(!hack_lastPrefetchGood)
+			m_scheduler->addCycles(1);		//extra S cycle inserted only when prefetch fails
 	}
 	else
 		val = read32(address,accessType);
@@ -516,6 +517,7 @@ uint16_t Bus::fetch16(uint32_t address, AccessType accessType)
 
 uint16_t Bus::getPrefetchedValue(uint32_t pc)
 {
+	hack_lastPrefetchGood = false;
 	uint16_t val = 0;
 	if (prefetchInProgress)
 	{
@@ -524,6 +526,7 @@ uint16_t Bus::getPrefetchedValue(uint32_t pc)
 			val = m_prefetchBuffer[prefetchStart].value;
 			prefetchStart = (prefetchStart + 1) & 7;
 			prefetchSize--;
+			hack_lastPrefetchGood = true;
 		}
 		else					//otherwise we'll wait for the prefetch buffer to get it, then reset the buffer (but keep burst going)
 		{
