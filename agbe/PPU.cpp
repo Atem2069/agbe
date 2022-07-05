@@ -401,7 +401,7 @@ void PPU::composeLayers()
 
 		BlendAttribute m_blendLayers[4];
 
-		int highestBlendBPrio = 255, highestBlendAPrio = -1;
+		int highestBlendBPrio = 255, highestBlendAPrio = -1, blendALayer = 255;
 
 		int highestPriority = 255;
 		for (int layer = 3; layer >= 0; layer--)
@@ -420,10 +420,12 @@ void PPU::composeLayers()
 						finalCol = colAtLayer;
 						blendPixelA = 0x8000;					//blend target A must be top visible layer, so if this isn't a blend target it gets disabled
 						highestBlendAPrio = -1;
+						blendALayer = 255;
 						if ((BLDCNT >> layer) & 0b1)
 						{
 							highestBlendAPrio = highestPriority;
 							blendPixelA = finalCol;
+							blendALayer = layer;
 						}
 
 					}
@@ -439,8 +441,10 @@ void PPU::composeLayers()
 		for (int layer = 3; layer >= 0; layer--)
 		{
 			//try to find highest priority layer that is *also* lower priority than the blend A layer (if applicable)
-			if ((m_blendLayers[layer].priority <= highestBlendBPrio) && m_blendLayers[layer].priority > highestBlendAPrio && m_blendLayers[layer].blendB)
+			if ((m_blendLayers[layer].priority <= highestBlendBPrio) && m_blendLayers[layer].priority >= highestBlendAPrio && m_blendLayers[layer].blendB)
 			{
+				if (m_blendLayers[layer].priority == highestBlendAPrio && layer <= blendALayer)
+					continue;
 				highestBlendBPrio = m_blendLayers[layer].priority;
 				blendPixelB = m_blendLayers[layer].color;
 			}
