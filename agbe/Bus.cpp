@@ -483,12 +483,23 @@ uint32_t Bus::fetch32(uint32_t address, AccessType accessType)
 	uint32_t val = 0;
 	if (prefetchEnabled && address >= 0x08000000 && address <= 0x0DFFFFFF)
 	{
-		uint16_t valLow = fetch16(address, accessType);
-		uint16_t valHigh = fetch16(address + 2, accessType);
-		val = ((valHigh << 16) | valLow);
+		if (prefetchInProgress)
+		{
+			uint16_t valLow = fetch16(address, accessType);
+			uint16_t valHigh = fetch16(address + 2, accessType);
+			val = ((valHigh << 16) | valLow);
+			if (!hack_lastPrefetchGood)
+				m_scheduler->addCycles(1);		//extra S cycle inserted only when prefetch fails
+		}
+		else
+		{
+			prefetchShouldDelay = false;
+			val = read32(address, AccessType::Nonsequential);
+			invalidatePrefetchBuffer();
+			prefetchInProgress = true;
+			prefetchAddress = address + 4;
+		}
 		m_openBusVals.mem = val;
-		if(!hack_lastPrefetchGood)
-			m_scheduler->addCycles(1);		//extra S cycle inserted only when prefetch fails
 	}
 	else
 		val = read32(address,accessType);
