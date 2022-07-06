@@ -89,6 +89,7 @@ void PPU::HDraw()
 	m_backgroundLayers[1].enabled = false;
 	m_backgroundLayers[2].enabled = false;
 	m_backgroundLayers[3].enabled = false;
+	affineHorizontalMosaicCounter = 0;
 }
 
 void PPU::HBlank()
@@ -1201,14 +1202,12 @@ bool PPU::getPointBlendable(int x, int y)
 
 void PPU::calcAffineCoords(int32_t& xRef, int32_t& yRef, int16_t dx, int16_t dy)
 {
-
 	xRef += dx;
 	yRef += dy;
 }
 
 void PPU::updateAffineRegisters(int bg)
 {
-	affineHorizontalMosaicCounter = 0;
 	if (bg == 2)
 	{
 		int16_t dmx = BG2PB;

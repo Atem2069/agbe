@@ -133,8 +133,8 @@ private:
 
 	bool getPointDrawable(int x, int y, int backgroundLayer, bool obj);
 	bool getPointBlendable(int x, int y);
-	void calcAffineCoords(int32_t& xRef, int32_t& yRef, int16_t dx, int16_t dy);	//<-- put into own function because mosaic can affect *when* these are updated
-	void updateAffineRegisters(int bg);												//similar story, however the reference points are actually updated per-scanline
+	inline void calcAffineCoords(int32_t& xRef, int32_t& yRef, int16_t dx, int16_t dy);	//<-- put into own function because mosaic can affect *when* these are updated
+	inline void updateAffineRegisters(int bg);												//similar story, however the reference points are actually updated per-scanline
 
 	int affineHorizontalMosaicCounter = 0;
 	int affineVerticalMosaicCounter = 0;
