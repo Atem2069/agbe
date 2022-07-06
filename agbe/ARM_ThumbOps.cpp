@@ -48,12 +48,12 @@ void ARM7TDMI::Thumb_AddSubtract()
 	case 0:
 		result = operand1 + operand2;
 		setReg(destRegIndex, result);
-		setArithmeticFlags(operand1, operand2, result, true);
+		setArithmeticFlags(operand1, operand2, result, true,false);
 		break;
 	case 1:
 		result = operand1 - operand2;
 		setReg(destRegIndex, result);
-		setArithmeticFlags(operand1, operand2, result, false);
+		setArithmeticFlags(operand1, operand2, result, false,false);
 		break;
 	}
 	m_scheduler->addCycles(1);
@@ -77,17 +77,17 @@ void ARM7TDMI::Thumb_MoveCompareAddSubtractImm()
 		break;
 	case 1:
 		result = operand1 - offset;
-		setArithmeticFlags(operand1, offset, result, false);
+		setArithmeticFlags(operand1, offset, result, false, false);
 		break;
 	case 2:
 		result = operand1 + offset;
 		setReg(srcDestRegIdx, result);
-		setArithmeticFlags(operand1, offset, result, true);
+		setArithmeticFlags(operand1, offset, result, true, false);
 		break;
 	case 3:
 		result = operand1 - offset;
 		setReg(srcDestRegIdx, result);
-		setArithmeticFlags(operand1, offset, result, false);
+		setArithmeticFlags(operand1, offset, result, false, false);
 		break;
 	}
 	m_scheduler->addCycles(1);	//not sure :P
@@ -145,12 +145,12 @@ void ARM7TDMI::Thumb_ALUOperations()
 	case 5:	//ADC
 		result = operand1 + operand2 + carryIn;
 		setReg(srcDestRegIdx, result);
-		setArithmeticFlags(operand1, operand2, result, true);
+		setArithmeticFlags(operand1, operand2, result, true, false);
 		break;
 	case 6:	//SBC
 		result = operand1 - operand2 - (!carryIn);
 		setReg(srcDestRegIdx, result);
-		setArithmeticFlags(operand1, (uint64_t)operand2 + (uint64_t)(!carryIn), result, false);
+		setArithmeticFlags(operand1, (uint64_t)operand2 + (uint64_t)(!carryIn), result, false, false);	//<--false for second part is sussy
 		break;
 	case 7:	//ROR
 		operand2 &= 0xFF;
@@ -169,15 +169,15 @@ void ARM7TDMI::Thumb_ALUOperations()
 	case 9:	//NEG
 		result = (~operand2) + 1;
 		setReg(srcDestRegIdx, result);
-		setArithmeticFlags(0, operand2, result, false);	//not sure about this
+		setArithmeticFlags(0, operand2, result, false, false);	//not sure about this
 		break;
 	case 10: //CMP
 		result = operand1 - operand2;
-		setArithmeticFlags(operand1, operand2, result, false);
+		setArithmeticFlags(operand1, operand2, result, false, false);
 		break;
 	case 11: //CMN
 		result = operand1 + operand2;
-		setArithmeticFlags(operand1, operand2, result, true);
+		setArithmeticFlags(operand1, operand2, result, true, false);
 		break;
 	case 12: //ORR
 		result = operand1 | operand2;
@@ -234,7 +234,7 @@ void ARM7TDMI::Thumb_HiRegisterOperations()
 		break;
 	case 1:
 		result = operand1 - operand2;
-		setArithmeticFlags(operand1, operand2, result, false);
+		setArithmeticFlags(operand1, operand2, result, false, false);
 		break;
 	case 2:
 		result = operand2;

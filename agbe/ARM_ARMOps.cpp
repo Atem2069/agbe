@@ -108,32 +108,32 @@ void ARM7TDMI::ARM_DataProcessing()
 	case 2:	//SUB
 		result = operand1 - operand2;
 		setReg(destRegIdx, result);
-		if (setConditionCodes) { setArithmeticFlags(operand1, operand2, result, false); }
+		if (setConditionCodes) { setArithmeticFlags(operand1, operand2, result, false,false); }
 		break;
 	case 3:	//RSB
 		result = operand2 - operand1;
 		setReg(destRegIdx, result);
-		if (setConditionCodes) { setArithmeticFlags(operand2, operand1, result, false); }
+		if (setConditionCodes) { setArithmeticFlags(operand2, operand1, result, false,false); }
 		break;
 	case 4:	//ADD
 		result = operand1 + operand2;
 		setReg(destRegIdx, result);
-		if (setConditionCodes) { setArithmeticFlags(operand1, operand2, result, true); }
+		if (setConditionCodes) { setArithmeticFlags(operand1, operand2, result, true,false); }
 		break;
 	case 5:	//ADC
 		result = operand1 + operand2 + carryIn;
 		setReg(destRegIdx, result);
-		if (setConditionCodes) { setArithmeticFlags(operand1, (uint64_t)operand2 + (uint64_t)carryIn, result, true); }
+		if (setConditionCodes) { setArithmeticFlags(operand1, operand2,result, true, true); }
 		break;
 	case 6:	//SBC
 		result = operand1 - operand2 + carryIn - 1;
 		setReg(destRegIdx, result);
-		if (setConditionCodes) { setArithmeticFlags(operand1, (uint64_t)operand2 + (uint64_t)carryIn + 1, result, false); }
+		if (setConditionCodes) { setArithmeticFlags(operand1, operand2, result, false, true); }
 		break;
 	case 7:	//RSC
 		result = operand2 - operand1 + carryIn - 1;
 		setReg(destRegIdx, result);
-		if (setConditionCodes) { setArithmeticFlags(operand2, operand1 + carryIn + 1, result, false); }
+		if (setConditionCodes) { setArithmeticFlags(operand2, operand1, result, false, true); }
 		break;
 	case 8:	//TST
 		result = operand1 & operand2;
@@ -148,12 +148,12 @@ void ARM7TDMI::ARM_DataProcessing()
 	case 10: //CMP
 		result = operand1 - operand2;
 		realign = false;
-		setArithmeticFlags(operand1, operand2, result, false);
+		setArithmeticFlags(operand1, operand2, result, false,false);
 		break;
 	case 11: //CMN
 		result = operand1 + operand2;
 		realign = false;
-		setArithmeticFlags(operand1, operand2, result, true);
+		setArithmeticFlags(operand1, operand2, result, true,false);
 		break;
 	case 12: //ORR
 		result = operand1 | operand2;
