@@ -50,28 +50,34 @@ void PPU::eventHandler()
 
 void PPU::HDraw()
 {
-	uint8_t mode = DISPCNT & 0b111;
-	switch (mode)
+	bool forcedBlank = ((DISPCNT >> 7) & 0b1);
+	if (!forcedBlank)
 	{
-	case 0:
-		renderMode0();
-		break;
-	case 1:
-		renderMode1();
-		break;
-	case 2:
-		renderMode2();
-		break;
-	case 3:
-		renderMode3();
-		break;
-	case 4:
-		renderMode4();
-		break;
-	case 5:
-		renderMode5();
-		break;
+		uint8_t mode = DISPCNT & 0b111;
+		switch (mode)
+		{
+		case 0:
+			renderMode0();
+			break;
+		case 1:
+			renderMode1();
+			break;
+		case 2:
+			renderMode2();
+			break;
+		case 3:
+			renderMode3();
+			break;
+		case 4:
+			renderMode4();
+			break;
+		case 5:
+			renderMode5();
+			break;
+		}
 	}
+
+	composeLayers();
 
 	if (((DISPSTAT >> 4) & 0b1))
 		m_interruptManager->requestInterrupt(InterruptType::HBlank);
@@ -220,7 +226,6 @@ void PPU::renderMode0()
 			drawBackground(i);
 	}
 
-	composeLayers();
 }
 
 void PPU::renderMode1()
@@ -236,9 +241,6 @@ void PPU::renderMode1()
 				drawBackground(i);
 		}
 	}
-
-
-	composeLayers();
 }
 
 void PPU::renderMode2()
@@ -249,8 +251,6 @@ void PPU::renderMode2()
 		if ((DISPCNT >> (8 + i)) & 0b1)
 			drawRotationScalingBackground(i);
 	}
-
-	composeLayers();
 }
 
 void PPU::renderMode3()
@@ -288,8 +288,6 @@ void PPU::renderMode3()
 			m_backgroundLayers[2].lineBuffer[i] = col & 0x7FFF;
 		}
 	}
-
-	composeLayers();
 	updateAffineRegisters(2);
 }
 
@@ -334,8 +332,6 @@ void PPU::renderMode4()
 			m_backgroundLayers[2].lineBuffer[i] = paletteData & 0x7FFF;
 		}
 	}
-
-	composeLayers();
 	updateAffineRegisters(2);
 }
 
@@ -379,14 +375,12 @@ void PPU::renderMode5()
 			m_backgroundLayers[2].lineBuffer[i] = col & 0x7FFF;
 		}
 	}
-
-	composeLayers();
 	updateAffineRegisters(2);
 }
 
 void PPU::composeLayers()
 {
-	uint16_t backDrop = ((m_mem->paletteRAM[1] << 8) | m_mem->paletteRAM[0]);
+	uint16_t backDrop = *(uint16_t*)m_mem->paletteRAM;
 	int spriteMosaicHorizontal = ((MOSAIC >> 8) & 0xF) + 1;
 	int spriteHorizontalMosaicCounter = 0;
 	int spriteMosaicX = 0;
@@ -453,7 +447,7 @@ void PPU::composeLayers()
 			}
 		}
 
-		if ((DISPCNT >> 12) & 0b1 && getPointDrawable(x,VCOUNT,0,true))
+		if (((DISPCNT >> 12) & 0b1) && getPointDrawable(x,VCOUNT,0,true))
 		{
 			//sprite mosaic seems to be a post process thing? idk
 			int spriteX = x;
