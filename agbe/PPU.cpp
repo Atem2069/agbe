@@ -724,6 +724,7 @@ void PPU::drawRotationScalingBackground(int bg)
 void PPU::drawSprites()
 {
 	memset(m_spriteAttrBuffer, 0b00011111, 240);
+	memset(m_spriteLineBuffer, 0x80, 480);
 	if (!((DISPCNT >> 12) & 0b1))
 		return;
 	bool oneDimensionalMapping = ((DISPCNT >> 6) & 0b1);
@@ -734,7 +735,7 @@ void PPU::drawSprites()
 	int mosaicHorizontal = ((MOSAIC >> 8) & 0xF) + 1;
 	int mosaicVertical = ((MOSAIC >> 12) & 0xF) + 1;
 
-	for (int i = 127; i >= 0; i--)
+	for (int i = 0; i < 128; i++)
 	{
 		uint32_t spriteBase = i * 8;	//each OAM entry is 8 bytes
 
@@ -840,20 +841,21 @@ void PPU::drawSprites()
 					continue;
 
 				uint8_t priorityAtPixel = m_spriteAttrBuffer[plotCoord].priority;
-				if ((spritePriority > priorityAtPixel) && !isObjWindow)
+				if ((spritePriority >= priorityAtPixel) && !isObjWindow)
 					continue;
 
 				uint16_t col = extractColorFromTile(tileMapLookupAddr, baseX, hiColor, true, paletteNumber);
-				if ((col >> 15) & 0b1)
+				if ((col >> 15) & 0b1)	//TODO: handle transparent pixels overriding render parameters
 					continue;
 
 				if (isObjWindow)
 					m_spriteAttrBuffer[plotCoord].objWindow = 1;
 				else
 				{
+					//if (m_spriteAttrBuffer[plotCoord].priority != 0x1E)
+					m_spriteAttrBuffer[plotCoord].mosaic = mosaic;
 					m_spriteAttrBuffer[plotCoord].priority = spritePriority & 0b11111;
 					m_spriteAttrBuffer[plotCoord].transparent = (objMode == 1);
-					m_spriteAttrBuffer[plotCoord].mosaic = mosaic;
 					m_spriteLineBuffer[plotCoord] = col;
 				}
 			}
@@ -966,12 +968,15 @@ void PPU::drawAffineSprite(OAMEntry* curSpriteEntry)
 			continue;
 
 		uint8_t priorityAtPixel = m_spriteAttrBuffer[plotCoord].priority;
-		if ((spritePriority > priorityAtPixel) && !isObjWindow)
+		if ((spritePriority >= priorityAtPixel) && !isObjWindow)
 			continue;
 
 		uint16_t col = extractColorFromTile(tileMapLookupAddr, baseX, hiColor, true, paletteNumber);
 		if ((col >> 15) & 0b1)
+		{
+			m_spriteAttrBuffer[plotCoord].mosaic = ((curSpriteEntry->attr0) >> 12) & 0b1;	//todo: extend to other parameters. transparent objs can override params
 			continue;
+		}
 
 		if (isObjWindow)
 			m_spriteAttrBuffer[plotCoord].objWindow = 1;
@@ -979,6 +984,7 @@ void PPU::drawAffineSprite(OAMEntry* curSpriteEntry)
 		{
 			m_spriteAttrBuffer[plotCoord].priority = spritePriority&0b11111;
 			m_spriteAttrBuffer[plotCoord].transparent = (objMode == 1);
+			m_spriteAttrBuffer[plotCoord].mosaic = ((curSpriteEntry->attr0) >> 12) & 0b1;
 			m_spriteLineBuffer[plotCoord] = col;
 		}
 	}
