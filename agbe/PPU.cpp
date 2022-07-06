@@ -754,13 +754,17 @@ void PPU::drawSprites()
 		bool isObjWindow = (objMode == 2);
 		bool mosaic = (curSpriteEntry->attr0 >> 12) & 0b1;
 
+		int renderY = VCOUNT;
+		if (mosaic)
+			renderY = (renderY / mosaicVertical) * mosaicVertical;
+
 		int spriteTop = curSpriteEntry->attr0 & 0xFF;
 		if (spriteTop > 225)							//bit of a dumb hack to accommodate for when sprites are offscreen
 			spriteTop = 0 - (255 - spriteTop);
 		int spriteLeft = curSpriteEntry->attr1 & 0x1FF;
 		if ((spriteLeft >> 8) & 0b1)
 			spriteLeft |= 0xFFFFFF00;	//not sure maybe sign extension is okay
-		if (spriteLeft >= 240 || spriteTop > VCOUNT)	//nope. sprite is offscreen or too low
+		if (spriteLeft >= 240 || spriteTop > renderY)	//nope. sprite is offscreen or too low
 			continue;
 		int spriteBottom = 0, spriteRight = 0;
 		int rowPitch = 1;	//find out how many lines we have to 'cross' to get to next row (in 1d mapping)
@@ -784,7 +788,7 @@ void PPU::drawSprites()
 		bool flipVertical = ((curSpriteEntry->attr1 >> 13) & 0b1);
 
 		int spriteYSize = (spriteBottom - spriteTop);	//find out how big sprite is
-		int yOffsetIntoSprite = VCOUNT - spriteTop;
+		int yOffsetIntoSprite = renderY - spriteTop;
 		if (flipVertical)
 			yOffsetIntoSprite = (spriteYSize-1) - yOffsetIntoSprite;//flip y coord we're considering
 
@@ -794,9 +798,6 @@ void PPU::drawSprites()
 		bool hiColor = ((curSpriteEntry->attr0 >> 13) & 0b1);
 		if (hiColor)
 			rowPitch *= 2;
-
-		if (mosaic)
-			yOffsetIntoSprite = (yOffsetIntoSprite / mosaicVertical) * mosaicVertical;
 
 		//check y coord, then adjust tile id as necessary
 		while (yOffsetIntoSprite >= 8)
@@ -850,7 +851,7 @@ void PPU::drawSprites()
 					m_spriteAttrBuffer[plotCoord].objWindow = 1;
 				else
 				{
-					m_spriteAttrBuffer[plotCoord].priority = spritePriority & 0b111111;
+					m_spriteAttrBuffer[plotCoord].priority = spritePriority & 0b11111;
 					m_spriteAttrBuffer[plotCoord].transparent = (objMode == 1);
 					m_spriteAttrBuffer[plotCoord].mosaic = mosaic;
 					m_spriteLineBuffer[plotCoord] = col;
@@ -976,7 +977,7 @@ void PPU::drawAffineSprite(OAMEntry* curSpriteEntry)
 			m_spriteAttrBuffer[plotCoord].objWindow = 1;
 		else
 		{
-			m_spriteAttrBuffer[plotCoord].priority = spritePriority&0b111111;
+			m_spriteAttrBuffer[plotCoord].priority = spritePriority&0b11111;
 			m_spriteAttrBuffer[plotCoord].transparent = (objMode == 1);
 			m_spriteLineBuffer[plotCoord] = col;
 		}
