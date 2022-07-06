@@ -179,7 +179,7 @@ void PPU::VBlank()
 	VCOUNT++;
 	if (VCOUNT == 228)		//go back to drawing
 	{
-
+		affineVerticalMosaicCounter = 0;
 		uint16_t vcountCmp = ((DISPSTAT >> 8) & 0xFF);
 		if (vcountCmp==0)
 		{
@@ -258,10 +258,10 @@ void PPU::renderMode3()
 	drawSprites();
 	if ((DISPCNT >> 10) & 0b1)
 	{
-		uint32_t xRef = BG2X & 0xFFFFFFF;
+		int32_t xRef = BG2X & 0xFFFFFFF;
 		if ((xRef >> 27) & 0b1)
 			xRef |= 0xF0000000;
-		uint32_t yRef = BG2Y & 0xFFFFFFF;
+		int32_t yRef = BG2Y & 0xFFFFFFF;
 		if ((yRef >> 27) & 0b1)
 			yRef |= 0xF000000;
 
@@ -270,12 +270,10 @@ void PPU::renderMode3()
 
 		m_backgroundLayers[2].enabled = true;
 		m_backgroundLayers[2].priorityBits = BG2CNT & 0b11;
-		for (int i = 0; i < 240; i++)
+		for (int i = 0; i < 240; i++, calcAffineCoords(xRef,yRef,pA,pC))
 		{
 			uint32_t xCoord = (xRef >> 8) & 0xFFFFF;
 			uint32_t yCoord = (yRef >> 8) & 0xFFFFF;
-			xRef += pA;
-			yRef += pC;
 			if (xCoord > 239 || yCoord > 159)
 			{
 				m_backgroundLayers[2].lineBuffer[i] = 0x8000;
@@ -300,10 +298,10 @@ void PPU::renderMode4()
 		base = 0xA000;
 	if ((DISPCNT >> 10) & 0b1)
 	{
-		uint32_t xRef = BG2X & 0xFFFFFFF;
+		int32_t xRef = BG2X & 0xFFFFFFF;
 		if ((xRef >> 27) & 0b1)
 			xRef |= 0xF0000000;
-		uint32_t yRef = BG2Y & 0xFFFFFFF;
+		int32_t yRef = BG2Y & 0xFFFFFFF;
 		if ((yRef >> 27) & 0b1)
 			yRef |= 0xF000000;
 
@@ -311,12 +309,10 @@ void PPU::renderMode4()
 		int16_t pC = (int16_t)BG2PC;
 		m_backgroundLayers[2].enabled = true;
 		m_backgroundLayers[2].priorityBits = BG2CNT & 0b11;
-		for (int i = 0; i < 240; i++)
+		for (int i = 0; i < 240; i++, calcAffineCoords(xRef,yRef,pA,pC))
 		{
 			uint32_t xCoord = (xRef >> 8) & 0xFFFFF;
 			uint32_t yCoord = (yRef >> 8) & 0xFFFFF;
-			xRef += pA;
-			yRef += pC;
 			if (xCoord > 239 || yCoord > 159)
 			{
 				m_backgroundLayers[2].lineBuffer[i] = 0x8000;
@@ -344,10 +340,10 @@ void PPU::renderMode5()
 		baseAddr = 0xA000;
 	if ((DISPCNT >> 10) & 0b1)
 	{
-		uint32_t xRef = BG2X & 0xFFFFFFF;
+		int32_t xRef = BG2X & 0xFFFFFFF;
 		if ((xRef >> 27) & 0b1)
 			xRef |= 0xF0000000;
-		uint32_t yRef = BG2Y & 0xFFFFFFF;
+		int32_t yRef = BG2Y & 0xFFFFFFF;
 		if ((yRef >> 27) & 0b1)
 			yRef |= 0xF000000;
 
@@ -356,12 +352,10 @@ void PPU::renderMode5()
 
 		m_backgroundLayers[2].enabled = true;
 		m_backgroundLayers[2].priorityBits = BG2CNT & 0b11;
-		for (int i = 0; i < 240; i++)
+		for (int i = 0; i < 240; i++, calcAffineCoords(xRef,yRef,pA,pC))
 		{
 			uint32_t xCoord = (xRef >> 8) & 0xFFFFF;
 			uint32_t yCoord = (yRef >> 8) & 0xFFFFF;
-			xRef += pA;
-			yRef += pC;
 			if (xCoord > 159 || yCoord > 127)
 			{
 				m_backgroundLayers[2].lineBuffer[i] = 0x8000;
@@ -678,7 +672,7 @@ void PPU::drawRotationScalingBackground(int bg)
 	m_backgroundLayers[bg].enabled = true;
 	m_backgroundLayers[bg].priorityBits = bgPriority;
 
-	for (int x = 0; x < 240; x++, xRef+=pA,yRef+=pC)
+	for (int x = 0; x < 240; x++, calcAffineCoords(xRef,yRef,pA,pC))
 	{
 		uint32_t plotAddr = (VCOUNT * 240) + x;
 		uint32_t fetcherY = (uint32_t)((int32_t)yRef >> 8);
@@ -715,7 +709,6 @@ void PPU::drawRotationScalingBackground(int bg)
 
 		m_bgPriorities[x] = bgPriority;
 		m_backgroundLayers[bg].lineBuffer[x] = col;
-
 	}
 
 	updateAffineRegisters(bg);
@@ -1206,8 +1199,16 @@ bool PPU::getPointBlendable(int x, int y)
 
 }
 
+void PPU::calcAffineCoords(int32_t& xRef, int32_t& yRef, int16_t dx, int16_t dy)
+{
+
+	xRef += dx;
+	yRef += dy;
+}
+
 void PPU::updateAffineRegisters(int bg)
 {
+	affineHorizontalMosaicCounter = 0;
 	if (bg == 2)
 	{
 		int16_t dmx = BG2PB;
