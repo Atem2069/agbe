@@ -77,10 +77,11 @@ private:
 	std::shared_ptr<Scheduler> m_scheduler;
 	uint32_t m_renderBuffer[2][240 * 160];	//currently being rendered
 	bool pageIdx = false;
-	//uint32_t m_displayBuffer[240 * 160]; //buffer the display gets
 	uint8_t m_bgPriorities[240] = {};	//save bg priority at each pixel
 	uint16_t m_spriteLineBuffer[240] = {};
 	SpriteAttribute m_spriteAttrBuffer[240] = {};
+
+	int m_spriteCyclesElapsed = 0;		//checks how many cycles have elapsed since sprite rendering started, to enforce the max allowed cycles for sprite pre-rendering
 
 	BG m_backgroundLayers[4];
 

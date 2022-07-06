@@ -725,6 +725,7 @@ void PPU::drawSprites()
 {
 	memset(m_spriteAttrBuffer, 0b00011111, 240);
 	memset(m_spriteLineBuffer, 0x80, 480);
+	m_spriteCyclesElapsed = 0;
 	if (!((DISPCNT >> 12) & 0b1))
 		return;
 	bool oneDimensionalMapping = ((DISPCNT >> 6) & 0b1);
@@ -735,8 +736,13 @@ void PPU::drawSprites()
 	int mosaicHorizontal = ((MOSAIC >> 8) & 0xF) + 1;
 	int mosaicVertical = ((MOSAIC >> 12) & 0xF) + 1;
 
+	bool limitSpriteCycles = ((DISPCNT >> 5) & 0b1);
+	int maxAllowedSpriteCycles = (limitSpriteCycles) ? 954 : 1210;	//with h-blank interval free set, then less cycles can be spent rendering sprites
+
 	for (int i = 0; i < 128; i++)
 	{
+		if (m_spriteCyclesElapsed > maxAllowedSpriteCycles)	//quit sprite rendering if we've spent too much time evaluating sprites
+			return;
 		uint32_t spriteBase = i * 8;	//each OAM entry is 8 bytes
 
 		OAMEntry* curSpriteEntry = (OAMEntry*)(m_mem->OAM+spriteBase);
@@ -821,6 +827,9 @@ void PPU::drawSprites()
 			objBase += ((tileId) * 32);
 			objBase += (yOffsetIntoSprite * 8);
 		}
+
+		//add cycles taken to evaluate sprite
+		m_spriteCyclesElapsed += (spriteRight - spriteLeft);
 
 		int numXTilesToRender = (spriteRight - spriteLeft) / 8;
 		for (int xSpanTile = 0; xSpanTile < numXTilesToRender; xSpanTile++)
@@ -919,6 +928,10 @@ void PPU::drawAffineSprite(OAMEntry* curSpriteEntry)
 	int halfHeight = (spriteBottom - spriteTop) / 2;
 	int spriteWidth = halfWidth * 2;
 	int spriteHeight = halfHeight * 2;	//find out how big sprite is
+
+	//add evaluation cycles. doublesize sprites take up more because twice the amount of pixels are rendered.
+	m_spriteCyclesElapsed += 10;
+	m_spriteCyclesElapsed += (spriteWidth * 2) * (doubleSize ? 2 : 1);
 
 	//get affine parameters
 	uint32_t parameterSelection = (curSpriteEntry->attr1 >> 9) & 0x1F;
