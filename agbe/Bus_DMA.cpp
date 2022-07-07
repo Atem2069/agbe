@@ -314,11 +314,11 @@ void Bus::doDMATransfer(int channel)
 		{
 			uint16_t halfword = 0;
 			if (src <= 0x01FFFFFF)
-				halfword = (m_openBusVals.dma) >> (16* src & 0b10);
+				halfword = std::rotr(m_openBusVals.dma, (8 * src & 0b10));
 			else
 			{
 				halfword = read16(src&~0b1, (AccessType)!dmaNonsequentialAccess);
-				m_openBusVals.dma = halfword >> (16 * src & 0b10);
+				m_openBusVals.dma = (halfword << 16) | halfword;
 			}
 			write16(dest&~0b1, halfword,(AccessType)!dmaNonsequentialAccess);                        			
 		}
