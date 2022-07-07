@@ -12,7 +12,7 @@ EEPROM::EEPROM(BackupType type)
 		addressSize = 14; break;
 	}
 
-	memset(ROMData, 0xFF, 1024 * 4);
+	memset(ROMData, 0xFF, 1024 * 8);
 }
 
 EEPROM::~EEPROM()
@@ -68,11 +68,12 @@ void EEPROM::write(uint32_t address, uint8_t value)
 		readAddress |= ((uint16_t)value << ((addressSize-1) - (writeCount - 1)));
 		if (writeCount == addressSize)	//todo: account for smaller address
 		{
-			if (readAddress > 1024)
-				readAddress &= 0b1111111111;
 			if (isReading)
 			{
-				readData = ROMData[readAddress];
+				if (readAddress > 1023)
+					readData = 0xFFFFFFFFFFFFFFFF;	//out of bounds read returns all 1s
+				else
+					readData = ROMData[readAddress];
 				activeRead = true;
 				readbackCount = 0;
 			}
@@ -98,7 +99,8 @@ void EEPROM::write(uint32_t address, uint8_t value)
 				newROMData |=  ((uint64_t)value << (63-(writeCount - 1)));
 			if (writeCount == 65)
 			{
-				ROMData[writeAddress] = newROMData;
+				if(writeAddress<=1023)
+					ROMData[writeAddress] = newROMData;
 				state = WriteState::RequestType;
 				tempWriteBits = 0;
 				newROMData = 0;
