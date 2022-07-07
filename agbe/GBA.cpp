@@ -145,5 +145,7 @@ std::vector<uint8_t> GBA::readFile(const char* name)
 		std::istream_iterator<uint8_t>(file),
 		std::istream_iterator<uint8_t>());
 
+	file.close();
+
 	return vec;
 }

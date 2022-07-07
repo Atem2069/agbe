@@ -11,13 +11,45 @@ EEPROM::EEPROM(BackupType type)
 	case BackupType::EEPROM64K:
 		addressSize = 14; break;
 	}
+	saveSize = (type == BackupType::EEPROM4K) ? 128 : 1024;
 
-	memset(ROMData, 0xFF, 1024 * 8);
+	std::vector<uint8_t> saveData;
+	if (getSaveData(saveData))
+	{
+		//we can't just straight up memcpy unfortunately, bc endianness
+		for (int i = 0; i < saveSize; i++)
+		{
+			uint64_t currentWord = 0;
+			for (int j = 0; j < 8; j++)
+			{
+				int curIdx = (i * 8) + j;
+				uint8_t curByte = saveData[curIdx];
+				currentWord |= ((uint64_t)curByte << ((7-j) * 8));
+			}
+			ROMData[i] = currentWord;
+		}
+	}
+	else
+		memset(ROMData, 0xFF, 1024 * 8);
 }
 
 EEPROM::~EEPROM()
 {
+	//first have to prepare save data
+	uint8_t* tempSaveData = new uint8_t[saveSize * 8];
 
+	for (int i = 0; i < saveSize; i++)
+	{
+		uint64_t curVal = ROMData[i];
+		for (int j = 0; j < 8; j++)
+		{
+			uint8_t writeVal = (curVal >> ((7-j) * 8));
+			tempSaveData[(i * 8) + j] = writeVal;	//write out each 8 byte value in big endian order
+		}
+	}
+
+	writeSaveData((void*)tempSaveData, saveSize*8);
+	delete[] tempSaveData;
 }
 
 uint8_t EEPROM::read(uint32_t address)
