@@ -403,6 +403,11 @@ uint32_t Bus::read32(uint32_t address, AccessType accessType)
 
 	Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Out of bounds/invalid read addr={:#x}", address));
 	tickPrefetcher(1);
+	if (m_openBusVals.dmaJustFinished)
+	{
+		m_openBusVals.dmaJustFinished = false;
+		return m_openBusVals.dma;
+	}
 	return m_openBusVals.mem;
 }
 

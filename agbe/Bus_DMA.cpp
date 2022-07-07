@@ -386,6 +386,7 @@ void Bus::doDMATransfer(int channel)
 		m_scheduler->addCycles(1);
 	}
 	prefetcherHalted = false;
+	m_openBusVals.dmaJustFinished = true;
 }
 
 void Bus::onVBlank()
