@@ -257,6 +257,7 @@ void PPU::renderMode2()
 void PPU::renderMode3()
 {
 	drawSprites();
+	bool mosaic = ((BG2CNT >> 6) & 0b1);
 	if ((DISPCNT >> 10) & 0b1)
 	{
 		int32_t xRef = BG2X & 0xFFFFFFF;
@@ -271,7 +272,7 @@ void PPU::renderMode3()
 
 		m_backgroundLayers[2].enabled = true;
 		m_backgroundLayers[2].priorityBits = BG2CNT & 0b11;
-		for (int i = 0; i < 240; i++, calcAffineCoords(xRef,yRef,pA,pC))
+		for (int i = 0; i < 240; i++, m_calcAffineCoords(mosaic,xRef,yRef,pA,pC))
 		{
 			uint32_t xCoord = (xRef >> 8) & 0xFFFFF;
 			uint32_t yCoord = (yRef >> 8) & 0xFFFFF;
@@ -287,7 +288,7 @@ void PPU::renderMode3()
 			m_backgroundLayers[2].lineBuffer[i] = col & 0x7FFF;
 		}
 	}
-	updateAffineRegisters(2);
+	m_updateAffineRegisters(mosaic,2);
 }
 
 void PPU::renderMode4()
@@ -297,6 +298,7 @@ void PPU::renderMode4()
 	bool pageFlip = ((DISPCNT >> 4) & 0b1);
 	if (pageFlip)
 		base = 0xA000;
+	bool mosaic = ((BG2CNT >> 6) & 0b1);
 	if ((DISPCNT >> 10) & 0b1)
 	{
 		int32_t xRef = BG2X & 0xFFFFFFF;
@@ -310,7 +312,7 @@ void PPU::renderMode4()
 		int16_t pC = (int16_t)BG2PC;
 		m_backgroundLayers[2].enabled = true;
 		m_backgroundLayers[2].priorityBits = BG2CNT & 0b11;
-		for (int i = 0; i < 240; i++, calcAffineCoords(xRef,yRef,pA,pC))
+		for (int i = 0; i < 240; i++, m_calcAffineCoords(mosaic,xRef,yRef,pA,pC))
 		{
 			uint32_t xCoord = (xRef >> 8) & 0xFFFFF;
 			uint32_t yCoord = (yRef >> 8) & 0xFFFFF;
@@ -329,7 +331,7 @@ void PPU::renderMode4()
 			m_backgroundLayers[2].lineBuffer[i] = paletteData & 0x7FFF;
 		}
 	}
-	updateAffineRegisters(2);
+	m_updateAffineRegisters(mosaic,2);
 }
 
 void PPU::renderMode5()
@@ -339,6 +341,7 @@ void PPU::renderMode5()
 	bool pageFlip = ((DISPCNT >> 4) & 0b1);
 	if (pageFlip)
 		baseAddr = 0xA000;
+	bool mosaic = ((BG2CNT >> 6) & 0b1);
 	if ((DISPCNT >> 10) & 0b1)
 	{
 		int32_t xRef = BG2X & 0xFFFFFFF;
@@ -353,7 +356,7 @@ void PPU::renderMode5()
 
 		m_backgroundLayers[2].enabled = true;
 		m_backgroundLayers[2].priorityBits = BG2CNT & 0b11;
-		for (int i = 0; i < 240; i++, calcAffineCoords(xRef,yRef,pA,pC))
+		for (int i = 0; i < 240; i++, m_calcAffineCoords(mosaic,xRef,yRef,pA,pC))
 		{
 			uint32_t xCoord = (xRef >> 8) & 0xFFFFF;
 			uint32_t yCoord = (yRef >> 8) & 0xFFFFF;
@@ -370,7 +373,7 @@ void PPU::renderMode5()
 			m_backgroundLayers[2].lineBuffer[i] = col & 0x7FFF;
 		}
 	}
-	updateAffineRegisters(2);
+	m_updateAffineRegisters(mosaic,2);
 }
 
 void PPU::composeLayers()
@@ -673,7 +676,9 @@ void PPU::drawRotationScalingBackground(int bg)
 	m_backgroundLayers[bg].enabled = true;
 	m_backgroundLayers[bg].priorityBits = bgPriority;
 
-	for (int x = 0; x < 240; x++, calcAffineCoords(xRef,yRef,pA,pC))
+	bool mosaicEnabled = (ctrlReg >> 6) & 0b1;
+
+	for (int x = 0; x < 240; x++, m_calcAffineCoords(mosaicEnabled,xRef,yRef,pA,pC))
 	{
 		uint32_t plotAddr = (VCOUNT * 240) + x;
 		uint32_t fetcherY = (uint32_t)((int32_t)yRef >> 8);
@@ -712,7 +717,7 @@ void PPU::drawRotationScalingBackground(int bg)
 		m_backgroundLayers[bg].lineBuffer[x] = col;
 	}
 
-	updateAffineRegisters(bg);
+	m_updateAffineRegisters(mosaicEnabled,bg);
 }
 
 void PPU::drawSprites()
@@ -1110,9 +1115,9 @@ bool PPU::getPointDrawable(int x, int y, int backgroundLayer, bool obj)
 	//also todo: window priority. win0 has higher priority than win1, win1 has higher priority than obj window
 	if (window0Enabled)
 	{
-		int winRight = (WIN0H & 0xFF);
+		int winRight = min((WIN0H & 0xFF)-1,239);
 		int winLeft = ((WIN0H >> 8) & 0xFF);
-		int winBottom = (WIN0V & 0xFF) - 1;	//not sure about -1? gbateek says bottom-most plus 1
+		int winBottom = min((WIN0V & 0xFF) - 1,159);	
 		int winTop = ((WIN0V >> 8) & 0xFF);
 		bool inWindow = (x >= winLeft && x <= winRight && y >= winTop && y <= winBottom);
 		if (inWindow)
@@ -1126,9 +1131,9 @@ bool PPU::getPointDrawable(int x, int y, int backgroundLayer, bool obj)
 	}
 	if (window1Enabled)
 	{
-		int winRight = (WIN1H & 0xFF);
+		int winRight = min((WIN1H & 0xFF)-1,239);
 		int winLeft = ((WIN1H >> 8) & 0xFF);
-		int winBottom = (WIN1V & 0xFF) - 1;	//not sure about -1? gbateek says bottom-most plus 1
+		int winBottom = min((WIN1V & 0xFF) - 1,159);
 		int winTop = ((WIN1V >> 8) & 0xFF);
 		bool inWindow = (x >= winLeft && x <= winRight && y >= winTop && y <= winBottom);
 		if (inWindow)
@@ -1198,42 +1203,6 @@ bool PPU::getPointBlendable(int x, int y)
 	}
 	return ((WINOUT >> 5) & 0b1);
 
-}
-
-void PPU::calcAffineCoords(int32_t& xRef, int32_t& yRef, int16_t dx, int16_t dy)
-{
-	xRef += dx;
-	yRef += dy;
-}
-
-void PPU::updateAffineRegisters(int bg)
-{
-	if (bg == 2)
-	{
-		int16_t dmx = BG2PB;
-		int16_t dmy = BG2PD;
-
-		if ((BG2X >> 27) & 0b1)
-			BG2X |= 0xF0000000;
-		if ((BG2Y >> 27) & 0b1)
-			BG2Y |= 0xF0000000;
-
-		BG2X = (BG2X + dmx) & 0xFFFFFFF;
-		BG2Y = (BG2Y + dmy) & 0xFFFFFFF;
-	}
-	if (bg == 3)
-	{
-		int16_t dmx = BG3PB;
-		int16_t dmy = BG3PD;
-
-		if ((BG3X >> 27) & 0b1)
-			BG3X |= 0xF0000000;
-		if ((BG3Y >> 27) & 0b1)
-			BG3Y |= 0xF0000000;
-
-		BG3X = (BG3X + dmx) & 0xFFFFFFF;
-		BG3Y = (BG3Y + dmy) & 0xFFFFFFF;
-	}
 }
 
 uint32_t* PPU::getDisplayBuffer()

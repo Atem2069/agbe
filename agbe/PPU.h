@@ -133,8 +133,86 @@ private:
 
 	bool getPointDrawable(int x, int y, int backgroundLayer, bool obj);
 	bool getPointBlendable(int x, int y);
-	inline void calcAffineCoords(int32_t& xRef, int32_t& yRef, int16_t dx, int16_t dy);	//<-- put into own function because mosaic can affect *when* these are updated
-	inline void updateAffineRegisters(int bg);												//similar story, however the reference points are actually updated per-scanline
+
+	//todo: these names are confusing (m_calc..., calc....) so probs rewrite with nicer function names at some point so I don't confuse myself :P
+	inline void m_calcAffineCoords(bool mosaic, int32_t& xRef, int32_t& yRef, int16_t dx, int16_t dy)
+	{
+		if (mosaic)
+			calcAffineCoords<true>(xRef, yRef, dx, dy);
+		else
+			calcAffineCoords<false>(xRef, yRef, dx, dy);
+	}
+
+	template<bool doMosaic> void calcAffineCoords(int32_t& xRef, int32_t& yRef, int16_t dx, int16_t dy)	//<-- put into own function because mosaic can affect *when* these are updated
+	{
+		if (doMosaic)
+		{
+			int maxHorizontalMosaic = (MOSAIC & 0xF) + 1;
+			affineHorizontalMosaicCounter++;
+			if (affineHorizontalMosaicCounter == maxHorizontalMosaic)
+			{
+				affineHorizontalMosaicCounter = 0;
+				xRef += (dx * maxHorizontalMosaic);
+				yRef += (dy * maxHorizontalMosaic);
+			}
+		}
+		else
+		{
+			xRef += dx;
+			yRef += dy;
+		}
+	}
+
+	inline void m_updateAffineRegisters(bool mosaic, int bg)
+	{
+		if (mosaic)
+			updateAffineRegisters<true>(bg);
+		else
+			updateAffineRegisters<false>(bg);
+	}
+
+	template<bool doMosaic> void updateAffineRegisters(int bg)											//similar story, however the reference points are actually updated per-scanline
+	{
+		int multiplyAmount = 1;
+		if (doMosaic)
+		{
+			int maxVerticalMosaic = ((MOSAIC >> 4) & 0xF) + 1;
+			affineVerticalMosaicCounter++;
+			if (affineVerticalMosaicCounter == maxVerticalMosaic)
+			{
+				affineVerticalMosaicCounter = 0;
+				multiplyAmount = maxVerticalMosaic;
+			}
+			else
+				return;
+		}
+		if (bg == 2)
+		{
+			int16_t dmx = BG2PB;
+			int16_t dmy = BG2PD;
+
+			if ((BG2X >> 27) & 0b1)
+				BG2X |= 0xF0000000;
+			if ((BG2Y >> 27) & 0b1)
+				BG2Y |= 0xF0000000;
+
+			BG2X = (BG2X + (dmx*multiplyAmount)) & 0xFFFFFFF;
+			BG2Y = (BG2Y + (dmy*multiplyAmount)) & 0xFFFFFFF;
+		}
+		if (bg == 3)
+		{
+			int16_t dmx = BG3PB;
+			int16_t dmy = BG3PD;
+
+			if ((BG3X >> 27) & 0b1)
+				BG3X |= 0xF0000000;
+			if ((BG3Y >> 27) & 0b1)
+				BG3Y |= 0xF0000000;
+
+			BG3X = (BG3X + (dmx*multiplyAmount)) & 0xFFFFFFF;
+			BG3Y = (BG3Y + (dmy*multiplyAmount)) & 0xFFFFFFF;
+		}
+	}
 
 	int affineHorizontalMosaicCounter = 0;
 	int affineVerticalMosaicCounter = 0;
