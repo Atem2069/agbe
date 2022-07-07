@@ -6,12 +6,20 @@ Flash::Flash(BackupType type)
 	m_state = FlashState::Ready;
 	bank = 0;
 
-	memset(flashMem, 0xFF, 131072);
+	saveSize = (type == BackupType::FLASH1M) ? (128 * 1024) : (64 * 1024);
+	std::vector<uint8_t> saveData;
+
+	if (getSaveData(saveData))
+	{
+		memcpy(flashMem, (void*)&saveData[0], saveSize);
+	}
+	else
+		memset(flashMem, 0xFF, 131072);
 }
 
 Flash::~Flash()
 {
-
+	writeSaveData(flashMem, saveSize);
 }
 
 uint8_t Flash::read(uint32_t address)
