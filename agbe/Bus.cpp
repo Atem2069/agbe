@@ -85,8 +85,8 @@ uint8_t Bus::read8(uint32_t address, AccessType accessType)
 		if ((address >= 0x4000) || biosLockout)
 		{
 			if (address <= 0x3FFF)
-				return m_openBusVals.bios;	//todo: account for the value being rotated properly
-			return m_openBusVals.mem;
+				return std::rotr(m_openBusVals.bios, 8*(address&0b11));	//todo: account for the value being rotated properly
+			return std::rotr(m_openBusVals.mem, 8*(address&0b11));
 		}
 		return m_mem->BIOS[address & 0x3FFF];
 	case 2:
@@ -119,7 +119,7 @@ uint8_t Bus::read8(uint32_t address, AccessType accessType)
 		prefetchShouldDelay = false;
 		invalidatePrefetchBuffer();
 		if ((address & 0x01FFFFFF) >= romSize)
-			return (address / 2) & 0xFFFF;
+			return std::rotr((address / 2) & 0xFFFF, 8*(address&0b11));
 		return m_mem->ROM[address & 0x01FFFFFF];
 	case 0xE: case 0xF:
 		m_scheduler->addCycles(SRAMCycles);	//hm.
@@ -167,14 +167,13 @@ void Bus::write8(uint32_t address, uint8_t value, AccessType accessType)
 	case 6:
 		tickPrefetcher(1);
 		address = address & 0x1FFFF;
-		if (address >= 0x18000)
-			address -= 32768;
+		if (address >= 0x10000)
+			break;
 		m_mem->VRAM[address]=value;
 		m_mem->VRAM[address + 1] = value;
 		break;
 	case 7:
 		tickPrefetcher(1);
-		Logger::getInstance()->msg(LoggerSeverity::Error, "Ignore obj write");
 		break;
 	case 8: case 9: case 0xA: case 0xB: case 0xC: case 0xD:
 		cartCycles = ((accessType==AccessType::Sequential) && ((address & 0x1FF) != 0)) ? waitstateSequentialTable[((page - 8) >> 1)] : waitstateNonsequentialTable[((page - 8) >> 1)];
@@ -211,7 +210,6 @@ uint16_t Bus::read16(uint32_t address, AccessType accessType)
 		{
 			if (address <= 0x3FFF)
 				return m_openBusVals.bios;	//todo: account for the value being rotated properly
-			Logger::getInstance()->msg(LoggerSeverity::Error, "Out of bounds BIOS read");
 			return m_openBusVals.mem;
 		}
 		return getValue16(m_mem->BIOS, address & 0x3FFF, 0x3FFF);

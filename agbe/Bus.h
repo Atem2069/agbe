@@ -29,6 +29,7 @@ struct OpenBus
 {
 	uint32_t bios;	//bios open bus value
 	uint32_t mem;	//open bus for other unused mem
+	uint32_t dma;
 };
 
 enum class AccessType

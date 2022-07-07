@@ -295,19 +295,32 @@ void Bus::doDMATransfer(int channel)
 		dstAddrCtrl = 2;
 		curChannel.control |= 0x200;
 	}
-
 	for (int i = 0; i < numWords; i++)		
 	{
 		m_scheduler->addCycles(2);
 		if (wordTransfer)
 		{
-			uint32_t word = read32(src,(AccessType)!dmaNonsequentialAccess);
-			write32(dest, word,(AccessType)!dmaNonsequentialAccess);									
+			uint32_t word = 0;
+			if (src <= 0x01FFFFFF)	[[unlikely]]							//handle dma open bus, when r/w to 0->01ffffff
+				word = m_openBusVals.dma;
+			else
+			{
+				word = read32(src&~0b11, (AccessType)!dmaNonsequentialAccess);
+				m_openBusVals.dma = word;
+			}
+			write32(dest&~0b11, word,(AccessType)!dmaNonsequentialAccess);									
 		}
 		else
 		{
-			uint16_t halfword = read16(src,(AccessType)!dmaNonsequentialAccess);
-			write16(dest, halfword,(AccessType)!dmaNonsequentialAccess);                        			
+			uint16_t halfword = 0;
+			if (src <= 0x01FFFFFF)
+				halfword = (m_openBusVals.dma) >> (16* src & 0b10);
+			else
+			{
+				halfword = read16(src&~0b1, (AccessType)!dmaNonsequentialAccess);
+				m_openBusVals.dma = halfword >> (16 * src & 0b10);
+			}
+			write16(dest&~0b1, halfword,(AccessType)!dmaNonsequentialAccess);                        			
 		}
 		m_scheduler->tick();
 		int incrementAmount = (wordTransfer) ? 4 : 2;
