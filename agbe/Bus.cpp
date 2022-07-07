@@ -489,7 +489,7 @@ uint32_t Bus::fetch32(uint32_t address, AccessType accessType)
 			uint16_t valHigh = fetch16(address + 2, accessType);
 			val = ((valHigh << 16) | valLow);
 			if (!hack_lastPrefetchGood)
-				m_scheduler->addCycles(1);		//extra S cycle inserted only when prefetch fails
+				m_scheduler->addCycles(1);		//extra S cycle inserted only when prefetch fails (warn: potentially/likely wrong)
 		}
 		else
 		{
@@ -498,6 +498,7 @@ uint32_t Bus::fetch32(uint32_t address, AccessType accessType)
 			invalidatePrefetchBuffer();
 			prefetchInProgress = true;
 			prefetchAddress = address + 4;
+			m_prefetchHead = prefetchAddress;
 		}
 		m_openBusVals.mem = val;
 	}
@@ -535,9 +536,12 @@ uint16_t Bus::getPrefetchedValue(uint32_t pc)
 	{
 		if (prefetchSize > 0)	//if value in prefetch buffer, then just get it
 		{
-			val = m_prefetchBuffer[prefetchStart].value;
+			if (m_prefetchHead != pc)
+				Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Prefetcher/CPU misalign: expected addr={:#x}, prefetcher addr = {:#x}", pc, m_prefetchHead));
+			val = read16(pc, AccessType::Prefetch);
 			prefetchStart = (prefetchStart + 1) & 7;
 			prefetchSize--;
+			m_prefetchHead += 2;
 			hack_lastPrefetchGood = true;
 		}
 		else					//otherwise we'll wait for the prefetch buffer to get it, then reset the buffer (but keep burst going)
@@ -548,6 +552,7 @@ uint16_t Bus::getPrefetchedValue(uint32_t pc)
 			invalidatePrefetchBuffer();
 			prefetchInProgress = true;
 			prefetchAddress = pc + 2;
+			m_prefetchHead = prefetchAddress;
 			val = read16(pc, AccessType::Prefetch);
 		}
 	}
@@ -557,6 +562,7 @@ uint16_t Bus::getPrefetchedValue(uint32_t pc)
 		invalidatePrefetchBuffer();
 		prefetchInProgress = true;
 		prefetchAddress = pc + 2;
+		m_prefetchHead = prefetchAddress;
 	}
 	return val;
 }
@@ -640,6 +646,8 @@ void Bus::writeIO8(uint32_t address, uint8_t value)
 		waitstateSequentialTable[2] = ((WAITCNT >> 10) & 0b1) ? 1 : 8;
 		SRAMCycles = nonseqLUT[(WAITCNT & 0b11)];
 		prefetchEnabled = ((WAITCNT >> 14) & 0b1);
+		if (!prefetchEnabled)
+			invalidatePrefetchBuffer();
 
 		return;
 	case 0x04000301:
@@ -742,8 +750,6 @@ void Bus::tickPrefetcher(uint64_t cycles)
 		while (prefetchInternalCycles > waitstates && prefetchSize < 8)
 		{
 			prefetchInternalCycles -= waitstates;
-			uint16_t val = read16(prefetchAddress, AccessType::Prefetch);
-			m_prefetchBuffer[prefetchEnd] = { prefetchAddress,val };
 			prefetchEnd = (prefetchEnd + 1) & 7;
 			prefetchSize++;
 			prefetchAddress += 2;

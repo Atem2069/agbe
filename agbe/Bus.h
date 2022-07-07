@@ -38,13 +38,6 @@ enum class AccessType
 	Prefetch				//this access takes zero waitstates to complete (we assume those waitstates already ticked in i-cycles or mem accesses)
 };
 
-struct PrefetchEntry
-{
-	uint32_t address;
-	uint16_t value;
-};
-
-
 class Bus
 {
 public:
@@ -140,7 +133,7 @@ private:
 
 	const int nonseqLUT[4] = { 4,3,2,8 };
 
-	PrefetchEntry m_prefetchBuffer[8] = {};
+	uint32_t m_prefetchHead = 0;
 	int prefetchSize = 0;
 	int prefetchStart = 0, prefetchEnd = 0;
 	bool prefetchInProgress = false;
