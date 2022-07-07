@@ -11,6 +11,8 @@ EEPROM::EEPROM(BackupType type)
 	case BackupType::EEPROM64K:
 		addressSize = 14; break;
 	}
+
+	memset(ROMData, 0xFF, 1024 * 4);
 }
 
 EEPROM::~EEPROM()

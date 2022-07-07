@@ -6,8 +6,7 @@ Flash::Flash(BackupType type)
 	m_state = FlashState::Ready;
 	bank = 0;
 
-	for (int i = 0; i < (128 * 1024); i++)
-		flashMem[i] = 0xFF;
+	memset(flashMem, 0xFF, 131072);
 }
 
 Flash::~Flash()
