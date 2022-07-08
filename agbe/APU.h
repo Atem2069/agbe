@@ -218,6 +218,5 @@ private:
 	int16_t m_sampleBuffer[sampleBufferSize*2] = {};
 	int sampleIndex = 0;
 
-	float capacitor = 0.0f;
-	float highPass(float in, bool enable);
+	void lowPass(int16_t* outBuffer, int16_t* inBuffer);
 };

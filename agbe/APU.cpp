@@ -268,8 +268,9 @@ void APU::onSampleEvent()
 	if (sampleIndex == sampleBufferSize)
 	{
 		sampleIndex = 0;
-		int16_t m_finalSamples[sampleBufferSize*2] = {};
-		memcpy((void*)m_finalSamples, (void*)m_sampleBuffer, sampleBufferSize * 4);
+		//memcpy((void*)m_finalSamples, (void*)m_sampleBuffer, sampleBufferSize * 4);
+		int16_t m_finalSamples[sampleBufferSize * 2] = {};
+		lowPass(m_finalSamples, m_sampleBuffer);
 		SDL_QueueAudio(m_audioDevice, (void*)m_finalSamples, sampleBufferSize*4);
 
 		while (SDL_GetQueuedAudioSize(m_audioDevice) > sampleBufferSize * 4)
@@ -642,16 +643,6 @@ void APU::frameSequencerCallback(void* context)
 	thisPtr->onFrameSequencerEvent();
 }
 
-float APU::highPass(float in, bool enable)
-{
-	if (!enable)
-		return 0.0;
-	float out = 0.0f;
-	out = in - capacitor;
-	capacitor = in - out * 0.996336;
-	return out;
-}
-
 void APU::triggerSquare1()
 {
 	SOUNDCNT_X |= 0b1;
@@ -711,4 +702,20 @@ void APU::triggerNoise()
 	int divisor = divisorMappings[m_noiseChannel.divisorCode];
 	m_noiseChannel.frequency = divisor << (m_noiseChannel.shiftAmount + 2);	//<-- +2 accounts for us measuring cycles at 16.7MHz
 	m_noiseChannel.lastCheckTimestamp = m_scheduler->getCurrentTimestamp();
+}
+
+void APU::lowPass(int16_t* outBuffer, int16_t* inBuffer)
+{
+	float dt = 1.0 / (float)sampleRate;
+	float a = (2.0 * 3.14 * 20000*dt) / ((2.0 * 3.14 * 20000*dt) + 1);	//20k cutoff for high pass
+	outBuffer[0] = a *inBuffer[0];
+	outBuffer[1] = a * inBuffer[1];
+	for (int i = 1; i < sampleBufferSize; i++)
+	{
+		float curSample = inBuffer[i * 2];
+		outBuffer[i * 2] = (float)outBuffer[(i * 2) - 2] + a * (curSample - (float)outBuffer[(i * 2) - 2]);
+
+		curSample = inBuffer[(i * 2) + 1];
+		outBuffer[(i * 2) + 1] = (float)outBuffer[(i * 2) - 1] + a * (curSample - (float)outBuffer[(i * 2) - 1]);
+	}
 }
