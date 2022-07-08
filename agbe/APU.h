@@ -147,10 +147,16 @@ public:
 private:
 	std::shared_ptr<Scheduler> m_scheduler;
 	AudioFIFO m_channels[2];
+
 	SquareChannel1 m_square1 = {};
 	SquareChannel2 m_square2 = {};
 	WaveChannel m_waveChannel = {};
 	NoiseChannel m_noiseChannel = {};
+
+	void triggerSquare1();
+	void triggerSquare2();
+	void triggerWave();
+	void triggerNoise();
 
 	uint16_t SOUNDCNT_L = {};
 	uint16_t SOUNDCNT_H = {};

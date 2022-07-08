@@ -122,19 +122,7 @@ void APU::writeIO(uint32_t address, uint8_t value)
 	case 0x04000065:
 		SOUND1CNT_X &= 0xFF; SOUND1CNT_X |= (value << 8);
 		if ((value >> 7) & 0b1)
-		{
-			SOUNDCNT_X |= 0b1;
-
-			if (m_square1.lengthCounter == 0)
-				m_square1.lengthCounter = 64;
-			m_square1.frequency = (2048 - (SOUND1CNT_X & 0x7FF)) * 16;
-			m_square1.enabled = true;
-			m_square1.dutyPattern = (SOUND1CNT_H >> 6) & 0b11;
-			m_square1.doLength = ((SOUND1CNT_X >> 14) & 0b1);
-			m_square1.envelopeTimer = m_square1.envelopePeriod;
-			m_square1.volume = ((SOUND1CNT_H >> 12) & 0xF);
-			m_square1.lastCheckTimestamp = m_scheduler->getCurrentTimestamp();
-		}
+			triggerSquare1();
 		break;
 	case 0x04000068:
 		SOUND2CNT_L &= 0xFF00; SOUND2CNT_L |= value;
@@ -153,19 +141,7 @@ void APU::writeIO(uint32_t address, uint8_t value)
 	case 0x0400006D:
 		SOUND2CNT_H &= 0xFF; SOUND2CNT_H |= (value << 8);
 		if ((value >> 7) & 0b1)	//reload channel
-		{
-			SOUNDCNT_X |= 0b10;	//reenable square 2 in soundcnt_x
-
-			if (m_square2.lengthCounter == 0)
-				m_square2.lengthCounter = 64;
-			m_square2.frequency = (2048 - (SOUND2CNT_H & 0x7FF)) * 16;
-			m_square2.enabled = true;
-			m_square2.dutyPattern = (SOUND2CNT_L >> 6) & 0b11;
-			m_square2.doLength = ((SOUND2CNT_H >> 14) & 0b1);
-			m_square2.envelopeTimer = m_square2.envelopePeriod;
-			m_square2.volume = ((SOUND2CNT_L >> 12) & 0xF);
-			m_square2.lastCheckTimestamp = m_scheduler->getCurrentTimestamp();
-		}
+			triggerSquare2();
 		break;
 	case 0x04000070:
 		SOUND3CNT_L = value;
@@ -195,18 +171,7 @@ void APU::writeIO(uint32_t address, uint8_t value)
 	case 0x04000075:
 		SOUND3CNT_X &= 0xFF; SOUND3CNT_X |= (value << 8);
 		if (((value >> 7) & 0b1) && m_waveChannel.canEnable)
-		{
-			SOUNDCNT_X |= 0b100;
-			m_waveChannel.enabled = true;
-
-			if (m_waveChannel.lengthCounter == 0)
-				m_waveChannel.lengthCounter = 256;
-			m_waveChannel.frequency = (2048 - (SOUND3CNT_X & 0x7FF)) * 8;
-			m_waveChannel.sampleIndex = 0;
-			m_waveChannel.currentBankNumber = (SOUND3CNT_L >> 6) & 0b1;	//todo: doublecheck if this is right;
-			m_waveChannel.doLength = ((SOUND3CNT_X >> 14) & 0b1);
-			m_waveChannel.lastCheckTimestamp = m_scheduler->getCurrentTimestamp();
-		}
+			triggerWave();
 		break;
 	case 0x04000078:
 		SOUND4CNT_L &= 0xFF00; SOUND4CNT_L |= value;
@@ -228,21 +193,7 @@ void APU::writeIO(uint32_t address, uint8_t value)
 	case 0x0400007D:
 		SOUND4CNT_H &= 0xFF; SOUND4CNT_H |= (value << 8);
 		if ((value >> 7) & 0b1)
-		{
-			SOUNDCNT_X |= 0b1000;
-			m_noiseChannel.enabled = true;
-			
-			if (m_noiseChannel.lengthCounter == 0)
-				m_noiseChannel.lengthCounter = 64;
-			m_noiseChannel.doLength = ((SOUND4CNT_H >> 14) & 0b1);
-			m_noiseChannel.LFSR = 0x40;
-			if (!m_noiseChannel.widthMode)
-				m_noiseChannel.LFSR <<= 8;	
-
-			int divisor = divisorMappings[m_noiseChannel.divisorCode];
-			m_noiseChannel.frequency = divisor << (m_noiseChannel.shiftAmount + 2);	//<-- +2 accounts for us measuring cycles at 16.7MHz
-			m_noiseChannel.lastCheckTimestamp = m_scheduler->getCurrentTimestamp();
-		}
+			triggerNoise();
 		break;
 	case 0x04000080:
 		SOUNDCNT_L &= 0xFF00; SOUNDCNT_L |= value;
@@ -699,4 +650,65 @@ float APU::highPass(float in, bool enable)
 	out = in - capacitor;
 	capacitor = in - out * 0.996336;
 	return out;
+}
+
+void APU::triggerSquare1()
+{
+	SOUNDCNT_X |= 0b1;
+
+	if (m_square1.lengthCounter == 0)
+		m_square1.lengthCounter = 64;
+	m_square1.frequency = (2048 - (SOUND1CNT_X & 0x7FF)) * 16;
+	m_square1.enabled = true;
+	m_square1.dutyPattern = (SOUND1CNT_H >> 6) & 0b11;
+	m_square1.doLength = ((SOUND1CNT_X >> 14) & 0b1);
+	m_square1.envelopeTimer = m_square1.envelopePeriod;
+	m_square1.volume = ((SOUND1CNT_H >> 12) & 0xF);
+	m_square1.lastCheckTimestamp = m_scheduler->getCurrentTimestamp();
+}
+
+void APU::triggerSquare2()
+{
+	SOUNDCNT_X |= 0b10;	//reenable square 2 in soundcnt_x
+
+	if (m_square2.lengthCounter == 0)
+		m_square2.lengthCounter = 64;
+	m_square2.frequency = (2048 - (SOUND2CNT_H & 0x7FF)) * 16;
+	m_square2.enabled = true;
+	m_square2.dutyPattern = (SOUND2CNT_L >> 6) & 0b11;
+	m_square2.doLength = ((SOUND2CNT_H >> 14) & 0b1);
+	m_square2.envelopeTimer = m_square2.envelopePeriod;
+	m_square2.volume = ((SOUND2CNT_L >> 12) & 0xF);
+	m_square2.lastCheckTimestamp = m_scheduler->getCurrentTimestamp();
+}
+
+void APU::triggerWave()
+{
+	SOUNDCNT_X |= 0b100;
+	m_waveChannel.enabled = true;
+
+	if (m_waveChannel.lengthCounter == 0)
+		m_waveChannel.lengthCounter = 256;
+	m_waveChannel.frequency = (2048 - (SOUND3CNT_X & 0x7FF)) * 8;
+	m_waveChannel.sampleIndex = 0;
+	m_waveChannel.currentBankNumber = (SOUND3CNT_L >> 6) & 0b1;	//todo: doublecheck if this is right;
+	m_waveChannel.doLength = ((SOUND3CNT_X >> 14) & 0b1);
+	m_waveChannel.lastCheckTimestamp = m_scheduler->getCurrentTimestamp();
+}
+
+void APU::triggerNoise()
+{
+	SOUNDCNT_X |= 0b1000;
+	m_noiseChannel.enabled = true;
+
+	if (m_noiseChannel.lengthCounter == 0)
+		m_noiseChannel.lengthCounter = 64;
+	m_noiseChannel.doLength = ((SOUND4CNT_H >> 14) & 0b1);
+	m_noiseChannel.LFSR = 0x40;
+	if (!m_noiseChannel.widthMode)
+		m_noiseChannel.LFSR <<= 8;
+
+	int divisor = divisorMappings[m_noiseChannel.divisorCode];
+	m_noiseChannel.frequency = divisor << (m_noiseChannel.shiftAmount + 2);	//<-- +2 accounts for us measuring cycles at 16.7MHz
+	m_noiseChannel.lastCheckTimestamp = m_scheduler->getCurrentTimestamp();
 }
