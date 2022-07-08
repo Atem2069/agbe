@@ -52,7 +52,6 @@ private:
 	bool getEntryAtTimestamp(SchedulerEntry& entry);
 	uint64_t timestamp;
 	uint64_t eventTime;
-	uint64_t pendingCycles = 0;
 	uint64_t syncDelta = 0;
 	bool shouldSync = false;
 	SchedulerEntry entries[11];	//todo: add moree stuff to scheduler

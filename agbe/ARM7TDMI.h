@@ -35,6 +35,7 @@ private:
 
 	Pipeline m_pipeline[3];
 	uint8_t m_pipelinePtr = 0;
+	bool pipelineFull = false;
 	bool m_pipelineFlushed = false;
 	bool nextFetchNonsequential = true;
 

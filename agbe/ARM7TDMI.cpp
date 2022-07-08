@@ -58,6 +58,7 @@ void ARM7TDMI::execute()
 	int curPipelinePtr = (m_pipelinePtr + 1) % 3;	//+1 so when it wraps it's actually 2 behind the current fetch. e.g. cur fetch = 2, then cur execute = 0 (2 behind)
 	if (m_pipeline[curPipelinePtr].state == PipelineState::UNFILLED)	//return if we haven't put an opcode up to this point in the pipeline
 		return;
+	pipelineFull = true;
 	//NOTE: PC is 8 bytes ahead of opcode being executed
 
 	m_currentOpcode = m_pipeline[curPipelinePtr].opcode;
@@ -89,29 +90,17 @@ void ARM7TDMI::executeThumb()
 
 bool ARM7TDMI::dispatchInterrupt()
 {
-	if (m_pipeline[0].state == PipelineState::UNFILLED || m_pipeline[1].state == PipelineState::UNFILLED || m_pipeline[2].state == PipelineState::UNFILLED)
+	if (!pipelineFull || ((CPSR>>7)&0b1) || !m_interruptManager->getInterrupt(false))
 		return false;	//only dispatch if pipeline full (or not about to flush)
-	bool irqDisabled = ((CPSR >> 7) & 0b1);
-	if (irqDisabled)
-		return false;
-	
-	if (!m_interruptManager->getInterrupt(false))	//final check: if interrupt actually requested
-		return false;
-
 	//irq bits: 10010
 	uint32_t oldCPSR = CPSR;
-
-	CPSR &= ~(0b100000);	//clear T bit if applicable
-	CPSR |= 0x80;	//set IRQ bit (disable irqs)
-	CPSR &= ~0x1F;
-	CPSR |= 0b10010;	//set irq mode
+	CPSR &= ~0x3F;
+	CPSR |= 0x92;
 
 	bool wasThumb = ((oldCPSR >> 5) & 0b1);
+	constexpr int pcOffsetAmount[2] = { 4,0 };
 	setSPSR(oldCPSR);
-	if (wasThumb)
-		setReg(14, getReg(15));		//...apparently this is correct :/
-	else
-		setReg(14, getReg(15)-4);
+	setReg(14, getReg(15) - pcOffsetAmount[wasThumb]);
 	setReg(15, 0x00000018);
 	flushPipeline();
 	return true;
@@ -125,6 +114,7 @@ void ARM7TDMI::flushPipeline()
 	m_pipelineFlushed = true;
 	nextFetchNonsequential = true;
 	m_bus->invalidatePrefetchBuffer();
+	pipelineFull = false;
 }
 
 bool ARM7TDMI::checkConditions(uint8_t code)
