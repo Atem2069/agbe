@@ -378,7 +378,7 @@ void PPU::renderMode5()
 
 void PPU::composeLayers()
 {
-	uint16_t backDrop = *(uint16_t*)m_mem->paletteRAM;
+	uint16_t backDrop = *(uint16_t*)m_mem->paletteRAM & 0x7FFF;
 	int spriteMosaicHorizontal = ((MOSAIC >> 8) & 0xF) + 1;
 	int spriteHorizontalMosaicCounter = 0;
 	int spriteMosaicX = 0;
