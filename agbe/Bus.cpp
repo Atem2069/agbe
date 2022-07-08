@@ -2,7 +2,6 @@
 
 Bus::Bus(std::vector<uint8_t> BIOS, std::vector<uint8_t> cartData, std::shared_ptr<InterruptManager> interruptManager, std::shared_ptr<PPU> ppu, std::shared_ptr<Input> input, std::shared_ptr<Scheduler> scheduler)
 {
-	busCtx = (void*)this;
 	m_scheduler = scheduler;
 	m_interruptManager = interruptManager;
 	m_ppu = ppu;
@@ -12,7 +11,7 @@ Bus::Bus(std::vector<uint8_t> BIOS, std::vector<uint8_t> cartData, std::shared_p
 	m_timer = std::make_shared<Timer>(m_interruptManager,m_scheduler);
 	m_apu = std::make_shared<APU>(m_scheduler);
 	m_timer->registerAPUCallbacks((callbackFn)&APU::timer0Callback, (callbackFn)&APU::timer1Callback, (void*)m_apu.get());
-	m_apu->registerDMACallback((callbackFn)&Bus::DMA_AudioFIFOCallback, busCtx);
+	m_apu->registerDMACallback((callbackFn)&Bus::DMA_AudioFIFOCallback, (void*)this);
 	m_serial = std::make_shared<SerialStub>(m_scheduler, m_interruptManager);
 	m_ppu->registerMemory(m_mem);
 	m_ppu->registerDMACallbacks(&Bus::DMA_HBlankCallback, &Bus::DMA_VBlankCallback, &Bus::DMA_VideoCaptureCallback, (void*)this);
@@ -764,5 +763,3 @@ void Bus::invalidatePrefetchBuffer()
 	prefetchInternalCycles = 0;
 	prefetchShouldDelay = false;
 }
-
-void* Bus::busCtx = nullptr;

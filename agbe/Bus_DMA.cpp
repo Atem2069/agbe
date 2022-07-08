@@ -489,5 +489,5 @@ void Bus::DMA_VideoCaptureCallback(void* context)
 void Bus::DMA_AudioFIFOCallback(void* context)
 {
 	Bus* thisPtr = (Bus*)context;
-	((Bus*)busCtx)->onAudioFIFO();	//this is fucking horrible - some sort of corruption in the apu is causing ctx to get destroyed i think, so fix this!!
+	thisPtr->onAudioFIFO();	
 }

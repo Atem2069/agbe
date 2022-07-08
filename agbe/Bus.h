@@ -126,8 +126,6 @@ private:
 	void onVideoCapture();
 	void onAudioFIFO();
 
-	static void* busCtx;
-
 	int waitstateNonsequentialTable[3] = {3,3,3};
 	int waitstateSequentialTable[3] = { 1,1,1 };
 	int SRAMCycles = 8;

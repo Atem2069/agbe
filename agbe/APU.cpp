@@ -30,7 +30,7 @@ APU::~APU()
 void APU::registerDMACallback(callbackFn dmaCallback, void* context)
 {
 	FIFODMACallback = dmaCallback;
-	dmaContext = dmaCallback;
+	dmaContext = context;
 }
 
 uint8_t APU::readIO(uint32_t address)
