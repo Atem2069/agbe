@@ -131,7 +131,6 @@ uint8_t Bus::read8(uint32_t address, AccessType accessType)
 			return m_backupMemory->read(address);
 	}
 
-	Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Out of bounds/invalid read addr={:#x}", address));
 	tickPrefetcher(1);
 	return m_openBusVals.mem;
 }
@@ -144,7 +143,6 @@ void Bus::write8(uint32_t address, uint8_t value, AccessType accessType)
 	{
 	case 0: case 1:
 		tickPrefetcher(1);
-		Logger::getInstance()->msg(LoggerSeverity::Error, "Tried to write to BIOS region");
 		break;
 	case 2:
 		m_scheduler->addCycles(2);
@@ -178,7 +176,6 @@ void Bus::write8(uint32_t address, uint8_t value, AccessType accessType)
 	case 8: case 9: case 0xA: case 0xB: case 0xC: case 0xD:
 		cartCycles = ((accessType==AccessType::Sequential) && ((address & 0x1FF) != 0)) ? waitstateSequentialTable[((page - 8) >> 1)] : waitstateNonsequentialTable[((page - 8) >> 1)];
 		m_scheduler->addCycles(cartCycles);
-		Logger::getInstance()->msg(LoggerSeverity::Error, "Tried writing to ROM - ignoring");
 		if (prefetchInProgress && prefetchShouldDelay)
 			m_scheduler->addCycles(1);
 		prefetchShouldDelay = false;
@@ -190,7 +187,6 @@ void Bus::write8(uint32_t address, uint8_t value, AccessType accessType)
 			m_backupMemory->write(address, value);
 		break;
 	default:
-		Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Out of bounds/invalid write addr={:#x}", address));
 		tickPrefetcher(1);
 		break;
 	}
@@ -260,7 +256,6 @@ uint16_t Bus::read16(uint32_t address, AccessType accessType)
 			return m_backupMemory->read(originalAddress) * 0x0101;
 	}
 
-	Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Out of bounds/invalid read addr={:#x}", address));
 	tickPrefetcher(1);
 	return m_openBusVals.mem;
 }
@@ -275,7 +270,6 @@ void Bus::write16(uint32_t address, uint16_t value, AccessType accessType)
 	{
 	case 0: case 1:
 		tickPrefetcher(1);
-		Logger::getInstance()->msg(LoggerSeverity::Error, "Tried to write to BIOS!!");
 		break;
 	case 2:
 		m_scheduler->addCycles(2);
@@ -318,7 +312,6 @@ void Bus::write16(uint32_t address, uint16_t value, AccessType accessType)
 			m_backupMemory->write(address, value);
 			break;
 		}
-		Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Tried to write to cartridge space!!! addr={:#x}",address));
 		break;
 	case 0xE: case 0xF:
 		m_scheduler->addCycles(SRAMCycles);
@@ -329,7 +322,6 @@ void Bus::write16(uint32_t address, uint16_t value, AccessType accessType)
 		}
 		break;
 	default:
-		Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Out of bounds/invalid write addr={:#x}", address));
 		tickPrefetcher(1);
 		break;
 	}
@@ -401,7 +393,6 @@ uint32_t Bus::read32(uint32_t address, AccessType accessType)
 			return m_backupMemory->read(originalAddress) * 0x01010101;
 	}
 
-	Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Out of bounds/invalid read addr={:#x}", address));
 	tickPrefetcher(1);
 	if (m_openBusVals.dmaJustFinished)
 	{
@@ -421,7 +412,6 @@ void Bus::write32(uint32_t address, uint32_t value, AccessType accessType)
 	{
 	case 0: case 1:
 		tickPrefetcher(1);
-		Logger::getInstance()->msg(LoggerSeverity::Error, "Tried to write to BIOS!!");
 		break;
 	case 2:
 		m_scheduler->addCycles(5);
@@ -472,7 +462,6 @@ void Bus::write32(uint32_t address, uint32_t value, AccessType accessType)
 			m_backupMemory->write(originalAddress, (std::rotr(value, originalAddress * 8) & 0xFF));
 		break;
 	default:
-		Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Out of bounds/invalid write addr={:#x}", address));
 		tickPrefetcher(1);
 		break;
 	}
