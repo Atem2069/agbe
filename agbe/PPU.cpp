@@ -856,24 +856,26 @@ void PPU::drawSprites()
 				if (plotCoord > 239 || plotCoord < 0)
 					continue;
 
-				uint8_t priorityAtPixel = m_spriteAttrBuffer[plotCoord].priority;
-				if ((spritePriority >= priorityAtPixel) && !isObjWindow)
-					continue;
-
 				uint16_t col = extractColorFromTile(tileMapLookupAddr, baseX, hiColor, true, paletteNumber);
-				if ((col >> 15) & 0b1)	//TODO: handle transparent pixels overriding render parameters
-					continue;
 
 				if (isObjWindow)
-					m_spriteAttrBuffer[plotCoord].objWindow = 1;
-				else
 				{
-					//if (m_spriteAttrBuffer[plotCoord].priority != 0x1E)
-					m_spriteAttrBuffer[plotCoord].mosaic = mosaic;
-					m_spriteAttrBuffer[plotCoord].priority = spritePriority & 0b11111;
-					m_spriteAttrBuffer[plotCoord].transparent = (objMode == 1);
-					m_spriteLineBuffer[plotCoord] = col;
+					if(!(col>>15))
+						m_spriteAttrBuffer[plotCoord].objWindow = 1;
+					continue;
 				}
+
+				uint8_t priorityAtPixel = m_spriteAttrBuffer[plotCoord].priority;
+				bool renderedPixelTransparent = m_spriteLineBuffer[plotCoord] >> 15;
+				bool currentPixelTransparent = col >> 15;
+				if ((spritePriority >= priorityAtPixel) && (!renderedPixelTransparent || currentPixelTransparent))	//keep rendering if lower priority, BUT last pixel transparent
+					continue;
+
+				m_spriteAttrBuffer[plotCoord].priority = spritePriority & 0b11111;
+				m_spriteAttrBuffer[plotCoord].transparent = (objMode == 1);
+				m_spriteAttrBuffer[plotCoord].mosaic = ((curSpriteEntry->attr0) >> 12) & 0b1;
+				if(!currentPixelTransparent)
+					m_spriteLineBuffer[plotCoord] = col;
 			}
 		}
 
@@ -987,26 +989,25 @@ void PPU::drawAffineSprite(OAMEntry* curSpriteEntry)
 		if (plotCoord > 239 || plotCoord < 0)
 			continue;
 
-		uint8_t priorityAtPixel = m_spriteAttrBuffer[plotCoord].priority;
-		if ((spritePriority >= priorityAtPixel) && !isObjWindow)
-			continue;
-
 		uint16_t col = extractColorFromTile(tileMapLookupAddr, baseX, hiColor, true, paletteNumber);
-		if ((col >> 15) & 0b1)
-		{
-			m_spriteAttrBuffer[plotCoord].mosaic = ((curSpriteEntry->attr0) >> 12) & 0b1;	//todo: extend to other parameters. transparent objs can override params
-			continue;
-		}
 
 		if (isObjWindow)
-			m_spriteAttrBuffer[plotCoord].objWindow = 1;
-		else
 		{
-			m_spriteAttrBuffer[plotCoord].priority = spritePriority&0b11111;
-			m_spriteAttrBuffer[plotCoord].transparent = (objMode == 1);
-			m_spriteAttrBuffer[plotCoord].mosaic = ((curSpriteEntry->attr0) >> 12) & 0b1;
-			m_spriteLineBuffer[plotCoord] = col;
+			if (!(col >> 15))
+				m_spriteAttrBuffer[plotCoord].objWindow = 1;
+			continue;
 		}
+
+		uint8_t priorityAtPixel = m_spriteAttrBuffer[plotCoord].priority;
+		bool renderedPixelTransparent = m_spriteLineBuffer[plotCoord] >> 15;
+		bool currentPixelTransparent = col >> 15;
+		if ((spritePriority >= priorityAtPixel) && (!renderedPixelTransparent || currentPixelTransparent))	//same as for normal, only stop if we're transparent (and lower priority)
+			continue;																						//...or last pixel isn't transparent
+		m_spriteAttrBuffer[plotCoord].priority = spritePriority&0b11111;
+		m_spriteAttrBuffer[plotCoord].transparent = (objMode == 1);
+		m_spriteAttrBuffer[plotCoord].mosaic = ((curSpriteEntry->attr0) >> 12) & 0b1;
+		if (!currentPixelTransparent)
+			m_spriteLineBuffer[plotCoord] = col;
 	}
 
 }
