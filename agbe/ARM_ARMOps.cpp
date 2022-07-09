@@ -108,32 +108,44 @@ void ARM7TDMI::ARM_DataProcessing()
 	case 2:	//SUB
 		result = operand1 - operand2;
 		setReg(destRegIdx, result);
-		if (setConditionCodes) { setArithmeticFlags(operand1, operand2, result, false,false); }
+		if (setConditionCodes) { setArithmeticFlags(operand1, operand2, result, false); }
 		break;
 	case 3:	//RSB
 		result = operand2 - operand1;
 		setReg(destRegIdx, result);
-		if (setConditionCodes) { setArithmeticFlags(operand2, operand1, result, false,false); }
+		if (setConditionCodes) { setArithmeticFlags(operand2, operand1, result, false); }
 		break;
 	case 4:	//ADD
 		result = operand1 + operand2;
 		setReg(destRegIdx, result);
-		if (setConditionCodes) { setArithmeticFlags(operand1, operand2, result, true,false); }
+		if (setConditionCodes) { setArithmeticFlags(operand1, operand2, result, true); }
 		break;
 	case 5:	//ADC
 		result = operand1 + operand2 + carryIn;
 		setReg(destRegIdx, result);
-		if (setConditionCodes) { setArithmeticFlags(operand1, operand2,result, true, true); }
+		if (setConditionCodes)
+		{
+			setArithmeticFlags(operand1, operand2, result, true);
+			m_setCarryFlag((uint64_t)((uint64_t)operand1 + (uint64_t)operand2 + (uint64_t)carryIn) >> 32);
+		}
 		break;
 	case 6:	//SBC
-		result = operand1 - operand2 + carryIn - 1;
+		result = operand1 - (uint64_t)(operand2 + !carryIn);
 		setReg(destRegIdx, result);
-		if (setConditionCodes) { setArithmeticFlags(operand1, operand2, result, false, true); }
+		if (setConditionCodes)
+		{
+			setArithmeticFlags(operand1, operand2, result, false);
+			m_setCarryFlag(operand1 >= ((uint64_t)operand2+(uint64_t)!carryIn));
+		}
 		break;
 	case 7:	//RSC
-		result = operand2 - operand1 + carryIn - 1;
+		result = operand2 - ((uint64_t)operand1+(uint64_t)!carryIn);
 		setReg(destRegIdx, result);
-		if (setConditionCodes) { setArithmeticFlags(operand2, operand1, result, false, true); }
+		if (setConditionCodes)
+		{
+			setArithmeticFlags(operand2, operand1, result, false);
+			m_setCarryFlag(operand2 >= ((uint64_t)operand1+(uint64_t)!carryIn));
+		}
 		break;
 	case 8:	//TST
 		result = operand1 & operand2;
@@ -148,12 +160,12 @@ void ARM7TDMI::ARM_DataProcessing()
 	case 10: //CMP
 		result = operand1 - operand2;
 		realign = false;
-		setArithmeticFlags(operand1, operand2, result, false,false);
+		setArithmeticFlags(operand1, operand2, result, false);
 		break;
 	case 11: //CMN
 		result = operand1 + operand2;
 		realign = false;
-		setArithmeticFlags(operand1, operand2, result, true,false);
+		setArithmeticFlags(operand1, operand2, result, true);
 		break;
 	case 12: //ORR
 		result = operand1 | operand2;

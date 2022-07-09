@@ -132,7 +132,7 @@ private:
 
 	//Flag setting
 	void setLogicalFlags(uint32_t result, int carry);
-	void setArithmeticFlags(uint32_t input, uint64_t operand, uint32_t result, bool addition, bool carryIn);
+	void setArithmeticFlags(uint32_t input, uint64_t operand, uint32_t result, bool addition);
 
 	static constexpr auto thumbTable = []
 	{
