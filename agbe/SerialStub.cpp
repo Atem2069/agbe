@@ -96,6 +96,7 @@ void SerialStub::calculateNextEvent()
 	uint64_t transferLength = (wordTransfer) ? 32 : 8;
 
 	uint64_t transferClocks = (transferLength * cycleLUT[shiftClock]) + m_scheduler->getCurrentTimestamp();
+	m_scheduler->removeEvent(Event::Serial);	
 	m_scheduler->addEvent(Event::Serial, &SerialStub::eventCallback, (void*)this, transferClocks);
 }
 

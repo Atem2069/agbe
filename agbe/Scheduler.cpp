@@ -32,33 +32,22 @@ void Scheduler::tick()
 	SchedulerEntry entry = {};
 	while (getEntryAtTimestamp(entry))
 	{
-		//getEntryAtTimestamp will already disable the entry, so it won't fire until re-scheduled!
 		if (entry.callback && entry.context)
 		{
 			eventTime = entry.timestamp;
-			entry.callback(entry.context);	//dereferencing nullptr? you sure vs??
+			entry.callback(entry.context);	
 		}
 	}
 }
 
 void Scheduler::jumpToNextEvent()
 {
-	uint64_t lowestTimestamp = 0xFFFFFFFFFFFFFFFF;
-	int lowestEntryIdx = 0;
-	for (int i = 0; i < NUM_ENTRIES; i++)
-	{
-		if ((entries[i].timestamp < lowestTimestamp) && entries[i].enabled)
-		{
-			lowestEntryIdx = i;
-			lowestTimestamp = entries[i].timestamp;
-		}
-	}
-
-	timestamp = entries[lowestEntryIdx].timestamp;
+	SchedulerEntry lowestEntry = *m_entries.begin();
+	m_entries.pop_front();				
+	timestamp = lowestEntry.timestamp;
 	eventTime = timestamp;
-	m_lastFiredEvent = (Event)lowestEntryIdx;
-	entries[lowestEntryIdx].enabled = false;
-	entries[lowestEntryIdx].callback(entries[lowestEntryIdx].context);
+	m_lastFiredEvent = lowestEntry.eventType;
+	lowestEntry.callback(lowestEntry.context);
 }
 
 uint64_t Scheduler::getCurrentTimestamp()
@@ -77,29 +66,50 @@ void Scheduler::addEvent(Event type, callbackFn callback, void* context, uint64_
 	newEntry.timestamp = time;
 	newEntry.context = context;
 	newEntry.callback = callback;
+	newEntry.eventType = type;
 	newEntry.enabled = true;
-	entries[(int)type] = newEntry;
+	
+	std::list<SchedulerEntry>::iterator it = m_entries.begin();
+	bool inserted = false;
+	while (it != m_entries.end() && !inserted)
+	{
+		SchedulerEntry x = *it;
+		if (x.timestamp > newEntry.timestamp)
+		{
+			inserted = true;
+			m_entries.insert(it, newEntry);
+		}
+		it++;
+	}
+	if (!inserted)
+		m_entries.push_back(newEntry);
 }
 
 void Scheduler::removeEvent(Event type)
 {
-	entries[(int)type].enabled = false;
+	std::list<SchedulerEntry>::iterator it = m_entries.begin();
+	bool removed = false;
+	while (it != m_entries.end() && !removed)
+	{
+		if ((*it).eventType == type)
+		{
+			removed = true;
+			m_entries.erase(it);
+		}
+		it++;
+	}
 }
 
 bool Scheduler::getEntryAtTimestamp(SchedulerEntry& entry)
 {
-	for (int i = 0; i < NUM_ENTRIES; i++)
+	std::list<SchedulerEntry>::iterator it = m_entries.begin();
+	if ((*it).timestamp <= timestamp)
 	{
-		SchedulerEntry curEntry = entries[i];
-		if (curEntry.enabled && curEntry.timestamp <= timestamp)
-		{
-			entries[i].enabled = false;
-			m_lastFiredEvent = (Event)i;
-			entry = curEntry;
-			return true;
-		}
+		m_lastFiredEvent = (*it).eventType;
+		entry = *it;
+		m_entries.pop_front();
+		return true;
 	}
-
 	return false;
 }
 
@@ -107,8 +117,7 @@ void Scheduler::invalidateAll()
 {
 	timestamp = 0;
 	eventTime = 0;
-	for (int i = 0; i < NUM_ENTRIES; i++)
-		entries[i].enabled = false;
+	m_entries.clear();
 }
 
 Event Scheduler::getLastFiredEvent()

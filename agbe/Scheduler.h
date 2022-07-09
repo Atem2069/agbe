@@ -1,16 +1,11 @@
 #pragma once
 
 #include<iostream>
+#include<list>
+
+#include"Logger.h"
 
 typedef void(*callbackFn)(void*);
-
-struct SchedulerEntry
-{
-	callbackFn callback;
-	void* context;
-	uint64_t timestamp;
-	bool enabled;	
-};
 
 enum class Event
 {
@@ -25,6 +20,15 @@ enum class Event
 	AudioSample=8,
 	FrameSequencer=9,
 	IRQ=10
+};
+
+struct SchedulerEntry
+{
+	Event eventType;
+	callbackFn callback;
+	void* context;
+	uint64_t timestamp;
+	bool enabled;
 };
 
 class Scheduler
@@ -54,8 +58,7 @@ private:
 	uint64_t eventTime;
 	uint64_t syncDelta = 0;
 	bool shouldSync = false;
-	SchedulerEntry entries[11];	//todo: add moree stuff to scheduler
-	const int NUM_ENTRIES = 11;
+	std::list<SchedulerEntry> m_entries;
 
 	Event m_lastFiredEvent = Event::Frame;
 };

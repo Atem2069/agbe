@@ -154,6 +154,7 @@ void Timer::calculateNextOverflow(int timerIdx, uint64_t timeBase, bool first)
 	uint64_t overflowTimestamp = currentTime + cyclesToOverflow;
 
 	Event timerEventLUT[4] = { Event::TIMER0,Event::TIMER1,Event::TIMER2,Event::TIMER3 };
+	m_scheduler->removeEvent(timerEventLUT[timerIdx]);	//just in case :)
 	m_scheduler->addEvent(timerEventLUT[timerIdx], &Timer::onSchedulerEvent, (void*)this, overflowTimestamp);
 
 	m_timers[timerIdx].timeActivated = currentTime;
