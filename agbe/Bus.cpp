@@ -118,7 +118,12 @@ uint8_t Bus::read8(uint32_t address, AccessType accessType)
 		prefetchShouldDelay = false;
 		invalidatePrefetchBuffer();
 		if ((address & 0x01FFFFFF) >= romSize)
-			return std::rotr((address / 2) & 0xFFFF, 8*(address&0b11));
+		{
+			if (romSize == 1048576)
+				address &= 0xFFFFF;
+			else
+				return std::rotr((address / 2) & 0xFFFF, 8 * (address & 0b11));
+		}
 		return m_mem->ROM[address & 0x01FFFFFF];
 	case 0xE: case 0xF:
 		m_scheduler->addCycles(SRAMCycles);	//hm.
@@ -247,7 +252,12 @@ uint16_t Bus::read16(uint32_t address, AccessType accessType)
 				return m_backupMemory->read(address);
 		}
 		if ((address & 0x01FFFFFF) >= romSize)
-			return (address / 2) & 0xFFFF;
+		{
+			if (romSize == 1048576)
+				address &= 0xFFFFF;
+			else
+				return (address / 2) & 0xFFFF;
+		}
 		return getValue16(m_mem->ROM, address & 0x01FFFFFF,0xFFFFFFFF);
 	case 0xE: case 0xF:
 		m_scheduler->addCycles(SRAMCycles);
@@ -384,7 +394,12 @@ uint32_t Bus::read32(uint32_t address, AccessType accessType)
 			invalidatePrefetchBuffer();
 		}
 		if ((address & 0x01FFFFFF) >= romSize)
-			return ((address / 2) & 0xFFFF) | (((address + 2) / 2) & 0xFFFF) << 16;
+		{
+			if (romSize == 1048576)
+				address &= 0xFFFFF;
+			else
+				return ((address / 2) & 0xFFFF) | (((address + 2) / 2) & 0xFFFF) << 16;
+		}
 		return getValue32(m_mem->ROM, address & 0x01FFFFFF, 0xFFFFFFFF);
 	case 0xE: case 0xF:
 		m_scheduler->addCycles(SRAMCycles);

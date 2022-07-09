@@ -94,6 +94,7 @@ private:
 	bool backupInitialised = false;	//<--this might be bad, but necessary for EEPROM detection bc we use DMA
 
 	uint32_t romSize = 0;
+	bool mirrorROM = false;
 	OpenBus m_openBusVals = {};
 
 	DMAChannel m_dmaChannels[4];
