@@ -394,7 +394,7 @@ void PPU::composeLayers()
 		if (((BLDCNT >> 5) & 0b1))
 			blendPixelA = backDrop;
 
-		BlendAttribute m_blendLayers[4];
+		BlendAttribute m_blendLayers[5];
 
 		int highestBlendBPrio = 255, highestBlendAPrio = -1, blendALayer = 255;
 
@@ -425,23 +425,11 @@ void PPU::composeLayers()
 
 					}
 					//could maybe do something better..
-					m_blendLayers[layer].blendB = ((BLDCNT >> (layer + 8)) & 0b1);
-					m_blendLayers[layer].priority = m_backgroundLayers[layer].priorityBits;
-					m_blendLayers[layer].color = colAtLayer;
+					m_blendLayers[layer+1].blendB = ((BLDCNT >> (layer + 8)) & 0b1);
+					m_blendLayers[layer+1].priority = m_backgroundLayers[layer].priorityBits;
+					m_blendLayers[layer+1].color = colAtLayer;
 				}
 
-			}
-		}
-
-		for (int layer = 3; layer >= 0; layer--)
-		{
-			//try to find highest priority layer that is *also* lower priority than the blend A layer (if applicable)
-			if ((m_blendLayers[layer].priority <= highestBlendBPrio) && m_blendLayers[layer].priority >= highestBlendAPrio && m_blendLayers[layer].blendB)
-			{
-				if (m_blendLayers[layer].priority == highestBlendAPrio && layer <= blendALayer)
-					continue;
-				highestBlendBPrio = m_blendLayers[layer].priority;
-				blendPixelB = m_blendLayers[layer].color;
 			}
 		}
 
@@ -463,12 +451,32 @@ void PPU::composeLayers()
 					finalCol = spritePixel;
 					blendPixelA = 0x8000;
 					if (isBlendTargetA)
+					{
 						blendPixelA = finalCol;
-
+						highestBlendAPrio = highestPriority;
+						blendALayer = 0;	//hmm..
+					}
 				}
 				//only choose as target b if not target a (i.e. not transparent)
-				if (((BLDCNT >> 12) & 0b1) && !isBlendTargetA && m_spriteAttrBuffer[spriteX].priority > highestBlendAPrio)
-						blendPixelB = spritePixel;
+				m_blendLayers[0].priority = 999;
+				if (((BLDCNT >> 12) & 0b1) && !isBlendTargetA)
+				{
+					m_blendLayers[0].color = spritePixel;
+					m_blendLayers[0].blendB = true;
+					m_blendLayers[0].priority = m_spriteAttrBuffer[spriteX].priority;
+				}
+			}
+		}
+
+		for (int layer = 4; layer >= 0; layer--)
+		{
+			//try to find highest priority layer that is *also* lower priority than the blend A layer (if applicable)
+			if ((m_blendLayers[layer].priority <= highestBlendBPrio) && m_blendLayers[layer].priority >= highestBlendAPrio && m_blendLayers[layer].blendB)
+			{
+				if (m_blendLayers[layer].priority == highestBlendAPrio && (layer-1) <= blendALayer)
+					continue;
+				highestBlendBPrio = m_blendLayers[layer].priority;
+				blendPixelB = m_blendLayers[layer].color;
 			}
 		}
 
