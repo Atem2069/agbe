@@ -3,6 +3,12 @@ Highly WIP Game Boy Advance Emulator.
 
 ## 
 
-https://user-images.githubusercontent.com/23128103/177224153-38fb1327-05a5-46b3-b411-0f540e4f4ebd.mp4
+AGS Aging
 
-![ex](img/emerald.png)
+https://user-images.githubusercontent.com/23128103/178126626-4ac29ea5-08e7-440c-94cc-546c625561a8.mp4
+
+Pokemon Ruby
+
+
+https://user-images.githubusercontent.com/23128103/178126645-1c59d025-0c97-4215-bd1b-1d0f0f70f9b1.mp4
+
