@@ -64,7 +64,7 @@ void Timer::event()
 		}
 	}
 
-	if (timerIdx == 0 || timerIdx == 1)
+	if ((timerIdx == 0 || timerIdx == 1) && timerEnabled && !cascade)
 		apuOverflowCallbacks[timerIdx](apuCtx);
 }
 

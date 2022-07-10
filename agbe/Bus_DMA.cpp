@@ -226,6 +226,7 @@ void Bus::checkDMAChannel(int idx)
 		uint8_t startTiming = ((curCtrlReg >> 12) & 0b11);
 		if (startTiming == 0)
 		{
+			m_scheduler->removeEvent(Event::DMA);
 			m_scheduler->addEvent(Event::DMA, &Bus::DMA_ImmediateCallback, (void*)this, m_scheduler->getCurrentTimestamp() + 3);
 			m_scheduler->forceSync(3);	//lol (is 3 cycles even accurate?)
 		}
