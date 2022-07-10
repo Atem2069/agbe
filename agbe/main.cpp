@@ -5,15 +5,40 @@
 #include<iostream>
 #include<thread>
 #include<filesystem>
+#include<Windows.h>
 
 void emuWorkerThread();
 std::shared_ptr<GBA> m_gba;
 std::shared_ptr<InputState> inputState;
 
-int main()
+FILE* coutStream, *cinStream;
+
+int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _In_ PSTR lpCmdLine, _In_ int nShowCmd)
 {
+	AllocConsole();
+	freopen_s(&coutStream, "CONOUT$", "w", stdout);
+	freopen_s(&cinStream, "CONIN$", "w+", stdin);
+	
+	std::string path = lpCmdLine;
+	if (path.size())
+	{
+		if (path[0] == '"')
+			path = std::string(path.begin() + 1, path.end() - 1);	//i love windows inserting quotes into path :)
+		if (std::filesystem::exists(path))							//doublecheck some random crap hasn't been given as an argument
+		{
+			Config::GBA.shouldReset = true;
+			Config::GBA.RomName = path;
+		}
+	}
+
+	char name[512];
+	GetModuleFileNameA(NULL, name, 512);
+	std::string pathStringified = name;
+	int cutIdx = pathStringified.find_last_of('\\');
+	pathStringified.resize(cutIdx);									//remove exename part and last backslash
+
 	Logger::getInstance()->msg(LoggerSeverity::Info, "Hello world!");
-	Config::GBA.exePath = std::filesystem::current_path().string();
+	Config::GBA.exePath = pathStringified;
 	//have display in main thread here. then, spawn GBA instance on a separate thread running asynchronously.
 	//ppu can be polled whenever necessary pretty simply, by having some vfunc to return a framebuffer - uploaded to display
 	Display m_display(4);
