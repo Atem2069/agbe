@@ -327,7 +327,7 @@ void Bus::write16(uint32_t address, uint16_t value, AccessType accessType)
 		if (m_backupType == BackupType::SRAM)
 		{
 			value = (std::rotr(value, (originalAddress * 8))) & 0xFF;
-			m_backupMemory->write(originalAddress & 0xFFFF, value);
+			m_backupMemory->write(originalAddress, value);
 		}
 		break;
 	default:
