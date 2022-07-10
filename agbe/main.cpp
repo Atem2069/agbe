@@ -8,6 +8,7 @@
 #include<Windows.h>
 
 void emuWorkerThread();
+void dragDropCallback(GLFWwindow* window, int count, const char** paths);
 std::shared_ptr<GBA> m_gba;
 std::shared_ptr<InputState> inputState;
 
@@ -42,6 +43,7 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _
 	//have display in main thread here. then, spawn GBA instance on a separate thread running asynchronously.
 	//ppu can be polled whenever necessary pretty simply, by having some vfunc to return a framebuffer - uploaded to display
 	Display m_display(4);
+	m_display.registerDragDropCallback((GLFWdropfun)dragDropCallback);
 
 	inputState = std::make_shared<InputState>();
 	m_gba = std::make_shared<GBA>();
@@ -83,4 +85,13 @@ void emuWorkerThread()
 	m_gba->run();
 
 	Logger::getInstance()->msg(LoggerSeverity::Info, "Exited worker thread!!");
+}
+
+void dragDropCallback(GLFWwindow* window, int count, const char** paths)
+{
+	if (count > 0)
+	{
+		Config::GBA.shouldReset = true;
+		Config::GBA.RomName = paths[0];
+	}
 }

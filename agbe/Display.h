@@ -40,6 +40,7 @@ public:
 	void update(void* newData);	//unsafe but size is known :)
 
 	bool getPressed(unsigned int key);
+	void registerDragDropCallback(GLFWdropfun callbackFn);
 private:
 	GLFWwindow* m_window;
 

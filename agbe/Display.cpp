@@ -138,3 +138,8 @@ bool Display::getPressed(unsigned int key)
 {
 	return (glfwGetKey(m_window, key)) == GLFW_PRESS;
 }
+
+void Display::registerDragDropCallback(GLFWdropfun callbackFn)
+{
+	glfwSetDropCallback(m_window, callbackFn);
+}
