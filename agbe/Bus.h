@@ -99,6 +99,7 @@ private:
 
 	DMAChannel m_dmaChannels[4];
 	uint16_t WAITCNT = 0;
+	uint8_t POSTFLG = 0;
 	bool shouldHalt = false;
 	bool isFlash = false;
 

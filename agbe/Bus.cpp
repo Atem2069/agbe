@@ -599,6 +599,8 @@ uint8_t Bus::readIO8(uint32_t address)
 		return ((WAITCNT >> 8) & 0xFF);
 	case 0x04000135:	//hack (tie top byte of rcnt to 0x80)
 		return 0x80;
+	case 0x04000300:
+		return POSTFLG & 0b1;
 	}
 	return m_openBusVals.mem >> ((address & 0b1)*8);
 }
@@ -656,10 +658,13 @@ void Bus::writeIO8(uint32_t address, uint8_t value)
 			invalidatePrefetchBuffer();
 
 		return;
+	case 0x04000300:
+		POSTFLG = value & 0b1;
+		return;
 	case 0x04000301:
 		while (!m_interruptManager->getInterrupt(true))
 			m_scheduler->jumpToNextEvent();			//teleport to next event(s) until interrupt fires
-		break;
+		return;
 	}
 	//Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Unimplemented IO write addr={:#x}", address));
 }
