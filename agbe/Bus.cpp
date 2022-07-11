@@ -528,9 +528,36 @@ uint16_t Bus::fetch16(uint32_t address, AccessType accessType)
 		val = read16(address, accessType);
 	if(address>0x3FFF)
 		biosLockout = true;
-	m_openBusVals.mem = val;
-	if ((address >> 1) & 0b1)
-		m_openBusVals.mem = std::rotr(m_openBusVals.mem, 8);	//hmm, if misaligned word address then rotate the fetched val?
+
+
+	//ugh.... there has to be a nicer way to do this, but..
+	//this boils down to there being different rules for thumb open bus alignment
+	switch (((address >> 24) & 0xFF))
+	{
+		//main ram, palette ram, vram, cart (maybe sram too? doublecheck !!)
+	case 2: case 5: case 6: case 8: case 9: case 0xA: case 0xB: case 0xC: case 0xD: case 0xE: case 0xF:
+		m_openBusVals.mem = (val << 16) | val;
+		break;
+		//bios,oam (wtf)
+	case 0: case 7:
+		if ((address >> 1) & 0b1)
+			m_openBusVals.mem = (val << 16) | (read16(address - 2, AccessType::Prefetch));
+		else
+			m_openBusVals.mem = (read16(address + 2, AccessType::Prefetch) << 16) | val;
+		break;
+	case 3:
+		if ((address >> 1) & 0b1)
+		{
+			m_openBusVals.mem &= 0xFF;
+			m_openBusVals.mem |= (val << 16);
+		}
+		else
+		{
+			m_openBusVals.mem &= 0xFF00;
+			m_openBusVals.mem |= val;
+		}
+		break;
+	}
 	return val;
 }
 
@@ -612,7 +639,7 @@ uint8_t Bus::readIO8(uint32_t address)
 	case 0x04000300:
 		return POSTFLG & 0b1;
 	}
-	return std::rotr(m_openBusVals.mem, (address & 0b1)*8);
+	return std::rotr(m_openBusVals.mem, (address & 0b11)*8);
 }
 
 void Bus::writeIO8(uint32_t address, uint8_t value)
