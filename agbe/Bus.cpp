@@ -577,18 +577,28 @@ uint16_t Bus::getPrefetchedValue(uint32_t pc)
 //And then sort out 16/32 bit r/w using the above
 uint8_t Bus::readIO8(uint32_t address)
 {
-	if (address <= 0x04000056)
-		return m_ppu->readIO(address);
-	if (address >= 0x04000130 && address <= 0x04000133)
-		return m_input->readIORegister(address);
-	if (address >= 0x040000B0 && address <= 0x040000DF)
-		return DMARegRead(address);
-	if (address >= 0x04000100 && address <= 0x0400010F)
-		return m_timer->readIO(address);
-	if (address >= 0x04000060 && address <= 0x040000A8)
-		return m_apu->readIO(address);
 	switch (address)
 	{
+	case 0x04000000: case 0x04000001: case 0x04000002: case 0x04000003: case 0x04000004: case 0x04000005: case 0x04000006: case 0x04000007:
+	case 0x04000008: case 0x04000009: case 0x0400000A: case 0x0400000B: case 0x0400000C: case 0x0400000D: case 0x0400000E: case 0x0400000F:
+	case 0x04000048: case 0x04000049: case 0x0400004A: case 0x0400004B: case 0x04000050: case 0x04000051: case 0x04000052: case 0x04000053:
+		return m_ppu->readIO(address);
+	case 0x04000060: case 0x04000061: case 0x04000062: case 0x04000063: case 0x04000064: case 0x04000065: case 0x04000066: case 0x04000067:
+	case 0x04000068: case 0x04000069: case 0x0400006a: case 0x0400006b: case 0x0400006c: case 0x0400006d: case 0x0400006e: case 0x0400006f:
+	case 0x04000070: case 0x04000071: case 0x04000072: case 0x04000073: case 0x04000074: case 0x04000075: case 0x04000076: case 0x04000077:
+	case 0x04000078: case 0x04000079: case 0x0400007a: case 0x0400007b: case 0x0400007c: case 0x0400007d: case 0x0400007e: case 0x0400007f:
+	case 0x04000080: case 0x04000081: case 0x04000082: case 0x04000083: case 0x04000084: case 0x04000085: case 0x04000086: case 0x04000087:
+	case 0x04000088: case 0x04000089: case 0x0400008a: case 0x0400008b: case 0x0400008c: case 0x0400008d: case 0x0400008e: case 0x0400008f:
+	case 0x04000090: case 0x04000091: case 0x04000092: case 0x04000093: case 0x04000094: case 0x04000095: case 0x04000096: case 0x04000097:
+	case 0x04000098: case 0x04000099: case 0x0400009a: case 0x0400009b: case 0x0400009c: case 0x0400009d: case 0x0400009e: case 0x0400009f:
+		return m_apu->readIO(address);
+	case 0x040000BA: case 0x040000BB: case 0x040000C6:  case 0x040000C7: case 0x040000D2: case 0x040000D3: case 0x040000DE: case 0x040000DF:
+		return DMARegRead(address);
+	case 0x04000100: case 0x04000101: case 0x04000102: case 0x04000103: case 0x04000104: case 0x04000105: case 0x04000106: case 0x04000107:
+	case 0x04000108: case 0x04000109: case 0x0400010a: case 0x0400010b: case 0x0400010c: case 0x0400010d: case 0x0400010e: case 0x0400010f:
+		return m_timer->readIO(address);
+	case 0x04000130: case 0x04000131: case 0x04000132: case 0x04000133:
+		return m_input->readIORegister(address);
 	case 0x04000200:case 0x04000201: case 0x04000202:  case 0x04000203: case 0x04000208: case 0x04000209: case 0x0400020A: case 0x0400020B:
 		return m_interruptManager->readIO(address);
 	case 0x04000120: case 0x04000121: case 0x04000122: case 0x04000123: case 0x0400012A: case 0x04000128: case 0x04000129:
@@ -607,34 +617,49 @@ uint8_t Bus::readIO8(uint32_t address)
 
 void Bus::writeIO8(uint32_t address, uint8_t value)
 {
-	if (address <= 0x04000056)
-	{
-		m_ppu->writeIO(address,value);
-		return;
-	}
-	if (address >= 0x04000130 && address <= 0x04000133)
-	{
-		m_input->writeIORegister(address, value);
-		return;
-	}
-	if (address >= 0x040000B0 && address <= 0x040000DF)
-	{
-		DMARegWrite(address,value);
-		return;
-	}
-	if (address >= 0x04000100 && address <= 0x0400010F)
-	{
-		m_timer->writeIO(address, value);
-		return;
-	}
-	if (address >= 0x04000060 && address <= 0x040000A8)
-	{
-		m_apu->writeIO(address, value);
-		return;
-	}
 	switch (address)
 	{
-	case 0x04000200:case 0x04000201: case 0x04000202:  case 0x04000203: case 0x04000208: case 0x04000209: case 0x0400020A: case 0x0400020B:
+	case 0x04000000: case 0x04000001: case 0x04000002: case 0x04000003: case 0x04000004: case 0x04000005: case 0x04000006: case 0x04000007: 
+	case 0x04000008: case 0x04000009: case 0x0400000a: case 0x0400000b: case 0x0400000c: case 0x0400000d: case 0x0400000e: case 0x0400000f: 
+	case 0x04000010: case 0x04000011: case 0x04000012: case 0x04000013: case 0x04000014: case 0x04000015: case 0x04000016: case 0x04000017: 
+	case 0x04000018: case 0x04000019: case 0x0400001a: case 0x0400001b: case 0x0400001c: case 0x0400001d: case 0x0400001e: case 0x0400001f: 
+	case 0x04000020: case 0x04000021: case 0x04000022: case 0x04000023: case 0x04000024: case 0x04000025: case 0x04000026: case 0x04000027: 
+	case 0x04000028: case 0x04000029: case 0x0400002a: case 0x0400002b: case 0x0400002c: case 0x0400002d: case 0x0400002e: case 0x0400002f: 
+	case 0x04000030: case 0x04000031: case 0x04000032: case 0x04000033: case 0x04000034: case 0x04000035: case 0x04000036: case 0x04000037: 
+	case 0x04000038: case 0x04000039: case 0x0400003a: case 0x0400003b: case 0x0400003c: case 0x0400003d: case 0x0400003e: case 0x0400003f: 
+	case 0x04000040: case 0x04000041: case 0x04000042: case 0x04000043: case 0x04000044: case 0x04000045: case 0x04000046: case 0x04000047: 
+	case 0x04000048: case 0x04000049: case 0x0400004a: case 0x0400004b: case 0x0400004c: case 0x0400004d: case 0x0400004e: case 0x0400004f: 
+	case 0x04000050: case 0x04000051: case 0x04000052: case 0x04000053: case 0x04000054: case 0x04000055: case 0x04000056:
+		m_ppu->writeIO(address, value);
+		return;
+	case 0x04000060: case 0x04000061: case 0x04000062: case 0x04000063: case 0x04000064: case 0x04000065: case 0x04000066: case 0x04000067:
+	case 0x04000068: case 0x04000069: case 0x0400006a: case 0x0400006b: case 0x0400006c: case 0x0400006d: case 0x0400006e: case 0x0400006f:
+	case 0x04000070: case 0x04000071: case 0x04000072: case 0x04000073: case 0x04000074: case 0x04000075: case 0x04000076: case 0x04000077:
+	case 0x04000078: case 0x04000079: case 0x0400007a: case 0x0400007b: case 0x0400007c: case 0x0400007d: case 0x0400007e: case 0x0400007f:
+	case 0x04000080: case 0x04000081: case 0x04000082: case 0x04000083: case 0x04000084: case 0x04000085: case 0x04000086: case 0x04000087:
+	case 0x04000088: case 0x04000089: case 0x0400008a: case 0x0400008b: case 0x0400008c: case 0x0400008d: case 0x0400008e: case 0x0400008f:
+	case 0x04000090: case 0x04000091: case 0x04000092: case 0x04000093: case 0x04000094: case 0x04000095: case 0x04000096: case 0x04000097:
+	case 0x04000098: case 0x04000099: case 0x0400009a: case 0x0400009b: case 0x0400009c: case 0x0400009d: case 0x0400009e: case 0x0400009f:
+	case 0x040000a0: case 0x040000a1: case 0x040000a2: case 0x040000a3: case 0x040000a4: case 0x040000a5: case 0x040000a6: case 0x040000a7:
+	case 0x040000a8:
+		m_apu->writeIO(address, value);
+		return;
+	case 0x040000b0: case 0x040000b1: case 0x040000b2: case 0x040000b3: case 0x040000b4: case 0x040000b5: case 0x040000b6: case 0x040000b7:
+	case 0x040000b8: case 0x040000b9: case 0x040000ba: case 0x040000bb: case 0x040000bc: case 0x040000bd: case 0x040000be: case 0x040000bf:
+	case 0x040000c0: case 0x040000c1: case 0x040000c2: case 0x040000c3: case 0x040000c4: case 0x040000c5: case 0x040000c6: case 0x040000c7:
+	case 0x040000c8: case 0x040000c9: case 0x040000ca: case 0x040000cb: case 0x040000cc: case 0x040000cd: case 0x040000ce: case 0x040000cf:
+	case 0x040000d0: case 0x040000d1: case 0x040000d2: case 0x040000d3: case 0x040000d4: case 0x040000d5: case 0x040000d6: case 0x040000d7: 
+	case 0x040000d8: case 0x040000d9: case 0x040000da: case 0x040000db: case 0x040000dc: case 0x040000dd: case 0x040000de: case 0x040000df:
+		DMARegWrite(address, value);
+		return;
+	case 0x04000100: case 0x04000101: case 0x04000102: case 0x04000103: case 0x04000104: case 0x04000105: case 0x04000106: case 0x04000107:
+	case 0x04000108: case 0x04000109: case 0x0400010a: case 0x0400010b: case 0x0400010c: case 0x0400010d: case 0x0400010e: case 0x0400010f:
+		m_timer->writeIO(address, value);
+		return;
+	case 0x04000130: case 0x04000131: case 0x04000132: case 0x04000133:
+		m_input->writeIORegister(address, value);
+		return;
+	case 0x04000200: case 0x04000201: case 0x04000202: case 0x04000203: case 0x04000208: case 0x04000209: case 0x0400020A: case 0x0400020B:
 		m_interruptManager->writeIO(address,value);
 		return;
 	case 0x04000120: case 0x04000121: case 0x04000122: case 0x04000123: case 0x0400012A: case 0x04000128: case 0x04000129:
