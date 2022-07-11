@@ -1262,11 +1262,11 @@ uint8_t PPU::readIO(uint32_t address)
 	case 0x04000008:
 		return BG0CNT & 0xFF;
 	case 0x04000009:
-		return ((BG0CNT >> 8) & 0xFF);
+		return ((BG0CNT >> 8) & 0xDF);
 	case 0x0400000A:
 		return BG1CNT & 0xFF;
 	case 0x0400000B:
-		return ((BG1CNT >> 8) & 0xFF);
+		return ((BG1CNT >> 8) & 0xDF);
 	case 0x0400000C:
 		return BG2CNT & 0xFF;
 	case 0x0400000D:
@@ -1276,21 +1276,21 @@ uint8_t PPU::readIO(uint32_t address)
 	case 0x0400000F:
 		return ((BG3CNT >> 8) & 0xFF);
 	case 0x04000048:
-		return WININ & 0xFF;
+		return WININ & 0x3F;
 	case 0x04000049:
-		return ((WININ >> 8) & 0xFF);
+		return ((WININ >> 8) & 0x3F);
 	case 0x0400004A:
-		return WINOUT & 0xFF;
+		return WINOUT & 0x3F;
 	case 0x0400004B:
-		return ((WINOUT >> 8) & 0xFF);
+		return ((WINOUT >> 8) & 0x3F);
 	case 0x04000050:
 		return BLDCNT & 0xFF;
 	case 0x04000051:
-		return ((BLDCNT >> 8) & 0xFF);
+		return ((BLDCNT >> 8) & 0x3F);
 	case 0x04000052:
-		return BLDALPHA & 0xFF;
+		return BLDALPHA & 0x1F;
 	case 0x04000053:
-		return ((BLDALPHA >> 8) & 0xFF);
+		return ((BLDALPHA >> 8) & 0x1F);
 	}
 
 	Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Unknown PPU IO register read {:#x}", address));

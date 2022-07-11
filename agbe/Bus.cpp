@@ -602,7 +602,7 @@ uint8_t Bus::readIO8(uint32_t address)
 	case 0x04000300:
 		return POSTFLG & 0b1;
 	}
-	return m_openBusVals.mem >> ((address & 0b1)*8);
+	return std::rotr(m_openBusVals.mem, (address & 0b1)*8);
 }
 
 void Bus::writeIO8(uint32_t address, uint8_t value)
