@@ -143,10 +143,25 @@ void Timer::calculateNextOverflow(int timerIdx, uint64_t timeBase, bool first)
 	uint8_t timerctrl = m_timers[timerIdx].CNT_H;
 
 	uint64_t cycleLut[4] = { 1, 64, 256, 1024 };
+	uint64_t shiftLut[4] = { 0,5,7,9 };
+	uint64_t unsetMask[4] = { 0xFFFFFFFF,0xFFFFFFC0,0xFFFFFF00,0xFFFFFC00 };
 	uint8_t prescalerSelect = (timerctrl & 0b11);
 	uint64_t prescalerCycles = cycleLut[prescalerSelect];
 
-	uint64_t cyclesToOverflow = (65536 - m_timers[timerIdx].clock) * prescalerCycles;
+	uint64_t cyclesToOverflow = (65535 - m_timers[timerIdx].clock) * prescalerCycles;
+
+	//this bit is magic :)
+	uint32_t nextPrescalerEdge = timeBase&0xFFFF;
+	if (shiftLut[prescalerSelect] != 0)
+	{
+		uint16_t addMask = 0b1 << (shiftLut[prescalerSelect] + 1);
+		nextPrescalerEdge += addMask;								//essentially finding the prescaler cycle where the next falling edge occurs
+		nextPrescalerEdge &= unsetMask[prescalerSelect];
+		cyclesToOverflow += (nextPrescalerEdge - (timeBase&0xFFFF));	//then finding out how many cycles until it happens
+	}
+	else
+		cyclesToOverflow++;
+
 
 	uint64_t currentTime = timeBase;
 	if (first)
