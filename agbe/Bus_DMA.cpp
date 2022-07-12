@@ -6,19 +6,19 @@ uint8_t Bus::DMARegRead(uint32_t address)
 	switch (address)
 	{
 	case 0x040000BA:
-		return m_dmaChannels[0].control & 0xFF;
+		return m_dmaChannels[0].control & 0xE0;
 	case 0x040000BB:
-		return (m_dmaChannels[0].control >> 8) & 0xFF;
+		return (m_dmaChannels[0].control >> 8) & 0xF7;
 	case 0x040000C6:
-		return (m_dmaChannels[1].control & 0xFF);
+		return (m_dmaChannels[1].control & 0xE0);
 	case 0x040000C7:
-		return (m_dmaChannels[1].control >> 8) & 0xFF;
+		return (m_dmaChannels[1].control >> 8) & 0xF7;
 	case 0x040000D2:
-		return (m_dmaChannels[2].control) & 0xFF;
+		return (m_dmaChannels[2].control) & 0xE0;
 	case 0x040000D3:
-		return (m_dmaChannels[2].control >> 8) & 0xFF;
+		return (m_dmaChannels[2].control >> 8) & 0xF7;
 	case 0x040000DE:
-		return (m_dmaChannels[3].control) & 0xFF;
+		return (m_dmaChannels[3].control) & 0xE0;
 	case 0x040000DF:
 		return (m_dmaChannels[3].control >> 8) & 0xFF;
 	}
