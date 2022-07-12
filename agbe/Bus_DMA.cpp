@@ -296,6 +296,7 @@ void Bus::doDMATransfer(int channel)
 		dstAddrCtrl = 2;
 		curChannel.control |= 0x200;
 	}
+	bool latched = false;
 	for (int i = 0; i < numWords; i++)		
 	{
 		m_scheduler->addCycles(2);
@@ -306,6 +307,7 @@ void Bus::doDMATransfer(int channel)
 				word = m_openBusVals.dma[channel];
 			else
 			{
+				latched = true;
 				word = read32(src&~0b11, (AccessType)!dmaNonsequentialAccess);
 				m_openBusVals.dma[channel] = word;
 			}
@@ -318,6 +320,7 @@ void Bus::doDMATransfer(int channel)
 				halfword = std::rotr(m_openBusVals.dma[channel], (8 * (dest & 0b11)));
 			else
 			{
+				latched = true;
 				halfword = read16(src&~0b1, (AccessType)!dmaNonsequentialAccess);
 				m_openBusVals.dma[channel] = (halfword << 16) | halfword;
 			}
@@ -388,6 +391,9 @@ void Bus::doDMATransfer(int channel)
 	}
 	prefetcherHalted = false;
 	m_openBusVals.dmaJustFinished = true;
+
+	if (!latched)
+		m_openBusVals.dma[channel] = 0;
 }
 
 void Bus::onVBlank()
