@@ -38,55 +38,45 @@ uint8_t APU::readIO(uint32_t address)
 	switch (address)
 	{
 	case 0x04000060:
-		return SOUND1CNT_L;
+		return SOUND1CNT_L & 0x7F;
 	case 0x04000062:
-		return SOUND1CNT_H & 0xFF;
+		return SOUND1CNT_H & 0xC0;
 	case 0x04000063:
 		return ((SOUND1CNT_H >> 8) & 0xFF);
-	case 0x04000064:
-		return (SOUND1CNT_X & 0xFF);
 	case 0x04000065:
-		return ((SOUND1CNT_X >> 8) & 0xFF);
+		return ((SOUND1CNT_X >> 8) & 0x40);
 	case 0x04000068:
-		return SOUND2CNT_L & 0xFF;
+		return SOUND2CNT_L & 0xC0;
 	case 0x04000069:
 		return ((SOUND2CNT_L >> 8) & 0xFF);
-	case 0x0400006C:
-		return SOUND2CNT_H & 0xFF;
 	case 0x0400006D:
-		return ((SOUND2CNT_H >> 8) & 0xFF);
+		return ((SOUND2CNT_H >> 8) & 0x40);
 	case 0x04000070:
-		return SOUND3CNT_L;
-	case 0x04000072:
-		return (SOUND3CNT_H & 0xFF);
+		return SOUND3CNT_L & 0xE0;
 	case 0x04000073:
-		return ((SOUND3CNT_H >> 8) & 0xFF);
-	case 0x04000074:
-		return (SOUND3CNT_X & 0xFF);
+		return ((SOUND3CNT_H >> 8) & 0xE0);
 	case 0x04000075:
-		return ((SOUND3CNT_X >> 8) & 0xFF);
-	case 0x04000078:
-		return (SOUND4CNT_L & 0xFF);
+		return ((SOUND3CNT_X >> 8) & 0x40);
 	case 0x04000079:
 		return ((SOUND4CNT_L >> 8) & 0xFF);
 	case 0x0400007C:
 		return (SOUND4CNT_H & 0xFF);
 	case 0x0400007D:
-		return ((SOUND4CNT_H >> 8) & 0xFF);
+		return ((SOUND4CNT_H >> 8) & 0x40);
 	case 0x04000080:
-		return (SOUNDCNT_L & 0xFF);
+		return (SOUNDCNT_L & 0x77);
 	case 0x04000081:
 		return ((SOUNDCNT_L >> 8) & 0xFF);
 	case 0x04000082:
-		return (SOUNDCNT_H & 0xFF);
+		return (SOUNDCNT_H & 0x0F);
 	case 0x04000083:
-		return ((SOUNDCNT_H >> 8) & 0xFF);
+		return ((SOUNDCNT_H >> 8) & 0x77);
 	case 0x04000084:
-		return SOUNDCNT_X;
+		return SOUNDCNT_X & 0x8F;
 	case 0x04000088:
-		return SOUNDBIAS & 0xFF;
+		return SOUNDBIAS & 0xFE;
 	case 0x04000089:
-		return ((SOUNDBIAS >> 8) & 0xFF);
+		return ((SOUNDBIAS >> 8) & 0xC3);
 
 	case 0x04000090: case 0x04000091: case 0x04000092: case 0x04000093: case 0x04000094: case 0x04000095: case 0x04000096: case 0x04000097:
 	case 0x04000098: case 0x04000099: case 0x0400009A: case 0x0400009B: case 0x0400009C: case 0x0400009D: case 0x0400009E: case 0x0400009F:
