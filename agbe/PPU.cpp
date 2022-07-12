@@ -78,13 +78,6 @@ void PPU::HDraw()
 	}
 
 	composeLayers();
-
-	if (((DISPSTAT >> 4) & 0b1))
-		m_interruptManager->requestInterrupt(InterruptType::HBlank);
-	DMAHBlankCallback(callbackContext);
-	if (VCOUNT >= 2)
-		DMAVideoCaptureCallback(callbackContext);
-
 	m_backgroundLayers[0].enabled = false;
 	m_backgroundLayers[1].enabled = false;
 	m_backgroundLayers[2].enabled = false;
@@ -95,10 +88,15 @@ void PPU::HDraw()
 void PPU::HBlank()
 {
 	uint64_t schedTimestamp = m_scheduler->getEventTime();
-	//todo: check timing of when exactly hblank flag/interrupt set
 
-	if (!hblank_flagSet)	//now set hblank flag, at cycle 1006!
+	if (!hblank_flagSet)	//hblank set and dma ~cycle 1006
 	{
+		if (((DISPSTAT >> 4) & 0b1))
+			m_interruptManager->requestInterrupt(InterruptType::HBlank);
+		DMAHBlankCallback(callbackContext);
+		if (VCOUNT >= 2)
+			DMAVideoCaptureCallback(callbackContext);
+
 		hblank_flagSet = true;
 		setHBlankFlag(true);
 		expectedNextTimeStamp = (schedTimestamp + 226);
