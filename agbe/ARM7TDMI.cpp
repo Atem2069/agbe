@@ -337,8 +337,7 @@ uint32_t ARM7TDMI::getSPSR()
 	case 0b10111: return SPSR_abt;
 	case 0b10010: return SPSR_irq;
 	case 0b11011: return SPSR_und;
-	}
-	std::cout << "get spsr in bad mode??" << '\n';
+	};
 	return CPSR;	//afaik if you try this in the wrong mode it gives you the CPSR
 }
 
@@ -352,10 +351,7 @@ void ARM7TDMI::setSPSR(uint32_t value)
 	case 0b10111: SPSR_abt = value; break;
 	case 0b10010: SPSR_irq = value; break;
 	case 0b11011: SPSR_und = value; break;
-	default:
-		std::cout << "set spsr in bad mode??" << '\n';
-		CPSR = value;	//hope this is right !!
-		break;
+	default:break;
 	}
 }
 
