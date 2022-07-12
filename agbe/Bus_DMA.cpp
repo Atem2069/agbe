@@ -303,11 +303,11 @@ void Bus::doDMATransfer(int channel)
 		{
 			uint32_t word = 0;
 			if (src <= 0x01FFFFFF)	[[unlikely]]							//handle dma open bus, when r/w to 0->01ffffff
-				word = m_openBusVals.dma;
+				word = m_openBusVals.dma[channel];
 			else
 			{
 				word = read32(src&~0b11, (AccessType)!dmaNonsequentialAccess);
-				m_openBusVals.dma = word;
+				m_openBusVals.dma[channel] = word;
 			}
 			write32(dest&~0b11, word,(AccessType)!dmaNonsequentialAccess);									
 		}
@@ -315,11 +315,11 @@ void Bus::doDMATransfer(int channel)
 		{
 			uint16_t halfword = 0;
 			if (src <= 0x01FFFFFF)
-				halfword = std::rotr(m_openBusVals.dma, (8 * src & 0b10));
+				halfword = std::rotr(m_openBusVals.dma[channel], (8 * (dest & 0b11)));
 			else
 			{
 				halfword = read16(src&~0b1, (AccessType)!dmaNonsequentialAccess);
-				m_openBusVals.dma = (halfword << 16) | halfword;
+				m_openBusVals.dma[channel] = (halfword << 16) | halfword;
 			}
 			write16(dest&~0b1, halfword,(AccessType)!dmaNonsequentialAccess);                        			
 		}
