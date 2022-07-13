@@ -238,6 +238,7 @@ void Bus::doDMATransfer(int channel)
 	int lastDMAPriority = runningDMAPriority;
 	if (channel > lastDMAPriority)
 		return;
+	m_openBusVals.dmaJustFinished = false;
 	runningDMAPriority = channel;
 
 	bool dmaWasInProgress = dmaInProgress;
@@ -280,9 +281,10 @@ void Bus::doDMATransfer(int channel)
 			Logger::getInstance()->msg(LoggerSeverity::Info, "Auto-detected 4K EEPROM chip access!!");
 		m_backupMemory = std::make_shared<EEPROM>(m_backupType);
 	}
-	//std::cout << "DMA src = " << std::hex << src << " dst= " << std::hex << dest << " length= " << std::hex << numWords << '\n';
 
 	uint8_t srcAddrCtrl = ((curChannel.control >> 7) & 0b11);
+	if ((src >= 0x08000000 && src <= 0x0DFFFFFF))				//dma from rom always uses incrementing addresses regardless of increment setting
+		srcAddrCtrl = 0;
 	uint8_t dstAddrCtrl = ((curChannel.control >> 5) & 0b11);
 	bool wordTransfer = ((curChannel.control >> 10) & 0b1);
 	dmaInProgress = true;
@@ -391,10 +393,10 @@ void Bus::doDMATransfer(int channel)
 	{
 		dmaInProgress = false;
 		m_scheduler->addCycles(1);
+		m_openBusVals.dmaJustFinished = true;
+		m_openBusVals.lastDmaVal = m_openBusVals.dma[channel];
 	}
 	prefetcherHalted = false;
-	m_openBusVals.dmaJustFinished = true;
-
 	runningDMAPriority = lastDMAPriority;
 }
 

@@ -29,7 +29,8 @@ struct OpenBus
 {
 	uint32_t bios;	//bios open bus value
 	uint32_t mem;	//open bus for other unused mem
-	uint32_t dma[4];
+	uint32_t dma[4];	//dma open bus latches
+	uint32_t lastDmaVal;			//last dma val for below vv
 	bool dmaJustFinished = false;	//weird flag :P override open bus with this, if dma 'just' finished
 };
 

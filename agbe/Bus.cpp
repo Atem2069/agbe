@@ -266,6 +266,13 @@ uint16_t Bus::read16(uint32_t address, AccessType accessType)
 	}
 
 	tickPrefetcher(1);
+
+	if (m_openBusVals.dmaJustFinished)
+	{
+		m_openBusVals.dmaJustFinished = false;
+		return m_openBusVals.lastDmaVal;
+	}
+
 	return m_openBusVals.mem;
 }
 
@@ -411,7 +418,7 @@ uint32_t Bus::read32(uint32_t address, AccessType accessType)
 	if (m_openBusVals.dmaJustFinished)
 	{
 		m_openBusVals.dmaJustFinished = false;
-		//return m_openBusVals.dma;	<--come back and fix!!
+		return m_openBusVals.lastDmaVal;
 	}
 	return m_openBusVals.mem;
 }
