@@ -235,6 +235,11 @@ void Bus::checkDMAChannel(int idx)
 
 void Bus::doDMATransfer(int channel)
 {
+	int lastDMAPriority = runningDMAPriority;
+	if (channel > lastDMAPriority)
+		return;
+	runningDMAPriority = channel;
+
 	bool dmaWasInProgress = dmaInProgress;
 	if(!dmaWasInProgress)
 		m_scheduler->addCycles(1);	//2 cycle startup delay?
@@ -296,6 +301,7 @@ void Bus::doDMATransfer(int channel)
 		dstAddrCtrl = 2;
 		curChannel.control |= 0x200;
 	}
+
 	for (int i = 0; i < numWords; i++)		
 	{
 		m_scheduler->addCycles(2);
@@ -315,7 +321,7 @@ void Bus::doDMATransfer(int channel)
 		{
 			uint16_t halfword = 0;
 			if (src <= 0x01FFFFFF)
-				halfword = std::rotr(m_openBusVals.dma[channel], (8 * (dest & 0b11)));
+				halfword = std::rotr(m_openBusVals.dma[channel],8*(dest&0b11));
 			else
 			{
 				halfword = read16(src&~0b1, (AccessType)!dmaNonsequentialAccess);
@@ -388,6 +394,8 @@ void Bus::doDMATransfer(int channel)
 	}
 	prefetcherHalted = false;
 	m_openBusVals.dmaJustFinished = true;
+
+	runningDMAPriority = lastDMAPriority;
 }
 
 void Bus::onVBlank()

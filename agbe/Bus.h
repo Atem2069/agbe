@@ -60,7 +60,7 @@ public:
 
 	bool getHalted();
 
-//handle IO separately
+	//handle IO separately
 
 	uint8_t readIO8(uint32_t address);
 	void writeIO8(uint32_t address, uint8_t value);
@@ -106,6 +106,7 @@ private:
 	bool biosLockout = false;
 	bool dmaInProgress = false;
 	bool dmaNonsequentialAccess = true;
+	int runningDMAPriority = 999;
 
 	void attemptSaveAutodetection(std::string_view& romData);
 
