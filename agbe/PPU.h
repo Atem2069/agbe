@@ -67,6 +67,7 @@ public:
 	bool getShouldSync();
 	void registerDMACallbacks(callbackFn HBlank, callbackFn VBlank, callbackFn videoCapture, void*ctx);
 	static void onSchedulerEvent(void* context);
+	static void onHBlankIRQEvent(void* context);
 
 	int getVCOUNT();
 
@@ -99,6 +100,7 @@ private:
 	bool shouldSyncVideo = false;
 
 	void eventHandler();
+	void triggerHBlankIRQ();
 	uint64_t expectedNextTimeStamp = 0;
 
 	void HDraw();

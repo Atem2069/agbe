@@ -19,7 +19,8 @@ enum class Event
 	Frame=7,
 	AudioSample=8,
 	FrameSequencer=9,
-	IRQ=10
+	IRQ=10,
+	HBlankIRQ=11
 };
 
 struct SchedulerEntry

@@ -48,6 +48,11 @@ void PPU::eventHandler()
 	}
 }
 
+void PPU::triggerHBlankIRQ()
+{
+	m_interruptManager->requestInterrupt(InterruptType::HBlank);
+}
+
 void PPU::HDraw()
 {
 	bool forcedBlank = ((DISPCNT >> 7) & 0b1);
@@ -92,7 +97,7 @@ void PPU::HBlank()
 	if (!hblank_flagSet)	//hblank set and dma ~cycle 1006
 	{
 		if (((DISPSTAT >> 4) & 0b1))
-			m_interruptManager->requestInterrupt(InterruptType::HBlank);
+			m_scheduler->addEvent(Event::HBlankIRQ, &PPU::onHBlankIRQEvent, (void*)this, schedTimestamp + 4);
 		DMAHBlankCallback(callbackContext);
 		if (VCOUNT >= 2)
 			DMAVideoCaptureCallback(callbackContext);
@@ -163,7 +168,7 @@ void PPU::VBlank()
 		setHBlankFlag(true);
 
 		if (((DISPSTAT >> 4) & 0b1))
-			m_interruptManager->requestInterrupt(InterruptType::HBlank);	//hblank irq also fires in vblank. however, HDMA cannot occur
+			m_scheduler->addEvent(Event::HBlankIRQ, &PPU::onHBlankIRQEvent, (void*)this, schedTimestamp + 4);
 
 		vblank_setHblankBit = true;
 		expectedNextTimeStamp = (schedTimestamp + 226);
@@ -1566,6 +1571,12 @@ void PPU::onSchedulerEvent(void* context)
 {
 	PPU* thisPtr = (PPU*)context;
 	thisPtr->eventHandler();
+}
+
+void PPU::onHBlankIRQEvent(void* context)
+{
+	PPU* thisPtr = (PPU*)context;
+	thisPtr->triggerHBlankIRQ();
 }
 
 int PPU::getVCOUNT()
