@@ -583,6 +583,8 @@ uint16_t Bus::getPrefetchedValue(uint32_t pc)
 			prefetchSize--;
 			m_prefetchHead += 2;
 			hack_lastPrefetchGood = true;
+			if (prefetchSize == 0)
+				prefetchShouldDelay = false;
 		}
 		else					//otherwise we'll wait for the prefetch buffer to get it, then reset the buffer (but keep burst going)
 		{
