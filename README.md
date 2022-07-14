@@ -2,7 +2,7 @@
 Highly WIP Game Boy Advance Emulator.
 
 ## Accuracy 
- - Runs some relatively difficult-to-run games, e.g. Mario & Luigi Superstar Sage
+ - Runs some relatively difficult-to-run games, e.g. Mario & Luigi Superstar Saga
  - Passes the [AGS Aging Cartridge](https://tcrf.net/AGS_Aging_Cartridge)
  
 #### mGBA Suite
