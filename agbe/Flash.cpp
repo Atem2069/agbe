@@ -15,6 +15,18 @@ Flash::Flash(BackupType type)
 	}
 	else
 		memset(flashMem, 0xFF, 131072);
+
+	switch (type)
+	{
+	case BackupType::FLASH1M:
+		m_manufacturerID = 0x62;
+		m_deviceID = 0x13;
+		break;
+	case BackupType::FLASH512K:
+		m_manufacturerID = 0x32;
+		m_deviceID = 0x1B;
+		break;
+	}
 }
 
 Flash::~Flash()
@@ -26,9 +38,9 @@ uint8_t Flash::read(uint32_t address)
 {
 	address &= 0xFFFF;
 	if (address == 0 && m_state == FlashState::ChipID)
-		return 0x62;
+		return m_manufacturerID;
 	if (address == 1 && m_state == FlashState::ChipID)
-		return 0x13;
+		return m_deviceID;
 
 	return flashMem[(bank * 65536) + address];
 }
