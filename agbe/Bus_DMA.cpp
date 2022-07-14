@@ -235,12 +235,7 @@ void Bus::checkDMAChannel(int idx)
 
 void Bus::doDMATransfer(int channel)
 {
-	int lastDMAPriority = runningDMAPriority;
-	if (channel > lastDMAPriority)
-		return;
 	m_openBusVals.dmaJustFinished = false;
-	runningDMAPriority = channel;
-
 	bool dmaWasInProgress = dmaInProgress;
 	if(!dmaWasInProgress)
 		m_scheduler->addCycles(1);	//2 cycle startup delay?
@@ -338,7 +333,9 @@ void Bus::doDMATransfer(int channel)
 		{
 		case 0:
 			src += incrementAmount;
-			break;
+			if ((src == 0x08000000) && ((dest >= 0x08000000 && dest <= 0x0dffffff)))	//wtf? rom to rom dmas are completely broken on hardware
+				src = dest + 2;															//if src crosses into rom, then everything is screwed, and the src starts reading from the dest
+			break;																		//(because the first src access is sequential for some reason, so the dest address is used instead)
 		case 1:
 			src -= incrementAmount;
 			break;
@@ -365,17 +362,8 @@ void Bus::doDMATransfer(int channel)
 
 	if (((curChannel.control >> 14) & 0b1))
 	{
-		switch (channel)
-		{
-		case 0:
-			m_interruptManager->requestInterrupt(InterruptType::DMA0); break;
-		case 1:
-			m_interruptManager->requestInterrupt(InterruptType::DMA1); break;
-		case 2:
-			m_interruptManager->requestInterrupt(InterruptType::DMA2); break;
-		case 3:
-			m_interruptManager->requestInterrupt(InterruptType::DMA3); break;
-		}
+		constexpr InterruptType interruptLUT[4] = { InterruptType::DMA0,InterruptType::DMA1,InterruptType::DMA2,InterruptType::DMA3 };
+		m_interruptManager->requestInterrupt(interruptLUT[channel]);
 	}
 
 	bool repeatDMA = ((curChannel.control >> 9) & 0b1);
@@ -397,7 +385,6 @@ void Bus::doDMATransfer(int channel)
 		m_openBusVals.lastDmaVal = m_openBusVals.dma[channel];
 	}
 	prefetcherHalted = false;
-	runningDMAPriority = lastDMAPriority;
 }
 
 void Bus::onVBlank()

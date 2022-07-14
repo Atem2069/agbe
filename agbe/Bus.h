@@ -107,7 +107,6 @@ private:
 	bool biosLockout = false;
 	bool dmaInProgress = false;
 	bool dmaNonsequentialAccess = true;
-	int runningDMAPriority = 999;
 
 	void attemptSaveAutodetection(std::string_view& romData);
 
