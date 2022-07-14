@@ -490,7 +490,7 @@ void Bus::write32(uint32_t address, uint32_t value, AccessType accessType)
 
 uint32_t Bus::fetch32(uint32_t address, AccessType accessType)
 {
-	biosLockout = false;
+	biosLockout = (address > 0x3FFF);
 	if (address < 0x08000000 || address > 0x0DFFFFFF)
 		invalidatePrefetchBuffer();
 	uint32_t val = 0;
@@ -517,15 +517,13 @@ uint32_t Bus::fetch32(uint32_t address, AccessType accessType)
 	}
 	else
 		val = read32(address,accessType);
-	if(address>0x3FFF)
-		biosLockout = true;
 	m_openBusVals.mem = val;
 	return val;
 }
 
 uint16_t Bus::fetch16(uint32_t address, AccessType accessType)
 {
-	biosLockout = false;
+	biosLockout = (address > 0x3FFF);
 	if (address < 0x08000000 || address > 0x0DFFFFFF)
 		invalidatePrefetchBuffer();
 	uint16_t val = 0;
@@ -533,9 +531,6 @@ uint16_t Bus::fetch16(uint32_t address, AccessType accessType)
 		val = getPrefetchedValue(address);
 	else
 		val = read16(address, accessType);
-	if(address>0x3FFF)
-		biosLockout = true;
-
 
 	//ugh.... there has to be a nicer way to do this, but..
 	//this boils down to there being different rules for thumb open bus alignment
@@ -721,14 +716,17 @@ void Bus::writeIO8(uint32_t address, uint8_t value)
 
 		return;
 	case 0x04000300:
+		if(!POSTFLG)			//<--not sure, maybe POSTFLG can only be set once
 		POSTFLG = value & 0b1;
 		return;
 	case 0x04000301:
+		if (biosLockout)			//HALTCNT can't be written outside of BIOS
+			return;
+		m_scheduler->addCycles(2);	//2 cycle penalty (one before, one after?) when haltcnt written
 		while (!m_interruptManager->getInterrupt(true))
 			m_scheduler->jumpToNextEvent();			//teleport to next event(s) until interrupt fires
 		return;
 	}
-	//Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Unimplemented IO write addr={:#x}", address));
 }
 
 uint16_t Bus::readIO16(uint32_t address)
