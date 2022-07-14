@@ -262,7 +262,7 @@ uint16_t Bus::read16(uint32_t address, AccessType accessType)
 	case 0xE: case 0xF:
 		m_scheduler->addCycles(SRAMCycles);
 		if (m_backupType == BackupType::SRAM)
-			return m_backupMemory->read(originalAddress) * 0x0101;
+			return ((uint16_t)m_backupMemory->read(originalAddress)) * 0x0101;
 	}
 
 	tickPrefetcher(1);
@@ -411,7 +411,7 @@ uint32_t Bus::read32(uint32_t address, AccessType accessType)
 	case 0xE: case 0xF:
 		m_scheduler->addCycles(SRAMCycles);
 		if (m_backupType == BackupType::SRAM)
-			return m_backupMemory->read(originalAddress) * 0x01010101;
+			return ((uint32_t)m_backupMemory->read(originalAddress)) * 0x01010101;
 	}
 
 	tickPrefetcher(1);

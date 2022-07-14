@@ -9,8 +9,6 @@ PPU::PPU(std::shared_ptr<InterruptManager> interruptManager, std::shared_ptr<Sch
 	//simple test
 	for (int i = 0; i < (240 * 160); i++)
 		m_renderBuffer[pageIdx][i] = i;
-	for (int i = 0; i < 240; i++)
-		m_bgPriorities[i] = 255;
 
 	m_state = PPUState::HDraw;
 	m_scheduler->addEvent(Event::PPU, &PPU::onSchedulerEvent, (void*)this, 960);	//960 cycles from now, do hdraw for vcount=0
@@ -36,8 +34,7 @@ void PPU::eventHandler()
 	case PPUState::HDraw:
 		HDraw();
 		m_state = PPUState::HBlank;
-		expectedNextTimeStamp = (schedTimestamp + 46);
-		m_scheduler->addEvent(Event::PPU, &PPU::onSchedulerEvent, (void*)this, expectedNextTimeStamp);
+		m_scheduler->addEvent(Event::PPU, &PPU::onSchedulerEvent, (void*)this, schedTimestamp+46);
 		break;
 	case PPUState::HBlank:
 		HBlank();
@@ -104,8 +101,7 @@ void PPU::HBlank()
 
 		hblank_flagSet = true;
 		setHBlankFlag(true);
-		expectedNextTimeStamp = (schedTimestamp + 226);
-		m_scheduler->addEvent(Event::PPU, &PPU::onSchedulerEvent, (void*)this, expectedNextTimeStamp);
+		m_scheduler->addEvent(Event::PPU, &PPU::onSchedulerEvent, (void*)this, schedTimestamp+226);
 		return;
 	}
 
@@ -143,8 +139,7 @@ void PPU::HBlank()
 		pageIdx = !pageIdx;
 
 		m_state = PPUState::VBlank;
-		expectedNextTimeStamp = (schedTimestamp + 1006);
-		m_scheduler->addEvent(Event::PPU, &PPU::onSchedulerEvent, (void*)this, expectedNextTimeStamp);
+		m_scheduler->addEvent(Event::PPU, &PPU::onSchedulerEvent, (void*)this, schedTimestamp+1006);
 
 		DMAVBlankCallback(callbackContext);
 
@@ -153,8 +148,7 @@ void PPU::HBlank()
 	else
 		m_state = PPUState::HDraw;
 
-	expectedNextTimeStamp = (schedTimestamp + 960);
-	m_scheduler->addEvent(Event::PPU, &PPU::onSchedulerEvent, (void*)this, expectedNextTimeStamp);
+	m_scheduler->addEvent(Event::PPU, &PPU::onSchedulerEvent, (void*)this, schedTimestamp+960);
 }
 
 void PPU::VBlank()
@@ -171,8 +165,7 @@ void PPU::VBlank()
 			m_scheduler->addEvent(Event::HBlankIRQ, &PPU::onHBlankIRQEvent, (void*)this, schedTimestamp + 4);
 
 		vblank_setHblankBit = true;
-		expectedNextTimeStamp = (schedTimestamp + 226);
-		m_scheduler->addEvent(Event::PPU, &PPU::onSchedulerEvent, (void*)this, expectedNextTimeStamp);
+		m_scheduler->addEvent(Event::PPU, &PPU::onSchedulerEvent, (void*)this, schedTimestamp+226);
 		if (VCOUNT < 162)
 			DMAVideoCaptureCallback(callbackContext);
 		return;
@@ -199,8 +192,7 @@ void PPU::VBlank()
 		shouldSyncVideo = true;
 		VCOUNT = 0;
 		m_state = PPUState::HDraw;
-		expectedNextTimeStamp = (schedTimestamp + 960);
-		m_scheduler->addEvent(Event::PPU, &PPU::onSchedulerEvent, (void*)this, expectedNextTimeStamp);
+		m_scheduler->addEvent(Event::PPU, &PPU::onSchedulerEvent, (void*)this, schedTimestamp+960);
 	}
 	else
 	{
@@ -215,8 +207,7 @@ void PPU::VBlank()
 		}
 		else
 			setVCounterFlag(false);
-		expectedNextTimeStamp = (schedTimestamp + 1006);
-		m_scheduler->addEvent(Event::PPU, &PPU::onSchedulerEvent, (void*)this, expectedNextTimeStamp);
+		m_scheduler->addEvent(Event::PPU, &PPU::onSchedulerEvent, (void*)this, schedTimestamp+1006);
 	}
 
 }
@@ -634,7 +625,6 @@ void PPU::drawBackground(int bg)
 			xmod8 = 7 - xmod8;
 
 		uint16_t col = extractColorFromTile(tileMapBaseAddress, xmod8, hiColor, false, paletteNumber);
-		m_bgPriorities[x] = bgPriority;
 		m_backgroundLayers[bg].lineBuffer[x] = col;
 	}
 
@@ -724,7 +714,6 @@ void PPU::drawRotationScalingBackground(int bg)
 		tileMapBaseAddress += ((fetcherY % 8) * 8);
 		uint16_t col = extractColorFromTile(tileMapBaseAddress, xCoord&7, true, false, 0);
 
-		m_bgPriorities[x] = bgPriority;
 		m_backgroundLayers[bg].lineBuffer[x] = col;
 	}
 

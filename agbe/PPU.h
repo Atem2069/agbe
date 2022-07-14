@@ -78,7 +78,6 @@ private:
 	std::shared_ptr<Scheduler> m_scheduler;
 	uint32_t m_renderBuffer[2][240 * 160];	//currently being rendered
 	bool pageIdx = false;
-	uint8_t m_bgPriorities[240] = {};	//save bg priority at each pixel
 	uint16_t m_spriteLineBuffer[240] = {};
 	SpriteAttribute m_spriteAttrBuffer[240] = {};
 
@@ -101,7 +100,6 @@ private:
 
 	void eventHandler();
 	void triggerHBlankIRQ();
-	uint64_t expectedNextTimeStamp = 0;
 
 	void HDraw();
 	void HBlank();
