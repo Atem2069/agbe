@@ -388,15 +388,11 @@ void PPU::composeLayers()
 		if (((BLDCNT >> 5) & 0b1))
 			blendPixelA = backDrop;
 
-		BlendAttribute m_blendLayers[5];
-
 		int highestBlendBPrio = 255, highestBlendAPrio = -1, blendALayer = 255;
 
 		int highestPriority = 255;
 		for (int layer = 3; layer >= 0; layer--)
 		{
-			m_blendLayers[layer] = {};
-			m_blendLayers[layer].priority = 999;
 			if (m_backgroundLayers[layer].enabled && getPointDrawable(x, VCOUNT, layer, false))	//layer activated
 			{
 				uint16_t colAtLayer = m_backgroundLayers[layer].lineBuffer[x];
@@ -418,15 +414,21 @@ void PPU::composeLayers()
 						}
 
 					}
-					//could maybe do something better..
-					m_blendLayers[layer+1].blendB = ((BLDCNT >> (layer + 8)) & 0b1);
-					m_blendLayers[layer+1].priority = m_backgroundLayers[layer].priorityBits;
-					m_blendLayers[layer+1].color = colAtLayer;
+
+					if ((m_backgroundLayers[layer].priorityBits <= highestBlendBPrio) && (blendALayer!=layer))
+					{
+						blendPixelB = 0x8000;
+						if ((BLDCNT >> (layer + 8)) & 0b1)
+						{
+							highestBlendBPrio = m_backgroundLayers[layer].priorityBits;
+							blendPixelB = colAtLayer;
+						}
+					}
 				}
 
 			}
 		}
-
+		
 		if (((DISPCNT >> 12) & 0b1) && getPointDrawable(x,VCOUNT,0,true))
 		{
 			//sprite mosaic seems to be a post process thing? idk
@@ -444,33 +446,17 @@ void PPU::composeLayers()
 				{
 					finalCol = spritePixel;
 					blendPixelA = 0x8000;
+					highestBlendAPrio = -1;
 					if (isBlendTargetA)
-					{
 						blendPixelA = finalCol;
-						highestBlendAPrio = highestPriority;
-						blendALayer = 0;	//hmm..
-					}
 				}
-				//only choose as target b if not target a (i.e. not transparent)
-				m_blendLayers[0].priority = 999;
-				if (((BLDCNT >> 12) & 0b1) && !isBlendTargetA)
+				//only choose as target b if not target a (i.e. not transparent), and not topmost visible layer
+				if (m_spriteAttrBuffer[x].priority > highestPriority && m_spriteAttrBuffer[x].priority <= highestBlendBPrio)
 				{
-					m_blendLayers[0].color = spritePixel;
-					m_blendLayers[0].blendB = true;
-					m_blendLayers[0].priority = m_spriteAttrBuffer[spriteX].priority;
+					blendPixelB = 0x8000;
+					if (((BLDCNT >> 12) & 0b1))
+						blendPixelB = spritePixel;
 				}
-			}
-		}
-
-		for (int layer = 4; layer >= 0; layer--)
-		{
-			//try to find highest priority layer that is *also* lower priority than the blend A layer (if applicable)
-			if ((m_blendLayers[layer].priority <= highestBlendBPrio) && m_blendLayers[layer].priority >= highestBlendAPrio && m_blendLayers[layer].blendB)
-			{
-				if (m_blendLayers[layer].priority == highestBlendAPrio && (layer-1) <= blendALayer)
-					continue;
-				highestBlendBPrio = m_blendLayers[layer].priority;
-				blendPixelB = m_blendLayers[layer].color;
 			}
 		}
 
