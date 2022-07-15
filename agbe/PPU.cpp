@@ -770,11 +770,11 @@ void PPU::drawSprites()
 			renderY = (renderY / mosaicVertical) * mosaicVertical;
 
 		int spriteTop = curSpriteEntry->attr0 & 0xFF;
-		if (spriteTop > 225)							//bit of a dumb hack to accommodate for when sprites are offscreen
-			spriteTop = 0 - (255 - spriteTop);
+		if (spriteTop >= 160)							//bit of a dumb hack to accommodate for when sprites are offscreen
+			spriteTop -= 256;
 		int spriteLeft = curSpriteEntry->attr1 & 0x1FF;
-		if ((spriteLeft >> 8) & 0b1)
-			spriteLeft |= 0xFFFFFF00;	//not sure maybe sign extension is okay
+		if (spriteLeft >= 240)
+			spriteLeft -= 512;
 		if (spriteLeft >= 240 || spriteTop > renderY)	//nope. sprite is offscreen or too low
 			continue;
 		int spriteBottom = 0, spriteRight = 0;
