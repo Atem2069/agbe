@@ -445,10 +445,24 @@ void PPU::composeLayers()
 				if (m_spriteAttrBuffer[spriteX].priority <= highestPriority)
 				{
 					finalCol = spritePixel;
-					blendPixelA = 0x8000;
-					highestBlendAPrio = -1;
 					if (isBlendTargetA)
+					{
+						//weird!! blend target b might not have been selected if the topmost layer before was A+B, so make sure we set it now
+						if (blendALayer <= 3 && ((BLDCNT >> (8 + blendALayer)) & 0b1))
+						{
+							blendPixelB = blendPixelA;
+							highestBlendBPrio = highestBlendAPrio;
+						}
+
+						transparentSpriteTop = m_spriteAttrBuffer[spriteX].transparent;
 						blendPixelA = finalCol;
+						blendALayer = 255;
+					}
+					else
+					{
+						blendPixelA = 0x8000;
+						highestBlendAPrio = -1;
+					}
 				}
 				//only choose as target b if not target a (i.e. not transparent), and not topmost visible layer
 				if (m_spriteAttrBuffer[x].priority > highestPriority && m_spriteAttrBuffer[x].priority <= highestBlendBPrio)
@@ -463,7 +477,7 @@ void PPU::composeLayers()
 		if (getPointBlendable(x, VCOUNT))
 		{
 			uint8_t blendMode = ((BLDCNT >> 6) & 0b11);
-			if (transparentSpriteTop)
+			if (transparentSpriteTop && !(blendPixelB>>15))	//i think blend mode only gets overridden if there's a second target pixel?
 				blendMode = 1;
 			switch (blendMode)
 			{
