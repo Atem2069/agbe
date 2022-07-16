@@ -609,8 +609,6 @@ void APU::resetAllChannels()
 
 	//all PSG channel registers now reset to 0
 	SOUNDCNT_L = {};
-	SOUNDCNT_H = {};
-	SOUNDCNT_X = {};
 
 	SOUND1CNT_L = {};
 	SOUND1CNT_H = {};
