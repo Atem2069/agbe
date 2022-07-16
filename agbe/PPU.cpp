@@ -379,6 +379,8 @@ void PPU::composeLayers()
 	bool mosaicInProcess = false;
 	for (int x = 0; x < 240; x++)
 	{	
+		PointRenderableInfo pointInfo = getPointDrawable(x, VCOUNT);
+
 		uint16_t finalCol = backDrop;
 		bool transparentSpriteTop = false;
 		uint16_t blendPixelB = 0x8000;
@@ -393,7 +395,7 @@ void PPU::composeLayers()
 		int highestPriority = 255;
 		for (int layer = 3; layer >= 0; layer--)
 		{
-			if (m_backgroundLayers[layer].enabled && getPointDrawable(x, VCOUNT, layer, false))	//layer activated
+			if (m_backgroundLayers[layer].enabled && pointInfo.layerDrawable[layer])	//layer activated
 			{
 				uint16_t colAtLayer = m_backgroundLayers[layer].lineBuffer[x];
 				if (!((colAtLayer >> 15) & 0b1))
@@ -429,7 +431,7 @@ void PPU::composeLayers()
 			}
 		}
 		
-		if (((DISPCNT >> 12) & 0b1) && getPointDrawable(x,VCOUNT,0,true))
+		if (((DISPCNT >> 12) & 0b1) && pointInfo.objDrawable)
 		{
 			//sprite mosaic seems to be a post process thing? idk
 			int spriteX = x;
@@ -474,7 +476,7 @@ void PPU::composeLayers()
 			}
 		}
 
-		if (getPointBlendable(x, VCOUNT))
+		if (pointInfo.blendable)
 		{
 			uint8_t blendMode = ((BLDCNT >> 6) & 0b11);
 			if (transparentSpriteTop)	
@@ -1112,14 +1114,14 @@ uint32_t PPU::col16to32(uint16_t col)
 
 }
 
-bool PPU::getPointDrawable(int x, int y, int backgroundLayer, bool obj)
+PointRenderableInfo PPU::getPointDrawable(int x, int y)
 {
+	PointRenderableInfo info = {};
 	bool window0Enabled = ((DISPCNT >> 13) & 0b1);
 	bool window1Enabled = ((DISPCNT >> 14) & 0b1);
 	bool objWindowEnabled = ((DISPCNT >> 15) & 0b1) && ((DISPCNT >> 12) & 0b1);
 	if (!(window0Enabled || window1Enabled || objWindowEnabled))		//drawable if neither window enabled
-		return true;
-	bool drawable = false;
+		return { {true,true,true,true},true,true };
 	//todo: obj window
 	//also todo: window priority. win0 has higher priority than win1, win1 has higher priority than obj window
 	if (window0Enabled)
@@ -1131,11 +1133,11 @@ bool PPU::getPointDrawable(int x, int y, int backgroundLayer, bool obj)
 		bool inWindow = (x >= winLeft && x <= winRight && y >= winTop && y <= winBottom);
 		if (inWindow)
 		{
-			if (obj)
-				drawable = ((WININ >> 4) & 0b1);
-			else
-				drawable = ((WININ >> backgroundLayer) & 0b1);
-			return drawable;
+			info.objDrawable = ((WININ >> 4) & 0b1);
+			for(int i = 0; i < 4; i++)
+				info.layerDrawable[i] = ((WININ >> i) & 0b1);
+			info.blendable = ((WININ >> 5) & 0b1);
+			return info;
 		}
 	}
 	if (window1Enabled)
@@ -1147,11 +1149,11 @@ bool PPU::getPointDrawable(int x, int y, int backgroundLayer, bool obj)
 		bool inWindow = (x >= winLeft && x <= winRight && y >= winTop && y <= winBottom);
 		if (inWindow)
 		{
-			if (obj)
-				drawable |= ((WININ >> 12) & 0b1);
-			else
-				drawable |= ((WININ >> (backgroundLayer+8)) & 0b1);
-			return drawable;
+			info.objDrawable = ((WININ >> 12) & 0b1);
+			for(int i = 0; i < 4; i++)
+				info.layerDrawable[i] = ((WININ >> (i + 8)) & 0b1);
+			info.blendable = ((WININ >> 13) & 0b1);
+			return info;
 		}
 	}
 	if (objWindowEnabled)
@@ -1159,59 +1161,19 @@ bool PPU::getPointDrawable(int x, int y, int backgroundLayer, bool obj)
 		bool pointInWindow = m_spriteAttrBuffer[x].objWindow;	//<--why does vs care about this line? x can never be above 239.
 		if (pointInWindow)
 		{
-			if (obj)
-				drawable |= ((WINOUT >> 12) & 0b1);
-			else
-				drawable |= ((WINOUT >> (backgroundLayer + 8)) & 0b1);
-			return drawable;
+			info.objDrawable = ((WINOUT >> 12) & 0b1);
+			for (int i = 0; i < 4; i++)
+				info.layerDrawable[i] = ((WINOUT >> (i + 8)) & 0b1);
+			info.blendable = ((WINOUT >> 13) & 0b1);
+			return info;
 		}
 	}
 
-	if (obj)
-		drawable |= ((WINOUT >> 4) & 0b1);
-	else
-		drawable |= ((WINOUT >> (backgroundLayer)) & 0b1);
-
-	return drawable;
-}
-
-bool PPU::getPointBlendable(int x, int y)
-{
-	bool window0Enabled = ((DISPCNT >> 13) & 0b1);
-	bool window1Enabled = ((DISPCNT >> 14) & 0b1);
-	bool objWindowEnabled = ((DISPCNT >> 15) & 0b1) && ((DISPCNT >> 12) & 0b1);
-	if (!(window0Enabled || window1Enabled || objWindowEnabled))		//drawable if neither window enabled
-		return true;
-	bool drawable = false;
-
-	if (window0Enabled)
-	{
-		int winRight = (WIN0H & 0xFF);
-		int winLeft = ((WIN0H >> 8) & 0xFF);
-		int winBottom = (WIN0V & 0xFF) - 1;	//not sure about -1? gbateek says bottom-most plus 1
-		int winTop = ((WIN0V >> 8) & 0xFF);
-		bool inWindow = (x >= winLeft && x <= winRight && y >= winTop && y <= winBottom);
-		if (inWindow)
-			return ((WININ >> 5) & 0b1);
-	}
-	if (window1Enabled)
-	{
-		int winRight = (WIN1H & 0xFF);
-		int winLeft = ((WIN1H >> 8) & 0xFF);
-		int winBottom = (WIN1V & 0xFF) - 1;	//not sure about -1? gbateek says bottom-most plus 1
-		int winTop = ((WIN1V >> 8) & 0xFF);
-		bool inWindow = (x >= winLeft && x <= winRight && y >= winTop && y <= winBottom);
-		if (inWindow)
-			return ((WININ >> 13) & 0b1);
-	}
-	if (objWindowEnabled)
-	{
-		bool pointInWindow = m_spriteAttrBuffer[x].objWindow;	//<--why does vs care about this line? x can never be above 239.
-		if (pointInWindow)
-			return ((WINOUT >> 13) & 0b1);
-	}
-	return ((WINOUT >> 5) & 0b1);
-
+	info.objDrawable = ((WINOUT >> 4) & 0b1);
+	for (int i = 0; i < 4; i++)
+		info.layerDrawable[i] = ((WINOUT >> i) & 0b1);
+	info.blendable = ((WINOUT >> 5) & 0b1);
+	return info;
 }
 
 uint32_t* PPU::getDisplayBuffer()

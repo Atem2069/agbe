@@ -29,11 +29,18 @@ union SpriteAttribute
 	};
 };
 
-struct OAMEntry
+struct OAMEntry				//todo: maybe use unions or something here to encode the attributes for cleaner code
 {
 	uint16_t attr0;
 	uint16_t attr1;
 	uint16_t attr2;
+};
+
+struct PointRenderableInfo	//used for seeing if point should be renderable/blendable (e.g. because it lies in/out a window, or if no windows are active)
+{
+	bool layerDrawable[4];
+	bool objDrawable;
+	bool blendable;
 };
 
 enum class PPUState
@@ -124,8 +131,7 @@ private:
 
 	uint32_t col16to32(uint16_t col);
 
-	bool getPointDrawable(int x, int y, int backgroundLayer, bool obj);
-	bool getPointBlendable(int x, int y);
+	PointRenderableInfo getPointDrawable(int x, int y);
 
 	//todo: these names are confusing (m_calc..., calc....) so probs rewrite with nicer function names at some point so I don't confuse myself :P
 	inline void m_calcAffineCoords(bool mosaic, int32_t& xRef, int32_t& yRef, int16_t dx, int16_t dy)
