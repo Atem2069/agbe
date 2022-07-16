@@ -250,7 +250,7 @@ void PPU::renderMode2()
 
 void PPU::renderMode3()
 {
-	drawSprites();
+	drawSprites(true);
 	bool mosaic = ((BG2CNT >> 6) & 0b1);
 	if ((DISPCNT >> 10) & 0b1)
 	{
@@ -287,7 +287,7 @@ void PPU::renderMode3()
 
 void PPU::renderMode4()
 {
-	drawSprites();
+	drawSprites(true);
 	uint32_t base = 0;
 	bool pageFlip = ((DISPCNT >> 4) & 0b1);
 	if (pageFlip)
@@ -330,7 +330,7 @@ void PPU::renderMode4()
 
 void PPU::renderMode5()
 {
-	drawSprites();
+	drawSprites(true);
 	uint32_t baseAddr = 0;
 	bool pageFlip = ((DISPCNT >> 4) & 0b1);
 	if (pageFlip)
@@ -725,7 +725,7 @@ void PPU::drawRotationScalingBackground(int bg)
 	m_updateAffineRegisters(mosaicEnabled,bg);
 }
 
-void PPU::drawSprites()
+void PPU::drawSprites(bool bitmapMode)
 {
 	memset(m_spriteAttrBuffer, 0b00011111, 240);
 	memset(m_spriteLineBuffer, 0x80, 480);
@@ -819,6 +819,9 @@ void PPU::drawSprites()
 			else
 				tileId += rowPitch; //otherwise, add the row pitch (which says how many tiles exist per row)
 		}
+
+		if (bitmapMode && tileId < 512)		//bitmap mode: only tiles 512-1023 are displayable. ignore all others
+			continue;
 
 		uint32_t objBase = 0x10000;
 		if (!hiColor)

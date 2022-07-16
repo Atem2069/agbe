@@ -109,7 +109,7 @@ private:
 
 	void drawBackground(int bg);
 	void drawRotationScalingBackground(int bg);
-	void drawSprites();
+	void drawSprites(bool bitmapMode=false);
 	void drawAffineSprite(OAMEntry* curSpriteEntry);
 
 	uint16_t extractColorFromTile(uint32_t tileBase, uint32_t xOffset, bool hiColor, bool sprite, uint32_t palette);
