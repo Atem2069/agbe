@@ -213,6 +213,8 @@ private:
 	void clockVolumeEnvelope();
 	void clockFrequencySweep();
 
+	void resetAllChannels();
+
 
 	SDL_AudioDeviceID m_audioDevice = {};
 	int16_t m_sampleBuffer[sampleBufferSize*2] = {};

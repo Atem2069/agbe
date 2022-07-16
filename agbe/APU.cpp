@@ -203,6 +203,8 @@ void APU::writeIO(uint32_t address, uint8_t value)
 		break;
 	case 0x04000084:
 		SOUNDCNT_X = value & 0x80;	//rest of the bits are read only
+		if (!((SOUNDCNT_X >> 7) & 0b1))
+			resetAllChannels();
 		break;
 	case 0x04000088:
 		SOUNDBIAS &= 0xFF00; SOUNDBIAS |= value;
@@ -595,6 +597,34 @@ void APU::clockFrequencySweep()
 			}
 		}
 	}
+}
+
+void APU::resetAllChannels()
+{
+	m_square1 = {};
+	m_square2 = {};
+	m_waveChannel = {};
+	m_noiseChannel = {};
+	SOUNDCNT_X &= ~0xF;	//clear PSG channel enable bits
+
+	//all PSG channel registers now reset to 0
+	SOUNDCNT_L = {};
+	SOUNDCNT_H = {};
+	SOUNDCNT_X = {};
+
+	SOUND1CNT_L = {};
+	SOUND1CNT_H = {};
+	SOUND1CNT_X = {};
+
+	SOUND2CNT_L = {};
+	SOUND2CNT_H = {};
+
+	SOUND3CNT_L = {};
+	SOUND3CNT_H = {};
+	SOUND3CNT_X = {};
+
+	SOUND4CNT_L = {};
+	SOUND4CNT_H = {};
 }
 
 void APU::updateDMAChannel(int channel)
