@@ -445,8 +445,9 @@ void Bus::onVideoCapture()	//special video capture dma used by dma3 (scanlines 2
 	}
 }
 
-void Bus::onAudioFIFO()
+void Bus::onAudioFIFO(int channel)
 {
+	static constexpr uint32_t addrLookup[2] = { 0x040000A0,0x040000A4 };
 	for (int i = 1; i < 3; i++)
 	{
 		uint16_t curCtrlReg = m_dmaChannels[i].control;
@@ -454,7 +455,7 @@ void Bus::onAudioFIFO()
 		{
 			//dma enabled
 			uint8_t startTiming = ((curCtrlReg >> 12) & 0b11);
-			if (startTiming == 3)
+			if ((startTiming == 3) && m_dmaChannels[i].destAddress==addrLookup[channel])
 				doDMATransfer(i);
 		}
 	}
@@ -484,8 +485,8 @@ void Bus::DMA_VideoCaptureCallback(void* context)
 	thisPtr->onVideoCapture();
 }
 
-void Bus::DMA_AudioFIFOCallback(void* context)
+void Bus::DMA_AudioFIFOCallback(void* context, int channel)
 {
 	Bus* thisPtr = (Bus*)context;
-	thisPtr->onAudioFIFO();	
+	thisPtr->onAudioFIFO(channel);	
 }

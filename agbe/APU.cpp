@@ -27,7 +27,7 @@ APU::~APU()
 	SDL_Quit();
 }
 
-void APU::registerDMACallback(callbackFn dmaCallback, void* context)
+void APU::registerDMACallback(FIFOcallbackFn dmaCallback, void* context)
 {
 	FIFODMACallback = dmaCallback;
 	dmaContext = context;
@@ -284,10 +284,6 @@ void APU::onTimer0Overflow()
 		updateDMAChannel(0);
 	if (!channelBTimerSelect)
 		updateDMAChannel(1);
-
-	if (m_shouldDMA)
-		FIFODMACallback(dmaContext);
-	m_shouldDMA = false;
 }
 
 void APU::onTimer1Overflow()
@@ -302,10 +298,6 @@ void APU::onTimer1Overflow()
 		updateDMAChannel(0);
 	if (channelBTimerSelect)
 		updateDMAChannel(1);
-
-	if (m_shouldDMA)
-		FIFODMACallback(dmaContext);
-	m_shouldDMA = false;
 }
 
 void APU::updateSquare1()
@@ -633,7 +625,7 @@ void APU::updateDMAChannel(int channel)
 	{
 		m_channels[channel].pop();
 		if (m_channels[channel].size < 16)	//need to request more data!!
-			m_shouldDMA = true;
+			FIFODMACallback(dmaContext, channel);
 	}
 }
 

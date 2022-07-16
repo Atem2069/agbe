@@ -7,6 +7,8 @@
 #include<SDL.h>
 #undef main			//really sdl??
 
+typedef void(*FIFOcallbackFn)(void*, int);
+
 struct AudioFIFO
 {
 	int8_t data[32];
@@ -135,7 +137,7 @@ public:
 	APU(std::shared_ptr<Scheduler> scheduler);
 	~APU();
 
-	void registerDMACallback(callbackFn dmaCallback, void* context);
+	void registerDMACallback(FIFOcallbackFn dmaCallback, void* context);
 
 	uint8_t readIO(uint32_t address);
 	void writeIO(uint32_t address, uint8_t value);
@@ -191,10 +193,9 @@ private:
 
 	static constexpr int divisorMappings[8] = { 8,16,32,48,64,80,96,112 };	//divisor mappings for calculating noise channel frequency
 
-	bool m_shouldDMA = false;
 	void updateDMAChannel(int channel);
 
-	callbackFn FIFODMACallback;
+	FIFOcallbackFn FIFODMACallback;
 	void* dmaContext;
 
 	void onSampleEvent();
