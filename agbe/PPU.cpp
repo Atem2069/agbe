@@ -52,32 +52,28 @@ void PPU::triggerHBlankIRQ()
 
 void PPU::HDraw()
 {
-	bool forcedBlank = ((DISPCNT >> 7) & 0b1);
-	if (!forcedBlank)
+	uint8_t mode = DISPCNT & 0b111;
+	switch (mode)
 	{
-		uint8_t mode = DISPCNT & 0b111;
-		switch (mode)
-		{
-		case 0:
-			renderMode0();
-			break;
-		case 1:
-			renderMode1();
-			break;
-		case 2:
-			renderMode2();
-			break;
-		case 3:
-			renderMode3();
-			break;
-		case 4:
-			renderMode4();
-			break;
-		case 5:
-			renderMode5();
-			break;
+	case 0:
+		renderMode0();
+		break;
+	case 1:
+		renderMode1();
+		break;
+	case 2:
+		renderMode2();
+		break;
+	case 3:
+		renderMode3();
+		break;
+	case 4:
+		renderMode4();
+		break;
+	case 5:
+		renderMode5();
+		break;
 		}
-	}
 
 	composeLayers();
 	m_backgroundLayers[0].enabled = false;
@@ -379,6 +375,12 @@ void PPU::composeLayers()
 	bool mosaicInProcess = false;
 	for (int x = 0; x < 240; x++)
 	{	
+		if (((DISPCNT >> 7) & 0b1))				//forced blank -> white screen
+		{
+			m_renderBuffer[pageIdx][(240 * VCOUNT) + x] = 0xFFFFFFFF;
+			continue;
+		}
+
 		PointRenderableInfo pointInfo = getPointDrawable(x, VCOUNT);
 
 		uint16_t finalCol = backDrop;
