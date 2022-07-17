@@ -728,9 +728,6 @@ void ARM7TDMI::ARM_BlockDataTransfer()
 	uint16_t r_list = m_currentOpcode & 0xFFFF;
 
 	uint8_t oldMode = 0;
-	// Force USR mode
-	//if (psr) { oldMode = CPSR & 0x1F; CPSR &= ~0xF; }
-
 	uint32_t base_addr = getReg(baseReg);
 	uint32_t old_base = base_addr;
 
@@ -740,7 +737,7 @@ void ARM7TDMI::ARM_BlockDataTransfer()
 		if ((r_list >> i) & 0b1)
 		{
 			transferCount++;
-			if (!baseIsFirst)
+			if (transferCount==1 && i==baseReg)
 				baseIsFirst = true;
 		}
 	}
