@@ -259,7 +259,12 @@ void ARM7TDMI::setReg(uint8_t reg, uint32_t value, bool forceUser)
 {
 	uint8_t mode = CPSR & 0x1F;
 	if (reg < 8 || forceUser)		//R0-R7 not banked so this is gucci
+	{
 		R[reg] = value;
+		if (reg == 15)
+			flushPipeline();
+		return;
+	}
 	switch (reg)
 	{
 	case 8:

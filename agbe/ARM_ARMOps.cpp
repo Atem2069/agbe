@@ -729,130 +729,119 @@ void ARM7TDMI::ARM_BlockDataTransfer()
 
 	uint8_t oldMode = 0;
 	// Force USR mode
-	if (psr) { oldMode = CPSR & 0x1F; CPSR &= ~0xF; }
+	//if (psr) { oldMode = CPSR & 0x1F; CPSR &= ~0xF; }
 
 	uint32_t base_addr = getReg(baseReg);
 	uint32_t old_base = base_addr;
-	uint8_t transfer_reg = 0xFF;
 
-	//Find out the first register in the Register List
-	for (int x = 0; x < 16; x++)
+	int transferCount = 0, baseIsFirst = false;
+	for (int i = 0; i < 16; i++)
 	{
-		if (r_list & (1 << x))
+		if ((r_list >> i) & 0b1)
 		{
-			transfer_reg = x;
-			x = 0xFF;
-			break;
+			transferCount++;
+			if (!baseIsFirst)
+				baseIsFirst = true;
 		}
 	}
 
-	bool baseIncluded = (r_list >> baseReg) & 0b1;
-	int transferCount = 0;
-	bool firstTransfer = true;	//used to make first access nonsequential
-
-	//Load-Store with an ascending stack order, Up-Down = 1
-	if ((upDown == 1) && (r_list != 0))
+	uint32_t finalBase = base_addr;
+	if (!upDown)
 	{
-		for (int x = 0; x < 16; x++)
-		{
-			if (r_list & (1 << x))
-			{
-				transferCount++;
-				//Increment before transfer if pre-indexing
-				if (prePost == 1) { base_addr += 4; }
+		finalBase = finalBase - (transferCount * 4);
+		base_addr = finalBase;
+		prePost = !prePost;	//flip pre/post-indexing order for descending r-list load/store
+	}
+	else
+		finalBase = finalBase + (transferCount * 4);
 
-				if (loadStore == 0)
-				{
-					//Store registers
-					if ((x == transfer_reg) && (baseReg == transfer_reg)) { m_bus->write32(base_addr, old_base,(AccessType)!firstTransfer); }
-					else { m_bus->write32(base_addr, getReg(x),(AccessType)!firstTransfer); }
-				}
-				else
-				{
-					//Load registers
-					if ((x == transfer_reg) && (baseReg == transfer_reg)) { writeBack = 0; }
-					setReg(x, m_bus->read32(base_addr,(AccessType)!firstTransfer));
-				}
+	bool firstTransfer = true;
+	if (loadStore)	//load
+	{
+		for (int i = 0; i < 16; i++)
+		{
+			if ((r_list >> i) & 0b1)
+			{
+
+				if (i == baseReg && writeBack)		//gbatek: no writeback if base in rlist
+					writeBack = false;
+
+				if (prePost)
+					base_addr += 4;
+
+				uint32_t val = m_bus->read32(base_addr, (AccessType)!firstTransfer);
 				firstTransfer = false;
-				//Increment after transfer if post-indexing
-				if (prePost == 0) { base_addr += 4; }
-			}
 
-			//Write back the into base register
-			if (writeBack == 1 && (!loadStore || (loadStore && !baseIncluded))) { setReg(baseReg, base_addr); }
+				setReg(i, val, psr);
+
+				if (!prePost)
+					base_addr += 4;
+			}
 		}
 
-		int cyclesToAdd = transferCount + ((loadStore) ? 2 : 1);
-		m_scheduler->addCycles(cyclesToAdd);
-		if (loadStore)
-			m_bus->tickPrefetcher(1);
+		if (writeBack)
+			setReg(baseReg, finalBase);
+
+		m_scheduler->addCycles(transferCount + 2);
+		m_bus->tickPrefetcher(1);
 	}
 
-	//Load-Store with a descending stack order, Up-Down = 0
-	else if ((upDown == 0) && (r_list != 0))
+	else		//store
 	{
-		for (int x = 15; x >= 0; x--)
+		for (int i = 0; i < 16; i++)
 		{
-			if (r_list & (1 << x))
+			if ((r_list >> i) & 0b1)
 			{
-				transferCount++;
-				//Decrement before transfer if pre-indexing
-				if (prePost == 1) { base_addr -= 4; }
+				if (prePost)
+					base_addr += 4;
 
-				//Store registers
-				if (loadStore == 0)
+				uint32_t val = getReg(i, psr);
+
+				if (i == baseReg && writeBack)
 				{
-					if ((x == transfer_reg) && (baseReg == transfer_reg)) { m_bus->write32(base_addr, old_base,(AccessType)!firstTransfer); }
+					if (baseIsFirst)
+						val = old_base;
 					else
-					{
-						uint32_t val = getReg(x);
-						if (x == 15)
-							val += 4;
-						m_bus->write32(base_addr, val,(AccessType)!firstTransfer);
-					}
+						val = finalBase;
 				}
+				if (i == 15)		//R15 stored -> PC+12
+					val += 4;
 
-				//Load registers
-				else
-				{
-					if ((x == transfer_reg) && (baseReg == transfer_reg)) { writeBack = 0; }
-					setReg(x, m_bus->read32(base_addr,(AccessType)!firstTransfer));
-				}
-
+				m_bus->write32(base_addr, val, (AccessType)!firstTransfer);
 				firstTransfer = false;
 
-				//Decrement after transfer if post-indexing
-				if (prePost == 0) { base_addr -= 4; }
+				if (!prePost)
+					base_addr += 4;
 			}
-
-			//Write back the into base register
-			if (writeBack == 1 && (!loadStore || (loadStore && !baseIncluded))) { setReg(baseReg, base_addr); }
 		}
-		int cyclesToAdd = transferCount + ((loadStore) ? 2 : 1);
-		m_scheduler->addCycles(cyclesToAdd);
-		if (loadStore)
-			m_bus->tickPrefetcher(1);
+
+		if (writeBack)
+			setReg(baseReg, finalBase);
+
+		m_scheduler->addCycles(transferCount + 1);
 	}
-	else //Special case, empty RList
+
+	if (transferCount == 0)		//no registers to transfer, weird behaviour
 	{
-		//Load R15
-		if (loadStore == 0) { m_bus->write32(base_addr, getReg(15) + 4, AccessType::Nonsequential); m_scheduler->addCycles(1); }
-		else //Store R15
+		if (loadStore)
 		{
 			setReg(15, m_bus->read32(base_addr, AccessType::Nonsequential));
 			m_scheduler->addCycles(2);
 		}
+		else
+		{
+			m_bus->write32(base_addr, getReg(15) + 4, AccessType::Nonsequential);
+			m_scheduler->addCycles(1);
+		}
 
-		//Add 0x40 to base address if ascending stack, writeback into base register
-		if (upDown == 1) { setReg(baseReg, (base_addr + 0x40)); }
+		if (upDown)
+			setReg(baseReg, base_addr + 0x40);
+		else
+			setReg(baseReg, base_addr - 0x40);
 
-		//Subtract 0x40 from base address if descending stack, writeback into base register
-		else { setReg(baseReg, (base_addr - 0x40)); }
 		m_scheduler->addCycles(1);
 	}
 
-	// Restore old mode
-	if (psr) { CPSR |= oldMode; }
 	nextFetchNonsequential = true;
 }
 

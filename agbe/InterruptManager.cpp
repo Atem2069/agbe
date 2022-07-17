@@ -43,12 +43,9 @@ void InterruptManager::requestInterrupt(InterruptType type)
 		IF |= 0b1000000000000; break;
 
 	}
-	if (!irqPending)
-	{
-		irqPending = true;
-		m_scheduler->addEvent(Event::IRQ, &InterruptManager::eventHandler, (void*)this, m_scheduler->getCurrentTimestamp() + 4);
-		m_scheduler->forceSync(4);
-	}
+	irqPending = true;
+	m_scheduler->addEvent(Event::IRQ, &InterruptManager::eventHandler, (void*)this, m_scheduler->getCurrentTimestamp() + 4);
+	m_scheduler->forceSync(4);
 }
 
 bool InterruptManager::getInterrupt(bool bypassIMECheck)
