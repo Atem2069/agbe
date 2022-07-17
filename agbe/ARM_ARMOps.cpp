@@ -820,6 +820,16 @@ void ARM7TDMI::ARM_BlockDataTransfer()
 
 	if (transferCount == 0)		//no registers to transfer, weird behaviour
 	{
+
+		if (!upDown)                 //seems for descending load/store that the -40h offset is applied before loading/storing PC
+		{
+			base_addr -= 0x40;
+			setReg(baseReg, base_addr);
+		}
+		 
+		if (prePost)				//preincrement causes 'DA' or 'IB' (decrementing after, incrementing before) to do load/store either +4h or -3Ch bytes from base
+			base_addr += 4;
+
 		if (loadStore)
 		{
 			setReg(15, m_bus->read32(base_addr, AccessType::Nonsequential));
@@ -832,9 +842,7 @@ void ARM7TDMI::ARM_BlockDataTransfer()
 		}
 
 		if (upDown)
-			setReg(baseReg, base_addr + 0x40);
-		else
-			setReg(baseReg, base_addr - 0x40);
+			setReg(baseReg, old_base + 0x40);	//use old_base bc 'base_addr' might have been offset by 4h already
 
 		m_scheduler->addCycles(1);
 	}
