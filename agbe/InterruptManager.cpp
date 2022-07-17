@@ -89,15 +89,23 @@ void InterruptManager::writeIO(uint32_t address, uint8_t value)
 		IE &= 0xFF00; IE |= value; break;
 	case 0x04000201:
 		IE &= 0x00FF; IE |= ((value << 8)); break;
-	case 0x04000202:				//double check this!
-		if(!irqPending)
+	case 0x04000202:				//why does this work? 
+		if (!irqPending)
+		{
 			shadowIF &= ~(value);
-		IF = shadowIF;
+			IF = shadowIF;
+		}
+		else
+			IF &= ~(value);
 		break;
 	case 0x04000203:
-		if(!irqPending)
-			shadowIF &= ~((value << 8)); 
-		IF = shadowIF;
+		if (!irqPending)
+		{
+			shadowIF &= ~((value << 8));
+			IF = shadowIF;
+		}
+		else
+			IF &= ~(value);
 		break;
 	}
 }
