@@ -24,6 +24,8 @@ struct AudioFIFO
 	}
 	void pop()
 	{
+		if (!size)
+			return;
 		int8_t retVal = data[startIdx];
 		startIdx = (startIdx + 1) % 32;
 		size--;
