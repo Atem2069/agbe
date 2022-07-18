@@ -498,8 +498,10 @@ uint32_t Bus::fetch32(uint32_t address, AccessType accessType)
 	{
 		if (prefetchInProgress)
 		{
-			uint16_t valLow = fetch16(address, accessType);
-			uint16_t valHigh = fetch16(address + 2, accessType);
+			uint16_t valLow = getPrefetchedValue(address);
+			if (hack_lastPrefetchGood)
+				tickPrefetcher(1);
+			uint16_t valHigh = getPrefetchedValue(address + 2);
 			val = ((valHigh << 16) | valLow);
 			if (!hack_lastPrefetchGood)
 				m_scheduler->addCycles(1);		//extra S cycle inserted only when prefetch fails (warn: potentially/likely wrong)
@@ -528,7 +530,11 @@ uint16_t Bus::fetch16(uint32_t address, AccessType accessType)
 		invalidatePrefetchBuffer();
 	uint16_t val = 0;
 	if (prefetchEnabled && address >= 0x08000000 && address <= 0x0DFFFFFF)	//nice, we can just read the prefetch buffer
+	{
 		val = getPrefetchedValue(address);
+		if (hack_lastPrefetchGood)
+			tickPrefetcher(1);
+	}
 	else
 		val = read16(address, accessType);
 
@@ -578,8 +584,6 @@ uint16_t Bus::getPrefetchedValue(uint32_t pc)
 			prefetchSize--;
 			m_prefetchHead += 2;
 			hack_lastPrefetchGood = true;
-			if (prefetchSize == 0)
-				prefetchShouldDelay = false;
 		}
 		else					//otherwise we'll wait for the prefetch buffer to get it, then reset the buffer (but keep burst going)
 		{
@@ -813,19 +817,19 @@ void Bus::setByteInHalfword(uint16_t* halfword, uint8_t byte, int pos)
 void Bus::tickPrefetcher(uint64_t cycles)
 {
 	uint8_t page = (prefetchAddress >> 24) & 0xFF;
-	uint64_t waitstates = waitstateSequentialTable[((page - 8) >> 1)];
+	uint64_t waitstates = waitstateSequentialTable[((page - 8) >> 1)]+1;
 	prefetchTargetCycles = waitstates;
 	if (prefetchInProgress && prefetchEnabled && !prefetcherHalted)
 	{
 		prefetchInternalCycles += cycles;
-		while (prefetchInternalCycles > waitstates && prefetchSize < 8)
+		while (prefetchInternalCycles >= waitstates && prefetchSize < 8)
 		{
 			prefetchInternalCycles -= waitstates;
 			prefetchEnd = (prefetchEnd + 1) & 7;
 			prefetchSize++;
 			prefetchAddress += 2;
 		}
-		prefetchShouldDelay = ((prefetchTargetCycles - prefetchInternalCycles) == 0);
+		prefetchShouldDelay = ((prefetchTargetCycles - prefetchInternalCycles) == 1);
 	}
 }
 
