@@ -498,13 +498,13 @@ uint32_t Bus::fetch32(uint32_t address, AccessType accessType)
 	{
 		if (prefetchInProgress)
 		{
-			uint16_t valLow = getPrefetchedValue(address);
-			if (hack_lastPrefetchGood)
+			if (prefetchSize > 0)	//hmm.. seems like prefetcher always ticked even if only one halfword is loaded?
 				tickPrefetcher(1);
+			uint16_t valLow = getPrefetchedValue(address);
 			uint16_t valHigh = getPrefetchedValue(address + 2);
 			val = ((valHigh << 16) | valLow);
 			if (!hack_lastPrefetchGood)
-				m_scheduler->addCycles(1);		//extra S cycle inserted only when prefetch fails (warn: potentially/likely wrong)
+				m_scheduler->addCycles(1);		//not sure: seems like a cycle added if we end up having to do a halfword fetch.. :(
 		}
 		else
 		{
@@ -531,9 +531,9 @@ uint16_t Bus::fetch16(uint32_t address, AccessType accessType)
 	uint16_t val = 0;
 	if (prefetchEnabled && address >= 0x08000000 && address <= 0x0DFFFFFF)	//nice, we can just read the prefetch buffer
 	{
-		val = getPrefetchedValue(address);
-		if (hack_lastPrefetchGood)
+		if (prefetchSize > 0)
 			tickPrefetcher(1);
+		val = getPrefetchedValue(address);
 	}
 	else
 		val = read16(address, accessType);
