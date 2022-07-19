@@ -490,11 +490,16 @@ void Bus::write32(uint32_t address, uint32_t value, AccessType accessType)
 
 uint32_t Bus::fetch32(uint32_t address, AccessType accessType)
 {
+	if (hack_forceNonseq && !prefetchEnabled)
+	{
+		accessType = AccessType::Nonsequential;
+		hack_forceNonseq = false;
+	}
 	biosLockout = (address > 0x3FFF);
 	if (address < 0x08000000 || address > 0x0DFFFFFF)
 		invalidatePrefetchBuffer();
 	uint32_t val = 0;
-	if (prefetchEnabled && address >= 0x08000000 && address <= 0x0DFFFFFF)
+	if ((prefetchEnabled || prefetchSize>0) && address >= 0x08000000 && address <= 0x0DFFFFFF)
 	{
 		if (prefetchInProgress)
 		{
@@ -525,11 +530,16 @@ uint32_t Bus::fetch32(uint32_t address, AccessType accessType)
 
 uint16_t Bus::fetch16(uint32_t address, AccessType accessType)
 {
+	if (hack_forceNonseq && !prefetchEnabled)
+	{
+		accessType = AccessType::Nonsequential;
+		hack_forceNonseq = false;
+	}
 	biosLockout = (address > 0x3FFF);
 	if (address < 0x08000000 || address > 0x0DFFFFFF)
 		invalidatePrefetchBuffer();
 	uint16_t val = 0;
-	if (prefetchEnabled && address >= 0x08000000 && address <= 0x0DFFFFFF)	//nice, we can just read the prefetch buffer
+	if ((prefetchEnabled || prefetchSize>0) && address >= 0x08000000 && address <= 0x0DFFFFFF)	//nice, we can just read the prefetch buffer
 	{
 		if (prefetchSize > 0)
 			tickPrefetcher(1);
@@ -596,6 +606,9 @@ uint16_t Bus::getPrefetchedValue(uint32_t pc)
 			m_prefetchHead = prefetchAddress;
 			val = read16(pc, AccessType::Prefetch);
 		}
+
+		if (prefetchSize == 0)
+			hack_forceNonseq = true;
 	}
 	else
 	{
@@ -714,9 +727,12 @@ void Bus::writeIO8(uint32_t address, uint8_t value)
 		waitstateSequentialTable[1] = ((WAITCNT >> 7) & 0b1) ? 1 : 4;
 		waitstateSequentialTable[2] = ((WAITCNT >> 10) & 0b1) ? 1 : 8;
 		SRAMCycles = nonseqLUT[(WAITCNT & 0b11)];
+		if (prefetchEnabled && prefetchInProgress && !(((WAITCNT >> 14) & 0b1)))
+		{
+			m_scheduler->addCycles((prefetchTargetCycles - prefetchInternalCycles));
+			prefetchSize++;
+		}
 		prefetchEnabled = ((WAITCNT >> 14) & 0b1);
-		if (!prefetchEnabled)
-			invalidatePrefetchBuffer();
 
 		return;
 	case 0x04000300:

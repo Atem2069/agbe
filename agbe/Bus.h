@@ -153,4 +153,5 @@ private:
 	uint32_t prefetchAddress = 0;
 	bool prefetchShouldDelay = false;
 	bool hack_lastPrefetchGood = false;
+	bool hack_forceNonseq = false;
 };
