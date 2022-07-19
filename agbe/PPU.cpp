@@ -755,28 +755,27 @@ void PPU::drawSprites(bool bitmapMode)
 
 		OAMEntry* curSpriteEntry = (OAMEntry*)(m_mem->OAM+spriteBase);
 
-		if ((curSpriteEntry->attr0 >> 8) & 0b1)
+		if(curSpriteEntry->rotateScale)
 		{
 			drawAffineSprite(curSpriteEntry);
 			continue;
 		}
 
-		bool spriteDisabled = ((curSpriteEntry->attr0 >> 9) & 0b1);	
-		if (spriteDisabled)
+		if (curSpriteEntry->disableObj)
 			continue;
 
-		uint8_t objMode = (curSpriteEntry->attr0 >> 10) & 0b11;	
-		bool isObjWindow = (objMode == 2);
-		bool mosaic = (curSpriteEntry->attr0 >> 12) & 0b1;
+		//uint8_t objMode = (curSpriteEntry->attr0 >> 10) & 0b11;	
+		bool isObjWindow = curSpriteEntry->objMode == 2;
+		//bool mosaic = (curSpriteEntry->attr0 >> 12) & 0b1;
 
 		int renderY = VCOUNT;
-		if (mosaic)
+		if (curSpriteEntry->mosaic)
 			renderY = (renderY / mosaicVertical) * mosaicVertical;
 
-		int spriteTop = curSpriteEntry->attr0 & 0xFF;
+		int spriteTop = curSpriteEntry->yCoord;
 		if (spriteTop >= 160)							//bit of a dumb hack to accommodate for when sprites are offscreen
 			spriteTop -= 256;
-		int spriteLeft = curSpriteEntry->attr1 & 0x1FF;
+		int spriteLeft = curSpriteEntry->xCoord;
 		if (spriteLeft >= 240)
 			spriteLeft -= 512;
 		if (spriteLeft >= 240 || spriteTop > renderY)	//nope. sprite is offscreen or too low
@@ -784,11 +783,9 @@ void PPU::drawSprites(bool bitmapMode)
 		int spriteBottom = 0, spriteRight = 0;
 		int rowPitch = 1;	//find out how many lines we have to 'cross' to get to next row (in 1d mapping)
 		//need to find out dimensions first to figure out whether to ignore this object
-		int shape = ((curSpriteEntry->attr0 >> 14) & 0b11);
-		int size = ((curSpriteEntry->attr1 >> 14) & 0b11);
-		int spritePriority = ((curSpriteEntry->attr2 >> 10) & 0b11);	//used to figure out whether we should actually render the sprite
+		int spritePriority = curSpriteEntry->priority;
 
-		int spriteBoundsLookupId = (shape << 2) | size;
+		int spriteBoundsLookupId = (curSpriteEntry->shape << 2) | curSpriteEntry->size;
 		int spriteXBoundsLUT[12] ={8,16,32,64,16,32,32,64,8,8,16,32};
 		int spriteYBoundsLUT[12] ={8,16,32,64,8,8,16,32,16,32,32,64};
 		int xPitchLUT[12] ={1,2,4,8,2,4,4,8,1,1,2,4};
@@ -799,18 +796,16 @@ void PPU::drawSprites(bool bitmapMode)
 		if (VCOUNT >= spriteBottom)	//nope, we're past it.
 			continue;
 
-		bool flipHorizontal = ((curSpriteEntry->attr1 >> 12) & 0b1);
-		bool flipVertical = ((curSpriteEntry->attr1 >> 13) & 0b1);
+		bool flipHorizontal = curSpriteEntry->xFlip;
+		bool flipVertical = curSpriteEntry->yFlip;
 
 		int spriteYSize = (spriteBottom - spriteTop);	//find out how big sprite is
 		int yOffsetIntoSprite = renderY - spriteTop;
 		if (flipVertical)
 			yOffsetIntoSprite = (spriteYSize-1) - yOffsetIntoSprite;//flip y coord we're considering
 
-		uint32_t tileId = ((curSpriteEntry->attr2) & 0x3FF);
-		uint8_t priorityBits = ((curSpriteEntry->attr2 >> 10) & 0b11);
-		uint8_t paletteNumber = ((curSpriteEntry->attr2 >> 12) & 0xF);
-		bool hiColor = ((curSpriteEntry->attr0 >> 13) & 0b1);
+		uint32_t tileId = curSpriteEntry->charName;
+		bool hiColor = curSpriteEntry->bitDepth;
 		if (hiColor)
 			rowPitch *= 2;
 
@@ -860,7 +855,7 @@ void PPU::drawSprites(bool bitmapMode)
 				if (plotCoord > 239 || plotCoord < 0)
 					continue;
 
-				uint16_t col = extractColorFromTile(tileMapLookupAddr, baseX, hiColor, true, paletteNumber);
+				uint16_t col = extractColorFromTile(tileMapLookupAddr, baseX, hiColor, true, curSpriteEntry->paletteNumber);
 
 				if (isObjWindow)
 				{
@@ -876,8 +871,8 @@ void PPU::drawSprites(bool bitmapMode)
 					continue;
 
 				m_spriteAttrBuffer[plotCoord].priority = spritePriority & 0b11111;
-				m_spriteAttrBuffer[plotCoord].transparent = (objMode == 1);
-				m_spriteAttrBuffer[plotCoord].mosaic = ((curSpriteEntry->attr0) >> 12) & 0b1;
+				m_spriteAttrBuffer[plotCoord].transparent = (curSpriteEntry->objMode == 1);
+				m_spriteAttrBuffer[plotCoord].mosaic = curSpriteEntry->mosaic;
 				if(!currentPixelTransparent)
 					m_spriteLineBuffer[plotCoord] = col;
 			}
@@ -893,24 +888,20 @@ void PPU::drawAffineSprite(OAMEntry* curSpriteEntry)
 	bool isBlendTarget2 = ((BLDCNT >> 12) & 0b1);
 	uint8_t blendMode = ((BLDCNT >> 6) & 0b11);
 
-	uint8_t objMode = (curSpriteEntry->attr0 >> 10) & 0b11;
-	bool isObjWindow = (objMode == 2);
-	bool doubleSize = (curSpriteEntry->attr0 >> 9) & 0b1;
+	bool isObjWindow = (curSpriteEntry->objMode == 2);
+	bool doubleSize = curSpriteEntry->disableObj;	//odd: bit 9 is 'double-size' flag with affine sprites
 
-	int spriteTop = curSpriteEntry->attr0 & 0xFF;
-	int spriteLeft = curSpriteEntry->attr1 & 0x1FF;
+	int spriteTop = curSpriteEntry->yCoord;
+	int spriteLeft = curSpriteEntry->xCoord;
 	if ((spriteLeft >> 8) & 0b1)
 		spriteLeft |= 0xFFFFFF00;	//not sure maybe sign extension is okay
 	if (spriteLeft >= 240)	//nope. sprite is offscreen or too low
 		return;
 	int spriteBottom = 0, spriteRight = 0;
 	int rowPitch = 1;	//find out how many lines we have to 'cross' to get to next row (in 1d mapping)
-	//need to find out dimensions first to figure out whether to ignore this object
-	int shape = ((curSpriteEntry->attr0 >> 14) & 0b11);
-	int size = ((curSpriteEntry->attr1 >> 14) & 0b11);
-	int spritePriority = ((curSpriteEntry->attr2 >> 10) & 0b11);	//used to figure out whether we should actually render the sprite
 
-	int spriteBoundsLookupId = (shape << 2) | size;
+	//need to find out dimensions first to figure out whether to ignore this object
+	int spriteBoundsLookupId = (curSpriteEntry->shape << 2) | curSpriteEntry->size;
 	int spriteXBoundsLUT[12] = { 8,16,32,64,16,32,32,64,8,8,16,32 };
 	int spriteYBoundsLUT[12] = { 8,16,32,64,8,8,16,32,16,32,32,64 };
 	int xPitchLUT[12] = { 1,2,4,8,2,4,4,8,1,1,2,4 };
@@ -928,10 +919,8 @@ void PPU::drawAffineSprite(OAMEntry* curSpriteEntry)
 	if (VCOUNT >= (spriteBottom+doubleSizeOffset))	//nope, we're past it.
 		return;
 
-	uint32_t tileId = ((curSpriteEntry->attr2) & 0x3FF);
-	uint8_t priorityBits = ((curSpriteEntry->attr2 >> 10) & 0b11);
-	uint8_t paletteNumber = ((curSpriteEntry->attr2 >> 12) & 0xF);
-	bool hiColor = ((curSpriteEntry->attr0 >> 13) & 0b1);
+	uint32_t tileId = curSpriteEntry->charName;
+	bool hiColor = curSpriteEntry->bitDepth;
 	if (hiColor)
 		rowPitch *= 2;
 	int yOffsetIntoSprite = VCOUNT - spriteTop;
@@ -947,7 +936,7 @@ void PPU::drawAffineSprite(OAMEntry* curSpriteEntry)
 	m_spriteCyclesElapsed += (spriteWidth * 2) * (doubleSize ? 2 : 1);
 
 	//get affine parameters
-	uint32_t parameterSelection = (curSpriteEntry->attr1 >> 9) & 0x1F;
+	uint32_t parameterSelection = (curSpriteEntry->data >> 25) & 0x1F;
 	parameterSelection *= 0x20;
 	parameterSelection += 6;
 	int16_t PA = m_mem->OAM[parameterSelection] | ((m_mem->OAM[parameterSelection + 1]) << 8);
@@ -993,7 +982,7 @@ void PPU::drawAffineSprite(OAMEntry* curSpriteEntry)
 		if (plotCoord > 239 || plotCoord < 0)
 			continue;
 
-		uint16_t col = extractColorFromTile(tileMapLookupAddr, baseX, hiColor, true, paletteNumber);
+		uint16_t col = extractColorFromTile(tileMapLookupAddr, baseX, hiColor, true, curSpriteEntry->paletteNumber);
 
 		if (isObjWindow)
 		{
@@ -1005,11 +994,11 @@ void PPU::drawAffineSprite(OAMEntry* curSpriteEntry)
 		uint8_t priorityAtPixel = m_spriteAttrBuffer[plotCoord].priority;
 		bool renderedPixelTransparent = m_spriteLineBuffer[plotCoord] >> 15;
 		bool currentPixelTransparent = col >> 15;
-		if ((spritePriority >= priorityAtPixel) && (!renderedPixelTransparent || currentPixelTransparent))	//same as for normal, only stop if we're transparent (and lower priority)
+		if ((curSpriteEntry->priority >= priorityAtPixel) && (!renderedPixelTransparent || currentPixelTransparent))	//same as for normal, only stop if we're transparent (and lower priority)
 			continue;																						//...or last pixel isn't transparent
-		m_spriteAttrBuffer[plotCoord].priority = spritePriority&0b11111;
-		m_spriteAttrBuffer[plotCoord].transparent = (objMode == 1);
-		m_spriteAttrBuffer[plotCoord].mosaic = ((curSpriteEntry->attr0) >> 12) & 0b1;
+		m_spriteAttrBuffer[plotCoord].priority = curSpriteEntry->priority&0b11111;
+		m_spriteAttrBuffer[plotCoord].transparent = (curSpriteEntry->objMode == 1);
+		m_spriteAttrBuffer[plotCoord].mosaic = curSpriteEntry->mosaic;	
 		if (!currentPixelTransparent)
 			m_spriteLineBuffer[plotCoord] = col;
 	}

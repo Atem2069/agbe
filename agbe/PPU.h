@@ -29,11 +29,30 @@ union SpriteAttribute
 	};
 };
 
-struct OAMEntry				//todo: maybe use unions or something here to encode the attributes for cleaner code
+union OAMEntry
 {
-	uint16_t attr0;
-	uint16_t attr1;
-	uint16_t attr2;
+	uint64_t data;
+	struct
+	{
+		//attribute 0
+		unsigned yCoord : 8;
+		unsigned rotateScale : 1;
+		unsigned disableObj : 1;    //depends on mode. regular sprites use this as 'disable' flag, affine use it as doublesize flag 
+		unsigned objMode : 2;
+		unsigned mosaic : 1;
+		unsigned bitDepth : 1;
+		unsigned shape : 2;
+		//attribute 1
+		unsigned xCoord : 9;
+		unsigned unused : 3;		//in rot/scale bits 9-13 of attr1 are actually the parameter selection
+		unsigned xFlip : 1;
+		unsigned yFlip : 1;
+		unsigned size : 2;
+		//attribute 2
+		unsigned charName : 10;
+		unsigned priority : 2;
+		unsigned paletteNumber : 4;
+	};
 };
 
 struct PointRenderableInfo	//used for seeing if point should be renderable/blendable (e.g. because it lies in/out a window, or if no windows are active)
