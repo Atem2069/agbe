@@ -44,16 +44,15 @@ uint32_t ARM7TDMI::LSR(uint32_t val, int shiftAmount, int& carry)
 
 uint32_t ARM7TDMI::ASR(uint32_t val, int shiftAmount, int& carry)
 {
-	shiftAmount %= 33;				//32? 33? no idea .....
-	int32_t temp = (int32_t)val;	//use int32_t to ensure >> is arithmetic shift anyway
-	if (shiftAmount == 0 || shiftAmount >= 32)
+	if (shiftAmount >= 32 || shiftAmount==0)
 	{
 		carry = ((val >> 31) & 0b1);
 		if (carry)
 			return 0xFFFFFFFF;
 		return 0;
-		//return (temp >> 32);	//will be all 1's/0's according to the sign bit
 	}
+
+	int32_t temp = (int32_t)val;	//use int32_t to ensure >> is arithmetic shift anyway
 	int carryBit = shiftAmount - 1;
 	temp >>= shiftAmount;
 	carry = ((val >> carryBit) & 0b1);
