@@ -23,6 +23,7 @@ struct DMAChannel
 	uint32_t internalSrc;
 	uint16_t wordCount;
 	uint16_t control;
+	bool stalled;
 };
 
 struct OpenBus
@@ -80,6 +81,8 @@ public:
 
 	void tickPrefetcher(uint64_t cycles);
 	void invalidatePrefetchBuffer();
+
+	void setBusLocked(bool lock) { busLocked = lock; }
 private:
 	std::shared_ptr<Scheduler> m_scheduler;
 	std::shared_ptr<GBAMem> m_mem;
@@ -106,6 +109,7 @@ private:
 
 	bool biosLockout = false;
 	bool dmaInProgress = false;
+	bool busLocked = false;
 	bool dmaNonsequentialAccess = true;
 
 	void attemptSaveAutodetection(std::string_view& romData);

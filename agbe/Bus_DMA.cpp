@@ -235,6 +235,14 @@ void Bus::checkDMAChannel(int idx)
 
 void Bus::doDMATransfer(int channel)
 {
+	if (busLocked)
+	{
+		m_dmaChannels[channel].stalled = true;
+		m_scheduler->removeEvent(Event::DMA);
+		m_scheduler->addEvent(Event::DMA, &Bus::DMA_ImmediateCallback, (void*)this, m_scheduler->getCurrentTimestamp() + 1);
+		m_scheduler->forceSync(1);	//lol (is 3 cycles even accurate?)
+		return;
+	}
 	m_openBusVals.dmaJustFinished = false;
 	bool dmaWasInProgress = dmaInProgress;
 	if(!dmaWasInProgress)
@@ -420,12 +428,13 @@ void Bus::onImmediate()
 	for (int i = 0; i < 4; i++)
 	{
 		uint16_t curCtrlReg = m_dmaChannels[i].control;
-		if ((curCtrlReg >> 15) & 0b1)
+		if (((curCtrlReg >> 15) & 0b1))
 		{
 			//dma enabled
 			uint8_t startTiming = ((curCtrlReg >> 12) & 0b11);
-			if (startTiming == 0)
+			if(startTiming==0 || m_dmaChannels[i].stalled)
 				doDMATransfer(i);
+			m_dmaChannels[i].stalled = false;
 		}
 	}
 }

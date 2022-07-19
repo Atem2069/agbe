@@ -367,6 +367,7 @@ void ARM7TDMI::ARM_MultiplyLong()
 
 void ARM7TDMI::ARM_SingleDataSwap()
 {
+	m_bus->setBusLocked(true);
 	bool byteWord = ((m_currentOpcode >> 22) & 0b1);
 	uint8_t baseRegIdx = ((m_currentOpcode >> 16) & 0xF);
 	uint8_t destRegIdx = ((m_currentOpcode >> 12) & 0xF);
@@ -394,6 +395,7 @@ void ARM7TDMI::ARM_SingleDataSwap()
 	m_scheduler->addCycles(4);
 	m_bus->tickPrefetcher(1);
 	nextFetchNonsequential = true;
+	m_bus->setBusLocked(false);
 }
 
 
