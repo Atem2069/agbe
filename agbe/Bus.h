@@ -60,7 +60,6 @@ public:
 	uint32_t fetch32(uint32_t address, AccessType accessType);
 	uint16_t fetch16(uint32_t address, AccessType accessType);
 
-	bool getHalted();
 
 	//handle IO separately
 
@@ -104,8 +103,6 @@ private:
 	DMAChannel m_dmaChannels[4];
 	uint16_t WAITCNT = 0;
 	uint8_t POSTFLG = 0;
-	bool shouldHalt = false;
-	bool isFlash = false;
 
 	bool biosLockout = false;
 	bool dmaInProgress = false;

@@ -774,14 +774,6 @@ void Bus::writeIO32(uint32_t address, uint32_t value)
 	writeIO16(address + 2, ((value >> 16) & 0xFFFF));
 }
 
-bool Bus::getHalted()
-{
-	bool isHalted = shouldHalt;
-	shouldHalt = false;
-	return isHalted;
-}
-
-
 //Handles reading/writing larger than byte sized values (the addresses should already be aligned so no issues there)
 //This is SOLELY for memory - IO is handled differently bc it's not treated as a flat mem space
 uint16_t Bus::getValue16(uint8_t* arr, int base, int mask)
