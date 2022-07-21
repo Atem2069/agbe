@@ -123,6 +123,8 @@ private:
 	void setByteInWord(uint32_t* word, uint8_t byte, int pos);
 	void setByteInHalfword(uint16_t* halfword, uint8_t byte, int pos);
 
+	void haltSystem(bool stop);
+
 	uint8_t DMARegRead(uint32_t address);
 	void DMARegWrite(uint32_t address, uint8_t value);
 	void checkDMAChannel(int idx);

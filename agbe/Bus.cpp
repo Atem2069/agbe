@@ -742,9 +742,7 @@ void Bus::writeIO8(uint32_t address, uint8_t value)
 	case 0x04000301:
 		if (biosLockout)			//HALTCNT can't be written outside of BIOS
 			return;
-		m_scheduler->addCycles(2);	//2 cycle penalty (one before, one after?) when haltcnt written
-		while (!m_interruptManager->getInterrupt(true))
-			m_scheduler->jumpToNextEvent();			//teleport to next event(s) until interrupt fires
+		haltSystem(((value>>7)&0b1));	//0=halt,1=stop 
 		return;
 	}
 }
@@ -828,6 +826,18 @@ void Bus::setByteInHalfword(uint16_t* halfword, uint8_t byte, int pos)
 	tmp &= mask;
 	tmp |= (byte << (pos * 8));
 	*halfword = tmp;
+}
+
+void Bus::haltSystem(bool stop)
+{
+	if (stop)	//screw it, just skip stop mode bc it's practically useless to emulate.
+	{
+		Logger::getInstance()->msg(LoggerSeverity::Info, "Attempt to enter stop mode - skipping. .");
+		return;
+	}
+	m_scheduler->addCycles(2);	//2 cycle penalty (one before, one after?) when haltcnt written
+	while (!m_interruptManager->getInterrupt(true))
+		m_scheduler->jumpToNextEvent();			//teleport to next event(s) until interrupt fires
 }
 
 void Bus::tickPrefetcher(uint64_t cycles)
