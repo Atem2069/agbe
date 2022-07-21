@@ -582,6 +582,7 @@ void PPU::drawBackground(int bg)
 
 	uint16_t cachedTile = 0;
 	uint32_t cachedXOffs = 0xFFFFFFFF;
+	uint32_t cachedTileAddr = 0;
 
 	m_backgroundLayers[bg].enabled = true;
 	m_backgroundLayers[bg].priorityBits = bgPriority;
@@ -601,6 +602,7 @@ void PPU::drawBackground(int bg)
 		}
 		uint16_t tile = cachedTile;
 		uint32_t xTileIdx = (xCoord >> 3);
+		uint32_t tileMapBaseAddress = cachedTileAddr;
 		if (cachedXOffs != xTileIdx)
 		{
 			uint32_t bgMapBaseAddress = ((bgMapBaseBlock + baseBlockOffset) * 2048) + bgMapYIdx;
@@ -608,33 +610,33 @@ void PPU::drawBackground(int bg)
 			uint8_t tileLower = m_mem->VRAM[curBgAddr];
 			uint8_t tileHigher = m_mem->VRAM[curBgAddr + 1];
 			tile = (((uint16_t)tileHigher << 8) | tileLower);
+
+			uint32_t tileNumber = tile & 0x3FF;
+			uint32_t paletteNumber = ((tile >> 12) & 0xF);
+			bool verticalFlip = ((tile >> 11) & 0b1);
+			uint32_t paletteMemoryAddr = 0;
+
+			int yMod8 = ((fetcherY & 7));
+			if (verticalFlip)
+				yMod8 = 7 - yMod8;
+
+			static constexpr uint32_t tileByteSizeLUT[2] = { 32,64 };
+			static constexpr uint32_t tileRowPitchLUT[2] = { 4,8 };
+
+			tileMapBaseAddress = (tileDataBaseBlock * 16384) + (tileNumber * tileByteSizeLUT[hiColor]); //find correct tile based on just the tile number
+			tileMapBaseAddress += (yMod8 * tileRowPitchLUT[hiColor]);									//then extract correct row of tile info, row pitch says how large each row is in bytes
+
+			cachedTileAddr = tileMapBaseAddress;
 			cachedTile = tile;
 		}
-		cachedXOffs = xTileIdx;
-
-		uint32_t tileNumber = tile & 0x3FF;
-		uint32_t paletteNumber = ((tile >> 12) & 0xF);
 		bool horizontalFlip = ((tile >> 10) & 0b1);
-		bool verticalFlip = ((tile >> 11) & 0b1);
-		uint32_t paletteMemoryAddr = 0;
-		uint32_t tileMapBaseAddress = 0;
-
-		int yMod8 = ((fetcherY & 7));
-		if (verticalFlip)
-			yMod8 = 7 - yMod8;
-
-
-		uint32_t tileByteSizeLUT[2] = { 32,64 };
-		uint32_t tileRowPitchLUT[2] = { 4,8 };
-
-		tileMapBaseAddress = (tileDataBaseBlock * 16384) + (tileNumber * tileByteSizeLUT[hiColor]);
-		tileMapBaseAddress += (yMod8 * tileRowPitchLUT[hiColor]);
 		int xmod8 = (xCoord & 7);
 		if (horizontalFlip)
 			xmod8 = 7 - xmod8;
 
-		uint16_t col = extractColorFromTile(tileMapBaseAddress, xmod8, hiColor, false, paletteNumber);
+		uint16_t col = extractColorFromTile(tileMapBaseAddress, xmod8, hiColor, false, ((tile>>12)&0xF));
 		m_backgroundLayers[bg].lineBuffer[x] = col;
+		cachedXOffs = xTileIdx;
 	}
 
 }
