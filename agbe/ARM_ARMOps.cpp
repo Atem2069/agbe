@@ -755,70 +755,57 @@ void ARM7TDMI::ARM_BlockDataTransfer()
 		finalBase = finalBase + (transferCount * 4);
 
 	bool firstTransfer = true;
-	if (loadStore)	//load
+
+	for (int i = 0; i < 16; i++)
 	{
-		for (int i = 0; i < 16; i++)
+		if ((r_list >> i) & 0b1)
 		{
-			if ((r_list >> i) & 0b1)
+			if (prePost)
+				base_addr += 4;
+
+			uint32_t val = 0;
+			if (loadStore)
+				val = m_bus->read32(base_addr, (AccessType)!firstTransfer);
+			else
 			{
-
-				if (i == baseReg && writeBack)		//gbatek: no writeback if base in rlist
-					writeBack = false;
-
-				if (prePost)
-					base_addr += 4;
-
-				uint32_t val = m_bus->read32(base_addr, (AccessType)!firstTransfer);
-				firstTransfer = false;
-
-				setReg(i, val, psr);
-
-				if (!prePost)
-					base_addr += 4;
+				val = getReg(i, psr);
+				if (i == 15)
+					val += 4;	//account for pipeline behaviour (pc+12)
 			}
-		}
 
-		if (writeBack)
-			setReg(baseReg, finalBase);
-
-		m_scheduler->addCycles(transferCount + 2);
-		m_bus->tickPrefetcher(1);
-	}
-
-	else		//store
-	{
-		for (int i = 0; i < 16; i++)
-		{
-			if ((r_list >> i) & 0b1)
+			//special case behaviour (base included in rlist)
+			if (i == baseReg && writeBack)
 			{
-				if (prePost)
-					base_addr += 4;
-
-				uint32_t val = getReg(i, psr);
-
-				if (i == baseReg && writeBack)
+				if (loadStore)
+					writeBack = false;
+				else
 				{
 					if (baseIsFirst)
 						val = old_base;
 					else
 						val = finalBase;
 				}
-				if (i == 15)		//R15 stored -> PC+12
-					val += 4;
-
-				m_bus->write32(base_addr, val, (AccessType)!firstTransfer);
-				firstTransfer = false;
-
-				if (!prePost)
-					base_addr += 4;
 			}
+
+			if (loadStore)
+				setReg(i, val, psr);
+			else
+				m_bus->write32(base_addr, val, (AccessType)!firstTransfer);
+
+			firstTransfer = false;
+
+			if (!prePost)
+				base_addr += 4;
 		}
-
-		if (writeBack)
-			setReg(baseReg, finalBase);
-
-		m_scheduler->addCycles(transferCount + 1);
 	}
+
+	if (writeBack)
+		setReg(baseReg, finalBase);	//don't use base_addr, because decrementing load/stores will modify the internal transfer register differently
+
+	int cycles = transferCount + ((loadStore) ? 2 : 1);
+	m_scheduler->addCycles(cycles);
+	if (loadStore)
+		m_bus->tickPrefetcher(1);
 
 	if (transferCount == 0)		//no registers to transfer, weird behaviour
 	{
