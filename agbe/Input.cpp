@@ -25,7 +25,15 @@ void Input::registerInterrupts(std::shared_ptr<InterruptManager> interruptManage
 void Input::tick()
 {
 	uint16_t newInputState = (~(m_inputState->reg)) & 0x3FF;
+	bool shouldCheckIRQ = (newInputState != keyInput);
 	keyInput = newInputState;
+	if (shouldCheckIRQ)					//i'm confused.. if the irq was already asserted when KEYCNT written, then we can just trigger the irq on key input change
+	{									//....otherwise, recheck if the irq can happen?? wtf is my code doing??
+		if (irqActive)
+			m_interruptManager->requestInterrupt(InterruptType::Keypad);
+		else
+			checkIRQ();
+	}
 }
 
 uint8_t Input::readIORegister(uint32_t address)
@@ -59,6 +67,7 @@ void Input::writeIORegister(uint32_t address, uint8_t value)
 
 void Input::checkIRQ()
 {
+	irqActive = false;
 	bool irqEnabled = ((KEYCNT >> 14) & 0b1);
 	if (!irqEnabled)
 		return;
@@ -70,4 +79,5 @@ void Input::checkIRQ()
 
 	if (shouldDoIRQ)
 		m_interruptManager->requestInterrupt(InterruptType::Keypad);
+	irqActive = shouldDoIRQ;
 }

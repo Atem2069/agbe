@@ -49,4 +49,5 @@ private:
 	uint64_t lastEventTime = 0;
 	uint16_t keyInput = 0;
 	uint16_t KEYCNT = 0;
+	bool irqActive = false;
 };
