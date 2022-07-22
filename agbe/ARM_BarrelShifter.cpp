@@ -79,7 +79,7 @@ uint32_t ARM7TDMI::ROR(uint32_t val, int shiftAmount, int& carry)
 
 uint32_t ARM7TDMI::RORSpecial(uint32_t val, int shiftAmount, int& carry)
 {
-	carry = (val >> ((shiftAmount * 2) & 31) - 1);
+	carry = (val >> (((shiftAmount * 2) & 31) - 1));
 	val = std::rotr(val, shiftAmount * 2);
 	return val;
 }

@@ -822,13 +822,15 @@ void Bus::setByteInHalfword(uint16_t* halfword, uint8_t byte, int pos)
 
 void Bus::haltSystem(bool stop)
 {
-	if (stop)	//screw it, just skip stop mode bc it's practically useless to emulate.
+	if (stop)	//TODO: research this on real hardware. 
 	{
-		Logger::getInstance()->msg(LoggerSeverity::Info, "Attempt to enter stop mode - skipping. .");
+		Logger::getInstance()->msg(LoggerSeverity::Info, "STOP mode entered. ");
+		while (!m_interruptManager->getInterrupt(true) && !Config::GBA.shouldReset)
+			m_input->tick(true);	//potentially more than just input can exit stop (e.g. game pak irq), but input is the main cause
 		return;
 	}
 	m_scheduler->addCycles(2);	//2 cycle penalty (one before, one after?) when haltcnt written
-	while (!m_interruptManager->getInterrupt(true))
+	while (!m_interruptManager->getInterrupt(false) && !Config::GBA.shouldReset)
 		m_scheduler->jumpToNextEvent();			//teleport to next event(s) until interrupt fires
 }
 

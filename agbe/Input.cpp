@@ -22,7 +22,7 @@ void Input::registerInterrupts(std::shared_ptr<InterruptManager> interruptManage
 	m_interruptManager = interruptManager;
 }
 
-void Input::tick()
+void Input::tick(bool skipIrqCheck)
 {
 	uint16_t newInputState = (~(m_inputState->reg)) & 0x3FF;
 	bool shouldCheckIRQ = (newInputState != keyInput);
@@ -32,7 +32,7 @@ void Input::tick()
 		if (irqActive)
 			m_interruptManager->requestInterrupt(InterruptType::Keypad);
 		else
-			checkIRQ();
+			checkIRQ(skipIrqCheck);
 	}
 }
 
@@ -65,11 +65,11 @@ void Input::writeIORegister(uint32_t address, uint8_t value)
 	}
 }
 
-void Input::checkIRQ()
+void Input::checkIRQ(bool skipIrqCheck)
 {
 	irqActive = false;
 	bool irqEnabled = ((KEYCNT >> 14) & 0b1);
-	if (!irqEnabled)
+	if (!irqEnabled && !skipIrqCheck)	//todo: doublecheck. it seems like STOP doesn't care about the irq bit.
 		return;
 	bool irqMode = ((KEYCNT >> 15) & 0b1);
 

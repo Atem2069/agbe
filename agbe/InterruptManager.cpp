@@ -48,11 +48,11 @@ void InterruptManager::requestInterrupt(InterruptType type)
 	m_scheduler->forceSync(4);
 }
 
-bool InterruptManager::getInterrupt(bool bypassIMECheck)
+bool InterruptManager::getInterrupt(bool bypassIRQDelay)
 {
-	if (!IME && !bypassIMECheck)
-		return false;
-	return shadowIF & IE & 0b0011111111111111;	//probs a better way but oh well
+	if (bypassIRQDelay)
+		return IF & IE & 0b0011111111111111;		//ugh... weird hack to cause irqs to be checked instantly in STOP
+	return shadowIF & IE & 0b0011111111111111;
 }
 
 uint8_t InterruptManager::readIO(uint32_t address)

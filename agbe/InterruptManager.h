@@ -27,7 +27,8 @@ public:
 	~InterruptManager();
 
 	void requestInterrupt(InterruptType intType);
-	bool getInterrupt(bool bypassIMECheck);
+	bool getInterruptsEnabled() { return IME & 0b1; }
+	bool getInterrupt(bool bypassIrqDelay);
 
 	uint8_t readIO(uint32_t address);
 	void writeIO(uint32_t address, uint8_t value);
