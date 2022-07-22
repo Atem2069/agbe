@@ -6,9 +6,7 @@ PPU::PPU(std::shared_ptr<InterruptManager> interruptManager, std::shared_ptr<Sch
 	m_interruptManager = interruptManager;
 	VCOUNT = 0;
 	inVBlank = false;
-	//simple test
-	for (int i = 0; i < (240 * 160); i++)
-		m_renderBuffer[pageIdx][i] = i;
+	clearDisplayBuffers();
 
 	m_state = PPUState::HDraw;
 	m_scheduler->addEvent(Event::PPU, &PPU::onSchedulerEvent, (void*)this, 960);	//960 cycles from now, do hdraw for vcount=0
@@ -17,6 +15,11 @@ PPU::PPU(std::shared_ptr<InterruptManager> interruptManager, std::shared_ptr<Sch
 PPU::~PPU()
 {
 
+}
+
+void PPU::clearDisplayBuffers()
+{
+	memset(m_renderBuffer, 0, 240 * 160 * 8);
 }
 
 void PPU::registerMemory(std::shared_ptr<GBAMem> mem)

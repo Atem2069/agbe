@@ -76,6 +76,8 @@ public:
 	PPU(std::shared_ptr<InterruptManager> interruptManager, std::shared_ptr<Scheduler> scheduler);
 	~PPU();
 
+	void clearDisplayBuffers();
+
 	void registerMemory(std::shared_ptr<GBAMem> mem);
 
 	uint32_t* getDisplayBuffer();
