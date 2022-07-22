@@ -40,9 +40,10 @@ public:
 
 	uint8_t readIORegister(uint32_t address);
 	void writeIORegister(uint32_t address, uint8_t value);
-	void tick(bool skipIrqCheck=false);
+	void tick();
+	bool getIRQConditionsMet();
 private:
-	void checkIRQ(bool skipIrqCheck=false);
+	void checkIRQ();
 
 	std::shared_ptr<InputState> m_inputState;
 	std::shared_ptr<InterruptManager> m_interruptManager;

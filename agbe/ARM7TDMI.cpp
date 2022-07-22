@@ -90,7 +90,7 @@ void ARM7TDMI::executeThumb()
 
 bool ARM7TDMI::dispatchInterrupt()
 {
-	if (!pipelineFull || ((CPSR>>7)&0b1) || !m_interruptManager->getInterrupt(false) || !m_interruptManager->getInterruptsEnabled())
+	if (!pipelineFull || ((CPSR>>7)&0b1) || !m_interruptManager->getInterrupt() || !m_interruptManager->getInterruptsEnabled())
 		return false;	//only dispatch if pipeline full (or not about to flush)
 	//irq bits: 10010
 	uint32_t oldCPSR = CPSR;

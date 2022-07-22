@@ -822,15 +822,15 @@ void Bus::setByteInHalfword(uint16_t* halfword, uint8_t byte, int pos)
 
 void Bus::haltSystem(bool stop)
 {
-	if (stop)	//TODO: research this on real hardware. 
+	if (stop)	//TODO: research this on real hardware. (e.g. if IF gets set if KEYCNT.14 not enabled??)
 	{
 		Logger::getInstance()->msg(LoggerSeverity::Info, "STOP mode entered. ");
-		while (!m_interruptManager->getInterrupt(true) && !Config::GBA.shouldReset)
-			m_input->tick(true);	//potentially more than just input can exit stop (e.g. game pak irq), but input is the main cause
+		while (!m_input->getIRQConditionsMet() && !Config::GBA.shouldReset)	//<-- potentially game pak or SIO irq could exit stop
+			m_input->tick();												//but fwiw games only really use stop for 'sleep mode', exited thru the joypad
 		return;
 	}
 	m_scheduler->addCycles(2);	//2 cycle penalty (one before, one after?) when haltcnt written
-	while (!m_interruptManager->getInterrupt(false) && !Config::GBA.shouldReset)
+	while (!m_interruptManager->getInterrupt() && !Config::GBA.shouldReset)
 		m_scheduler->jumpToNextEvent();			//teleport to next event(s) until interrupt fires
 }
 

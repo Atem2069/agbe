@@ -48,10 +48,8 @@ void InterruptManager::requestInterrupt(InterruptType type)
 	m_scheduler->forceSync(4);
 }
 
-bool InterruptManager::getInterrupt(bool bypassIRQDelay)
+bool InterruptManager::getInterrupt()
 {
-	if (bypassIRQDelay)
-		return IF & IE & 0b0011111111111111;		//ugh... weird hack to cause irqs to be checked instantly in STOP
 	return shadowIF & IE & 0b0011111111111111;
 }
 
