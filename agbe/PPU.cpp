@@ -783,7 +783,7 @@ void PPU::drawSprites(bool bitmapMode)
 		int spriteLeft = curSpriteEntry->xCoord;
 		if (spriteLeft >= 240)
 			spriteLeft -= 512;
-		if (spriteLeft >= 240 || spriteTop > renderY)	//nope. sprite is offscreen or too low
+		if (spriteTop > renderY)	//nope. sprite is offscreen or too low
 			continue;
 		int spriteBottom = 0, spriteRight = 0;
 		int rowPitch = 1;	//find out how many lines we have to 'cross' to get to next row (in 1d mapping)
@@ -897,11 +897,15 @@ void PPU::drawAffineSprite(OAMEntry* curSpriteEntry)
 	bool doubleSize = curSpriteEntry->disableObj;	//odd: bit 9 is 'double-size' flag with affine sprites
 
 	int spriteTop = curSpriteEntry->yCoord;
+	if (spriteTop >= 160)
+		spriteTop -= 256;
 	int spriteLeft = curSpriteEntry->xCoord;
-	if ((spriteLeft >> 8) & 0b1)
-		spriteLeft |= 0xFFFFFF00;	//not sure maybe sign extension is okay
-	if (spriteLeft >= 240)	//nope. sprite is offscreen or too low
+	if (spriteLeft >= 240)
+		spriteLeft -= 512;
+
+	if (spriteTop > VCOUNT)
 		return;
+
 	int spriteBottom = 0, spriteRight = 0;
 	int rowPitch = 1;	//find out how many lines we have to 'cross' to get to next row (in 1d mapping)
 
@@ -911,11 +915,6 @@ void PPU::drawAffineSprite(OAMEntry* curSpriteEntry)
 	int spriteYBoundsLUT[12] = { 8,16,32,64,8,8,16,32,16,32,32,64 };
 	int xPitchLUT[12] = { 1,2,4,8,2,4,4,8,1,1,2,4 };
 
-	if (spriteTop>160)			//not sure about this hack, but oh well
-		spriteTop -= 256;
-
-	if (spriteTop > VCOUNT)
-		return;
 
 	spriteRight = spriteLeft + spriteXBoundsLUT[spriteBoundsLookupId];
 	spriteBottom = spriteTop + spriteYBoundsLUT[spriteBoundsLookupId];
