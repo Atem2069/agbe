@@ -123,12 +123,6 @@ void PPU::HBlank()
 
 	if (VCOUNT == 160)
 	{
-		//copy over new values to affine regs
-		BG2X = BG2X_latch;
-		BG2Y = BG2Y_latch;
-		BG3X = BG3X_latch;
-		BG3Y = BG3Y_latch;
-
 		setVBlankFlag(true);
 		inVBlank = true;
 
@@ -146,6 +140,17 @@ void PPU::HBlank()
 	}
 	else
 		m_state = PPUState::HDraw;
+
+	//see if we need to latch new vals into affine regs (e.g. if they were modified outside of vblank)
+	if (BG2X_dirty)
+		BG2X_latch = BG2X;
+	if (BG2Y_dirty)
+		BG2Y_latch = BG2Y;
+	if (BG3X_dirty)
+		BG3X_latch = BG3X;
+	if (BG3Y_dirty)
+		BG3Y_latch = BG3Y;
+	BG2X_dirty = false; BG2Y_dirty = false; BG3X_dirty = false; BG3Y_dirty = false;
 
 	m_scheduler->addEvent(Event::PPU, &PPU::onSchedulerEvent, (void*)this, schedTimestamp+960);
 }
@@ -175,6 +180,13 @@ void PPU::VBlank()
 	VCOUNT++;
 	if (VCOUNT == 228)		//go back to drawing
 	{
+		//copy over new values to affine regs
+		BG2X_latch = BG2X;
+		BG2Y_latch = BG2Y;
+		BG3X_latch = BG3X;
+		BG3Y_latch = BG3Y;
+		BG2X_dirty = false; BG2Y_dirty = false; BG3X_dirty = false; BG3Y_dirty = false;
+
 		affineVerticalMosaicCounter = 0;
 		uint16_t vcountCmp = ((DISPSTAT >> 8) & 0xFF);
 		if (vcountCmp==0)
@@ -253,10 +265,10 @@ void PPU::renderMode3()
 	bool mosaic = ((BG2CNT >> 6) & 0b1);
 	if ((DISPCNT >> 10) & 0b1)
 	{
-		int32_t xRef = BG2X & 0xFFFFFFF;
+		int32_t xRef = BG2X_latch & 0xFFFFFFF;
 		if ((xRef >> 27) & 0b1)
 			xRef |= 0xF0000000;
-		int32_t yRef = BG2Y & 0xFFFFFFF;
+		int32_t yRef = BG2Y_latch & 0xFFFFFFF;
 		if ((yRef >> 27) & 0b1)
 			yRef |= 0xF000000;
 
@@ -294,10 +306,10 @@ void PPU::renderMode4()
 	bool mosaic = ((BG2CNT >> 6) & 0b1);
 	if ((DISPCNT >> 10) & 0b1)
 	{
-		int32_t xRef = BG2X & 0xFFFFFFF;
+		int32_t xRef = BG2X_latch & 0xFFFFFFF;
 		if ((xRef >> 27) & 0b1)
 			xRef |= 0xF0000000;
-		int32_t yRef = BG2Y & 0xFFFFFFF;
+		int32_t yRef = BG2Y_latch & 0xFFFFFFF;
 		if ((yRef >> 27) & 0b1)
 			yRef |= 0xF000000;
 
@@ -337,10 +349,10 @@ void PPU::renderMode5()
 	bool mosaic = ((BG2CNT >> 6) & 0b1);
 	if ((DISPCNT >> 10) & 0b1)
 	{
-		int32_t xRef = BG2X & 0xFFFFFFF;
+		int32_t xRef = BG2X_latch & 0xFFFFFFF;
 		if ((xRef >> 27) & 0b1)
 			xRef |= 0xF0000000;
-		int32_t yRef = BG2Y & 0xFFFFFFF;
+		int32_t yRef = BG2Y_latch & 0xFFFFFFF;
 		if ((yRef >> 27) & 0b1)
 			yRef |= 0xF000000;
 
@@ -655,22 +667,22 @@ void PPU::drawRotationScalingBackground(int bg)
 	{
 	case 2:
 		ctrlReg = BG2CNT;
-		xRef = BG2X&0xFFFFFFF;
-		yRef = BG2Y&0xFFFFFFF;
+		xRef = BG2X_latch&0xFFFFFFF;
+		yRef = BG2Y_latch&0xFFFFFFF;
 		pA = BG2PA; pB = BG2PB; pC = BG2PC; pD = BG2PD;
-		if ((BG2X >> 27) & 0b1)
+		if ((BG2X_latch >> 27) & 0b1)
 			xRef |= 0xF0000000;
-		if ((BG2Y >> 27) & 0b1)
+		if ((BG2Y_latch >> 27) & 0b1)
 			yRef |= 0xF0000000;
 		break;
 	case 3:
 		ctrlReg = BG3CNT;
-		xRef = BG3X&0xFFFFFFF;
-		yRef = BG3Y&0xFFFFFFF;
+		xRef = BG3X_latch&0xFFFFFFF;
+		yRef = BG3Y_latch&0xFFFFFFF;
 		pA = BG3PA; pB = BG3PB; pC = BG3PC; pD = BG3PD;
-		if ((BG3X >> 27) & 0b1)
+		if ((BG3X_latch >> 27) & 0b1)
 			xRef |= 0xF0000000;
-		if ((BG3Y >> 27) & 0b1)
+		if ((BG3Y_latch >> 27) & 0b1)
 			yRef |= 0xF0000000;
 		break;
 	}
@@ -1404,30 +1416,30 @@ void PPU::writeIO(uint32_t address, uint8_t value)
 		BG2PD &= 0xFF; BG2PD |= (value << 8);
 		break;
 	case 0x04000028:
-		BG2X_latch &= 0xFFFFFF00; BG2X_latch |= value;
+		BG2X &= 0xFFFFFF00; BG2X |= value;
 		break;
 	case 0x04000029:
-		BG2X_latch &= 0xFFFF00FF; BG2X_latch |= (value << 8);
+		BG2X &= 0xFFFF00FF; BG2X |= (value << 8);
 		break;
 	case 0x0400002A:
-		BG2X_latch &= 0xFF00FFFF; BG2X_latch |= (value << 16);
+		BG2X &= 0xFF00FFFF; BG2X |= (value << 16);
 		break;
 	case 0x0400002B:
-		BG2X_latch &= 0x00FFFFFF; BG2X_latch |= (value << 24);
-		BG2X = BG2X_latch;
+		BG2X &= 0x00FFFFFF; BG2X |= (value << 24);
+		BG2X_dirty = true;
 		break;
 	case 0x0400002C:
-		BG2Y_latch &= 0xFFFFFF00; BG2Y_latch |= value;
+		BG2Y &= 0xFFFFFF00; BG2Y |= value;
 		break;
 	case 0x0400002D:
-		BG2Y_latch &= 0xFFFF00FF; BG2Y_latch |= (value << 8);
+		BG2Y &= 0xFFFF00FF; BG2Y |= (value << 8);
 		break;
 	case 0x0400002E:
-		BG2Y_latch &= 0xFF00FFFF; BG2Y_latch |= (value << 16);
+		BG2Y &= 0xFF00FFFF; BG2Y |= (value << 16);
 		break;
 	case 0x0400002F:
-		BG2Y_latch &= 0x00FFFFFF; BG2Y_latch |= (value << 24);
-		BG2Y = BG2Y_latch;
+		BG2Y &= 0x00FFFFFF; BG2Y |= (value << 24);
+		BG2Y_dirty = true;
 		break;
 	case 0x04000030:
 		BG3PA &= 0xFF00; BG3PA |= value;
@@ -1454,30 +1466,30 @@ void PPU::writeIO(uint32_t address, uint8_t value)
 		BG3PD &= 0xFF; BG3PD |= (value << 8);
 		break;
 	case 0x04000038:
-		BG3X_latch &= 0xFFFFFF00; BG3X_latch |= value;
+		BG3X &= 0xFFFFFF00; BG3X |= value;
 		break;
 	case 0x04000039:
-		BG3X_latch &= 0xFFFF00FF; BG3X_latch |= (value << 8);
+		BG3X &= 0xFFFF00FF; BG3X |= (value << 8);
 		break;
 	case 0x0400003A:
-		BG3X_latch &= 0xFF00FFFF; BG3X_latch |= (value << 16);
+		BG3X &= 0xFF00FFFF; BG3X |= (value << 16);
 		break;
 	case 0x0400003B:
-		BG3X_latch &= 0x00FFFFFF; BG3X_latch |= (value << 24);
-		BG3X = BG3X_latch;
+		BG3X &= 0x00FFFFFF; BG3X |= (value << 24);
+		BG3X_dirty = true;
 		break;
 	case 0x0400003C:
-		BG3Y_latch &= 0xFFFFFF00; BG3Y_latch |= value;
+		BG3Y &= 0xFFFFFF00; BG3Y |= value;
 		break;
 	case 0x0400003D:
-		BG3Y_latch &= 0xFFFF00FF; BG3Y_latch |= (value << 8);
+		BG3Y &= 0xFFFF00FF; BG3Y |= (value << 8);
 		break;
 	case 0x0400003E:
-		BG3Y_latch &= 0xFF00FFFF; BG3Y_latch |= (value << 16);
+		BG3Y &= 0xFF00FFFF; BG3Y |= (value << 16);
 		break;
 	case 0x0400003F:
-		BG3Y_latch &= 0x00FFFFFF; BG3Y_latch |= (value << 24);
-		BG3Y = BG3Y_latch;
+		BG3Y &= 0x00FFFFFF; BG3Y |= (value << 24);
+		BG3Y_dirty = true;
 		break;
 	case 0x04000050:
 		BLDCNT &= 0xFF00; BLDCNT |= value;

@@ -211,26 +211,26 @@ private:
 			int16_t dmx = BG2PB;
 			int16_t dmy = BG2PD;
 
-			if ((BG2X >> 27) & 0b1)
-				BG2X |= 0xF0000000;
-			if ((BG2Y >> 27) & 0b1)
-				BG2Y |= 0xF0000000;
+			if ((BG2X_latch >> 27) & 0b1)
+				BG2X_latch |= 0xF0000000;
+			if ((BG2Y_latch >> 27) & 0b1)
+				BG2Y_latch |= 0xF0000000;
 
-			BG2X = (BG2X + (dmx*multiplyAmount)) & 0xFFFFFFF;
-			BG2Y = (BG2Y + (dmy*multiplyAmount)) & 0xFFFFFFF;
+			BG2X_latch = (BG2X_latch + (dmx*multiplyAmount)) & 0xFFFFFFF;
+			BG2Y_latch = (BG2Y_latch + (dmy*multiplyAmount)) & 0xFFFFFFF;
 		}
 		if (bg == 3)
 		{
 			int16_t dmx = BG3PB;
 			int16_t dmy = BG3PD;
 
-			if ((BG3X >> 27) & 0b1)
-				BG3X |= 0xF0000000;
-			if ((BG3Y >> 27) & 0b1)
-				BG3Y |= 0xF0000000;
+			if ((BG3X_latch >> 27) & 0b1)
+				BG3X_latch |= 0xF0000000;
+			if ((BG3Y_latch >> 27) & 0b1)
+				BG3Y_latch |= 0xF0000000;
 
-			BG3X = (BG3X + (dmx*multiplyAmount)) & 0xFFFFFFF;
-			BG3Y = (BG3Y + (dmy*multiplyAmount)) & 0xFFFFFFF;
+			BG3X_latch = (BG3X_latch + (dmx*multiplyAmount)) & 0xFFFFFFF;
+			BG3Y_latch = (BG3Y_latch + (dmy*multiplyAmount)) & 0xFFFFFFF;
 		}
 	}
 
@@ -262,6 +262,7 @@ private:
 	uint32_t BG2Y = {}, BG2Y_latch = {};
 	uint32_t BG3X = {}, BG3X_latch = {};
 	uint32_t BG3Y = {}, BG3Y_latch = {};
+	bool BG2X_dirty = false, BG2Y_dirty = false, BG3X_dirty = false, BG3Y_dirty = false;	//flags for whether we need to latch new values when new scanline starts
 	uint16_t BG2PA = 0x100;
 	uint16_t BG2PB = {};
 	uint16_t BG2PC = {};
