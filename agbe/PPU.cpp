@@ -702,7 +702,7 @@ void PPU::drawRotationScalingBackground(int bg)
 			m_backgroundLayers[bg].lineBuffer[x] = 0x8000;
 			continue;
 		}
-		fetcherY = fetcherY % yWrap;
+		fetcherY = fetcherY & (yWrap-1);
 
 		uint32_t xCoord = (uint32_t)((int32_t)xRef >> 8);
 		if ((xCoord >= xWrap) && !overflowWrap)
@@ -710,7 +710,7 @@ void PPU::drawRotationScalingBackground(int bg)
 			m_backgroundLayers[bg].lineBuffer[x] = 0x8000;
 			continue;
 		}
-		xCoord = xCoord % xWrap;
+		xCoord = xCoord & (xWrap-1);
 
 		uint32_t bgMapYIdx = ((fetcherY / 8) * (xWrap >> 3)); //each row is 32 chars; in rotation/scroll each entry is 1 byte
 		uint32_t tileIdx = cachedTileIdx;
@@ -725,7 +725,7 @@ void PPU::drawRotationScalingBackground(int bg)
 		cachedYCoord = bgMapYIdx;
 
 		uint32_t tileMapBaseAddress = (tileDataBaseBlock * 16384) + (tileIdx * 64);
-		tileMapBaseAddress += ((fetcherY % 8) * 8);
+		tileMapBaseAddress += ((fetcherY & 7) * 8);
 		uint16_t col = extractColorFromTile(tileMapBaseAddress, xCoord&7, true, false, 0);
 
 		m_backgroundLayers[bg].lineBuffer[x] = col;
@@ -979,14 +979,14 @@ void PPU::drawAffineSprite(OAMEntry* curSpriteEntry)
 
 
 		int curXSpanTile = px /8;
-		int baseX = px%8;
+		int xOffsIntoTile = px & 7;
 		uint32_t tileMapLookupAddr = objBaseAddress + yCorrection + (curXSpanTile * ((hiColor) ? 64 : 32));
 
 		int plotCoord = x + spriteLeft;
 		if (plotCoord > 239 || plotCoord < 0)
 			continue;
 
-		uint16_t col = extractColorFromTile(tileMapLookupAddr, baseX, hiColor, true, curSpriteEntry->paletteNumber);
+		uint16_t col = extractColorFromTile(tileMapLookupAddr, xOffsIntoTile, hiColor, true, curSpriteEntry->paletteNumber);
 
 		if (isObjWindow)
 		{

@@ -71,7 +71,7 @@ void Timer::event()
 uint8_t Timer::readIO(uint32_t address)
 {
 	uint32_t timerIdx = ((address - 0x4000100) / 4);	//4000100-4000103 = timer 0, etc.
-	uint32_t addrOffset = ((address - 0x4000100) % 4);	//figure out which byte we're writing (0-3)
+	uint32_t addrOffset = ((address - 0x4000100) & 3);	//figure out which byte we're writing (0-3)
 
 	setCurrentClock(timerIdx, m_timers[timerIdx].CNT_H & 0b11);
 
@@ -95,7 +95,7 @@ uint8_t Timer::readIO(uint32_t address)
 void Timer::writeIO(uint32_t address, uint8_t value)
 {
 	uint32_t timerIdx = ((address - 0x4000100) / 4);	//4000100-4000103 = timer 0, etc.
-	uint32_t addrOffset = ((address - 0x4000100) % 4);	//figure out which byte we're writing (0-3)
+	uint32_t addrOffset = ((address - 0x4000100) & 3);	//figure out which byte we're writing (0-3)
 
 	switch (addrOffset)
 	{
