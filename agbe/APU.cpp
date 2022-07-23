@@ -212,13 +212,31 @@ void APU::writeIO(uint32_t address, uint8_t value)
 	case 0x04000089:
 		SOUNDBIAS &= 0xFF; SOUNDBIAS |= (value << 8);
 		break;
-	case 0x040000A0: case 0x040000A1: case 0x040000A2: case 0x040000A3:
-		if (!m_channels[0].isFull())
-			m_channels[0].push(value);
+	case 0x040000A0: case 0x040000A1: case 0x040000A2: case 0x040000A3:			//TODO: these are not accurate. a 4 byte sample is always pushed even if written with 8/16 bit modes
+		if (!m_channels[0].isFull())                                            //whereas this only pushes a new sample once the final byte has been written
+		{
+			int offs = address & 3;
+			uint32_t curWord = m_channels[0].data[m_channels[0].endIdx];
+			uint32_t mask = ~(0xFF << (offs*8));
+			curWord &= mask;
+			curWord |= (value << (offs*8));
+			m_channels[0].data[m_channels[0].endIdx] = curWord;
+			if (offs == 3)
+				m_channels[0].advanceSamplePtr();
+		}
 		break;
 	case 0x040000A4: case 0x040000A5: case 0x040000A6: case 0x040000A7:
 		if (!m_channels[1].isFull())
-			m_channels[1].push(value);
+		{
+			int offs = address & 3;
+			uint32_t curWord = m_channels[1].data[m_channels[1].endIdx];
+			uint32_t mask = ~(0xFF << (offs * 8));
+			curWord &= mask;
+			curWord |= (value << (offs * 8));
+			m_channels[1].data[m_channels[1].endIdx] = curWord;
+			if (offs == 3)
+				m_channels[1].advanceSamplePtr();
+		}
 		break;
 
 	case 0x04000090: case 0x04000091: case 0x04000092: case 0x04000093: case 0x04000094: case 0x04000095: case 0x04000096: case 0x04000097:
@@ -623,9 +641,9 @@ void APU::updateDMAChannel(int channel)
 	bool channelEnabled = ((SOUNDCNT_H >> baseEnableIdx) & 0b1) || ((SOUNDCNT_H >> (baseEnableIdx + 1)) & 0b1);	//see if fifo channel is enabled on either L/R output channels
 	if (channelEnabled)
 	{
-		m_channels[channel].pop();
-		if (m_channels[channel].size < 16)	//need to request more data!!
+		if (m_channels[channel].size <= 3)	//need to request more data!!
 			FIFODMACallback(dmaContext, channel);
+		m_channels[channel].popSample();
 	}
 }
 

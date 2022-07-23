@@ -11,28 +11,50 @@ typedef void(*FIFOcallbackFn)(void*, int);
 
 struct AudioFIFO
 {
-	int8_t data[32];
+	uint32_t data[7];
+	uint32_t inFlightWord=0;
 	int startIdx = 0;
 	int endIdx = 0;
 	int size = 0;
 
-	void push(int8_t val)
+	bool samplePlaying = false;
+	int playbackPosition = 0;
+
+	void advanceSamplePtr()
 	{
-		data[endIdx] = val;
-		endIdx = (endIdx + 1) % 32;	//limit range to 0->31
+		endIdx = (endIdx + 1) % 7;	//limit range to 0->7
 		size++;
 	}
-	void pop()
+
+	void copyNewWord()
 	{
 		if (!size)
 			return;
-		int8_t retVal = data[startIdx];
-		startIdx = (startIdx + 1) % 32;
+		samplePlaying = true;
+		uint32_t retVal = data[startIdx];
+		startIdx = (startIdx + 1) % 7;
 		size--;
-		currentSample = retVal;
+		inFlightWord = retVal;
 	}
+
+	void popSample()
+	{
+		if (!samplePlaying || playbackPosition==4)
+		{
+			playbackPosition = 0;
+			copyNewWord();
+		}
+
+		if (samplePlaying)
+		{
+			currentSample = (inFlightWord >> (playbackPosition * 8)) & 0xFF;
+			playbackPosition++;
+		}
+	}
+
 	void empty()
 	{
+		samplePlaying = false;
 		startIdx = 0; endIdx = 0;
 		size = 0;
 	}
@@ -44,7 +66,7 @@ struct AudioFIFO
 
 	bool isFull()
 	{
-		return size >= 32;
+		return size >= 7;
 	}
 
 	int8_t currentSample = 0;	//holds last sample from timer event
