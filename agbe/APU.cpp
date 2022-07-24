@@ -217,12 +217,10 @@ void APU::writeIO(uint32_t address, uint8_t value)
 		{
 			int offs = address & 3;
 			uint32_t curWord = m_channels[0].data[m_channels[0].endIdx];
-			uint32_t mask = ~(0xFF << (offs*8));
+			uint32_t mask = ~(0xFF << (offs * 8));
 			curWord &= mask;
-			curWord |= (value << (offs*8));
+			curWord |= (value << (offs * 8));
 			m_channels[0].data[m_channels[0].endIdx] = curWord;
-			if (offs == 3)
-				m_channels[0].advanceSamplePtr();
 		}
 		break;
 	case 0x040000A4: case 0x040000A5: case 0x040000A6: case 0x040000A7:
@@ -234,8 +232,6 @@ void APU::writeIO(uint32_t address, uint8_t value)
 			curWord &= mask;
 			curWord |= (value << (offs * 8));
 			m_channels[1].data[m_channels[1].endIdx] = curWord;
-			if (offs == 3)
-				m_channels[1].advanceSamplePtr();
 		}
 		break;
 
@@ -746,4 +742,9 @@ void APU::lowPass(int16_t* outBuffer, int16_t* inBuffer)
 		curSample = inBuffer[(i * 2) + 1];
 		outBuffer[(i * 2) + 1] = (float)outBuffer[(i * 2) - 1] + a * (curSample - (float)outBuffer[(i * 2) - 1]);
 	}
+}
+
+void APU::advanceSamplePtr(int channel)
+{
+	m_channels[channel].advanceSamplePtr();
 }

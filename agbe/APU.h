@@ -22,6 +22,8 @@ struct AudioFIFO
 
 	void advanceSamplePtr()
 	{
+		if (isFull())
+			return;
 		endIdx = (endIdx + 1) % 7;	//limit range to 0->7
 		size++;
 	}
@@ -41,6 +43,7 @@ struct AudioFIFO
 	{
 		if (!samplePlaying || playbackPosition==4)
 		{
+			samplePlaying = false;
 			playbackPosition = 0;
 			copyNewWord();
 		}
@@ -170,6 +173,8 @@ public:
 	static void frameSequencerCallback(void* context);
 	static void timer0Callback(void* context);
 	static void timer1Callback(void* context);
+
+	void advanceSamplePtr(int channel);
 private:
 	std::shared_ptr<Scheduler> m_scheduler;
 	AudioFIFO m_channels[2];

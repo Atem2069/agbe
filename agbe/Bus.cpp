@@ -160,6 +160,11 @@ void Bus::write8(uint32_t address, uint8_t value, AccessType accessType)
 	case 4:
 		tickPrefetcher(1);
 		writeIO8(address, value);
+
+		//8/16 bit writes to audio fifos will cause an entire word to be pushed, weird.
+		if (address>=0x040000A0 && address<=0x040000A7)
+			m_apu->advanceSamplePtr((address&7) >>2);
+
 		break;
 	case 5:
 		tickPrefetcher(1);
@@ -299,6 +304,11 @@ void Bus::write16(uint32_t address, uint16_t value, AccessType accessType)
 	case 4:
 		tickPrefetcher(1);
 		writeIO16(address, value);
+
+		//similar for 8 bit writes, but 16 bit writes will modify part of the current word in the audio fifo, then advance the write ptr to the next word..
+		if ((address == 0x040000A0 || address == 0x040000A2 || address == 0x040000A4 || address == 0x040000A6))
+			m_apu->advanceSamplePtr((address & 7) >> 2);
+
 		break;
 	case 5:
 		tickPrefetcher(1);
@@ -446,6 +456,11 @@ void Bus::write32(uint32_t address, uint32_t value, AccessType accessType)
 	case 4:
 		tickPrefetcher(1);
 		writeIO32(address, value);
+
+		//standard behaviour for audio fifos - i.e. write and push an entire word at once
+		if ((address == 0x040000A0 || address == 0x040000A4))
+			m_apu->advanceSamplePtr((address & 7) >> 2);
+
 		break;
 	case 5:
 		m_scheduler->addCycles(1);
@@ -765,7 +780,6 @@ uint32_t Bus::readIO32(uint32_t address)
 	uint16_t lower = readIO16(address);		//nicer than readIO8 4 times
 	uint16_t upper = readIO16(address + 2);
 	return (uint32_t)(upper << 16) | lower;
-	return 0;
 }
 
 void Bus::writeIO32(uint32_t address, uint32_t value)
