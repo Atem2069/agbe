@@ -79,10 +79,8 @@ void PPU::HDraw()
 		}
 
 	composeLayers();
-	m_backgroundLayers[0].enabled = false;
-	m_backgroundLayers[1].enabled = false;
-	m_backgroundLayers[2].enabled = false;
-	m_backgroundLayers[3].enabled = false;
+	for (int i = 0; i < 4; i++)
+		m_backgroundLayers[i].masterEnable = false;
 	affineHorizontalMosaicCounter = 0;
 }
 
@@ -228,7 +226,8 @@ void PPU::renderMode0()
 	drawSprites();
 	for (int i = 0; i < 4; i++)	//todo: optimise. can use a single for loop and get each pixel one by one
 	{
-		if ((DISPCNT >> (8 + i)) & 0b1)
+		m_backgroundLayers[i].masterEnable = true;
+		if (m_backgroundLayers[i].enabled)
 			drawBackground(i);
 	}
 
@@ -239,8 +238,9 @@ void PPU::renderMode1()
 	drawSprites();
 	for (int i = 0; i < 3; i++)	//todo: optimise. can use a single for loop and get each pixel one by one
 	{
-		if ((DISPCNT>>(8+i))&0b1)
+		if (m_backgroundLayers[i].enabled)
 		{
+			m_backgroundLayers[i].masterEnable = true;
 			if (i==2)
 				drawRotationScalingBackground(i);
 			else
@@ -254,13 +254,16 @@ void PPU::renderMode2()
 	drawSprites();
 	for (int i = 2; i < 4; i++)
 	{
-		if ((DISPCNT >> (8 + i)) & 0b1)
+		m_backgroundLayers[i].masterEnable = true;
+		if (m_backgroundLayers[i].enabled)
 			drawRotationScalingBackground(i);
 	}
 }
 
 void PPU::renderMode3()
 {
+	m_backgroundLayers[2].masterEnable = true;
+
 	drawSprites(true);
 	bool mosaic = ((BG2CNT >> 6) & 0b1);
 	if ((DISPCNT >> 10) & 0b1)
@@ -275,7 +278,6 @@ void PPU::renderMode3()
 		int16_t pA = (int16_t)BG2PA;
 		int16_t pC = (int16_t)BG2PC;
 
-		m_backgroundLayers[2].enabled = true;
 		m_backgroundLayers[2].priorityBits = BG2CNT & 0b11;
 		for (int i = 0; i < 240; i++, m_calcAffineCoords(mosaic,xRef,yRef,pA,pC))
 		{
@@ -298,6 +300,8 @@ void PPU::renderMode3()
 
 void PPU::renderMode4()
 {
+	m_backgroundLayers[2].masterEnable = true;
+
 	drawSprites(true);
 	uint32_t base = 0;
 	bool pageFlip = ((DISPCNT >> 4) & 0b1);
@@ -315,7 +319,6 @@ void PPU::renderMode4()
 
 		int16_t pA = (int16_t)BG2PA;
 		int16_t pC = (int16_t)BG2PC;
-		m_backgroundLayers[2].enabled = true;
 		m_backgroundLayers[2].priorityBits = BG2CNT & 0b11;
 		for (int i = 0; i < 240; i++, m_calcAffineCoords(mosaic,xRef,yRef,pA,pC))
 		{
@@ -341,6 +344,8 @@ void PPU::renderMode4()
 
 void PPU::renderMode5()
 {
+	m_backgroundLayers[2].masterEnable = true;
+
 	drawSprites(true);
 	uint32_t baseAddr = 0;
 	bool pageFlip = ((DISPCNT >> 4) & 0b1);
@@ -359,7 +364,6 @@ void PPU::renderMode5()
 		int16_t pA = (int16_t)BG2PA;
 		int16_t pC = (int16_t)BG2PC;
 
-		m_backgroundLayers[2].enabled = true;
 		m_backgroundLayers[2].priorityBits = BG2CNT & 0b11;
 		for (int i = 0; i < 240; i++, m_calcAffineCoords(mosaic,xRef,yRef,pA,pC))
 		{
@@ -412,7 +416,7 @@ void PPU::composeLayers()
 		int highestPriority = 255;
 		for (int layer = 3; layer >= 0; layer--)
 		{
-			if (m_backgroundLayers[layer].enabled && pointInfo.layerDrawable[layer])	//layer activated
+			if (m_backgroundLayers[layer].enabled && m_backgroundLayers[layer].masterEnable && pointInfo.layerDrawable[layer])	//layer activated
 			{
 				uint16_t colAtLayer = m_backgroundLayers[layer].lineBuffer[x];
 				if (!((colAtLayer >> 15) & 0b1))
@@ -599,7 +603,6 @@ void PPU::drawBackground(int bg)
 	uint32_t cachedXOffs = 0xFFFFFFFF;
 	uint32_t cachedTileAddr = 0;
 
-	m_backgroundLayers[bg].enabled = true;
 	m_backgroundLayers[bg].priorityBits = bgPriority;
 
 	for (int x = 0; x < 240; x++)
@@ -700,7 +703,6 @@ void PPU::drawRotationScalingBackground(int bg)
 	uint32_t cachedXCoord = 0xFFFFFFFF;
 	uint32_t cachedYCoord = 0xFFFFFFFF;
 
-	m_backgroundLayers[bg].enabled = true;
 	m_backgroundLayers[bg].priorityBits = bgPriority;
 
 	bool mosaicEnabled = (ctrlReg >> 6) & 0b1;
@@ -1275,6 +1277,10 @@ void PPU::writeIO(uint32_t address, uint8_t value)
 		break;
 	case 0x04000001:
 		DISPCNT &= 0x00FF; DISPCNT |= (value << 8);
+
+		//TODO: account for 3-scanline layer enable delay. this is not 100% accurate.
+		for (int i = 8; i < 12; i++)
+			m_backgroundLayers[i - 8].enabled = ((DISPCNT >> i) & 0b1);
 		break;
 	case 0x04000004:
 		DISPSTAT &= 0b1111111100000111; value &= 0b11111000;

@@ -12,6 +12,7 @@ struct BG
 {
 	int priorityBits;
 	int bgNumber;
+	bool masterEnable;
 	bool enabled;
 	bool affine;
 	uint16_t lineBuffer[240];
