@@ -12,7 +12,7 @@ struct TimerRegister
 	uint16_t clock;
 	uint64_t timeActivated;
 	uint64_t overflowTime;
-	uint64_t lastUpdateTimestamp;
+	uint64_t lastUpdateClock;
 };
 
 class Timer

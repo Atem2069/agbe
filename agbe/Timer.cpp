@@ -142,9 +142,9 @@ void Timer::calculateNextOverflow(int timerIdx, uint64_t timeBase, bool first)
 {
 	uint8_t timerctrl = m_timers[timerIdx].CNT_H;
 
-	uint64_t cycleLut[4] = { 1, 64, 256, 1024 };
-	uint64_t shiftLut[4] = { 0,5,7,9 };
-	uint64_t unsetMask[4] = { 0xFFFFFFFF,0xFFFFFFC0,0xFFFFFF00,0xFFFFFC00 };
+	static constexpr uint64_t cycleLut[4] = { 1, 64, 256, 1024 };
+	static constexpr uint64_t shiftLut[4] = { 0,6,8,10 };
+	static constexpr uint64_t unsetMask[4] = { 0xFFFFFFFF,0xFFFFFFC0,0xFFFFFF00,0xFFFFFC00 };
 	uint8_t prescalerSelect = (timerctrl & 0b11);
 	uint64_t prescalerCycles = cycleLut[prescalerSelect];
 
@@ -154,7 +154,7 @@ void Timer::calculateNextOverflow(int timerIdx, uint64_t timeBase, bool first)
 	uint32_t nextPrescalerEdge = timeBase&0xFFFF;
 	if (shiftLut[prescalerSelect] != 0)
 	{
-		uint16_t addMask = 0b1 << (shiftLut[prescalerSelect] + 1);
+		uint16_t addMask = 0b1 << (shiftLut[prescalerSelect]);
 		nextPrescalerEdge += addMask;								//essentially finding the prescaler cycle where the next falling edge occurs
 		nextPrescalerEdge &= unsetMask[prescalerSelect];
 		cyclesToOverflow += (nextPrescalerEdge - (timeBase&0xFFFF));	//then finding out how many cycles until it happens
@@ -173,7 +173,7 @@ void Timer::calculateNextOverflow(int timerIdx, uint64_t timeBase, bool first)
 	m_scheduler->addEvent(timerEventLUT[timerIdx], &Timer::onSchedulerEvent, (void*)this, overflowTimestamp);
 
 	m_timers[timerIdx].timeActivated = currentTime;
-	m_timers[timerIdx].lastUpdateTimestamp = currentTime;
+	m_timers[timerIdx].lastUpdateClock = (currentTime >> shiftLut[prescalerSelect]);
 	m_timers[timerIdx].overflowTime = overflowTimestamp;
 
 }
@@ -212,18 +212,12 @@ void Timer::setCurrentClock(int idx, uint8_t prescalerSetting)
 	if (!timerEnabled || countup)	//don't predict new clock if disabled, or timer is a countup timer
 		return;
 
-	uint64_t currentTime = m_scheduler->getCurrentTimestamp();
-	uint64_t timeSinceLastCheck = m_timers[idx].lastUpdateTimestamp;
-
-	uint64_t cycleLut[4] = { 1, 64, 256, 1024 };
-	uint64_t prescalerCycles = cycleLut[prescalerSetting];
-
-	uint64_t ticksElapsed = (currentTime - timeSinceLastCheck) / prescalerCycles;
-	if (ticksElapsed > 0)
-	{
-		m_timers[idx].clock += ticksElapsed;
-		m_timers[idx].lastUpdateTimestamp += (ticksElapsed * prescalerCycles);
-	}
+	static constexpr uint64_t cycleLut[4] = { 1, 64, 256, 1024 };
+	static constexpr uint64_t shiftLut[4] = { 0,6,8,10 };
+	uint64_t currentClock = (m_scheduler->getCurrentTimestamp() >> shiftLut[prescalerSetting]);
+	uint64_t timeDiff = currentClock - m_timers[idx].lastUpdateClock;
+	m_timers[idx].clock += timeDiff;
+	m_timers[idx].lastUpdateClock = currentClock;
 }
 
 void Timer::onSchedulerEvent(void* context)
