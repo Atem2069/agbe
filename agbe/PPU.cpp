@@ -150,6 +150,9 @@ void PPU::HBlank()
 		BG3Y_latch = BG3Y;
 	BG2X_dirty = false; BG2Y_dirty = false; BG3X_dirty = false; BG3Y_dirty = false;
 
+	//attempt to latch in new enable bits for bg
+	latchBackgroundEnableBits();
+
 	m_scheduler->addEvent(Event::PPU, &PPU::onSchedulerEvent, (void*)this, schedTimestamp+960);
 }
 
@@ -219,6 +222,15 @@ void PPU::VBlank()
 		m_scheduler->addEvent(Event::PPU, &PPU::onSchedulerEvent, (void*)this, schedTimestamp+1006);
 	}
 
+	//attempt to latch in new enable bits for bg. i think this is instant in vblank as there being a 3 scanline delay would make no sense..
+	for (int i = 0; i < 4; i++)
+	{
+		if (m_backgroundLayers[i].pendingEnable)
+		{
+			m_backgroundLayers[i].pendingEnable = false;
+			m_backgroundLayers[i].enabled = true;
+		}
+	}
 }
 
 void PPU::renderMode0()
@@ -1185,6 +1197,25 @@ PointRenderableInfo PPU::getPointDrawable(int x, int y)
 	return info;
 }
 
+void PPU::latchBackgroundEnableBits()
+{
+	for (int i = 0; i < 4; i++)
+	{
+		if (m_backgroundLayers[i].pendingEnable)
+		{
+			m_backgroundLayers[i].scanlinesSinceEnable++;
+
+			//seems to be a 3 scanline delay from the enable bit being set, and the background subsequently being actually enabled. i wonder why..
+			if (m_backgroundLayers[i].scanlinesSinceEnable == 3 || m_backgroundLayers[i].enabled)
+			{
+				m_backgroundLayers[i].scanlinesSinceEnable = 0;
+				m_backgroundLayers[i].pendingEnable = false;
+				m_backgroundLayers[i].enabled = true;
+			}
+		}
+	}
+}
+
 uint32_t* PPU::getDisplayBuffer()
 {
 	return m_renderBuffer[!pageIdx];
@@ -1278,9 +1309,13 @@ void PPU::writeIO(uint32_t address, uint8_t value)
 	case 0x04000001:
 		DISPCNT &= 0x00FF; DISPCNT |= (value << 8);
 
-		//TODO: account for 3-scanline layer enable delay. this is not 100% accurate.
 		for (int i = 8; i < 12; i++)
-			m_backgroundLayers[i - 8].enabled = ((DISPCNT >> i) & 0b1);
+		{
+			if (((DISPCNT >> i) & 0b1))
+				m_backgroundLayers[i - 8].pendingEnable = true;
+			else
+				m_backgroundLayers[i - 8].enabled = false;
+		}
 		break;
 	case 0x04000004:
 		DISPSTAT &= 0b1111111100000111; value &= 0b11111000;

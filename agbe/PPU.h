@@ -16,6 +16,9 @@ struct BG
 	bool enabled;
 	bool affine;
 	uint16_t lineBuffer[240];
+
+	bool pendingEnable;	//used to impl. 3 scanline delay
+	int scanlinesSinceEnable;
 };
 
 union SpriteAttribute
@@ -154,6 +157,8 @@ private:
 	uint32_t col16to32(uint16_t col);
 
 	PointRenderableInfo getPointDrawable(int x, int y);
+
+	void latchBackgroundEnableBits();
 
 	//todo: these names are confusing (m_calc..., calc....) so probs rewrite with nicer function names at some point so I don't confuse myself :P
 	inline void m_calcAffineCoords(bool mosaic, int32_t& xRef, int32_t& yRef, int16_t dx, int16_t dy)
