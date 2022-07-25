@@ -1314,7 +1314,10 @@ void PPU::writeIO(uint32_t address, uint8_t value)
 			if (((DISPCNT >> i) & 0b1))
 				m_backgroundLayers[i - 8].pendingEnable = true;
 			else
+			{
+				m_backgroundLayers[i - 8].pendingEnable = false;
 				m_backgroundLayers[i - 8].enabled = false;
+			}
 		}
 		break;
 	case 0x04000004:
