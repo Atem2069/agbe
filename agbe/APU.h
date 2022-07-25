@@ -20,6 +20,17 @@ struct AudioFIFO
 	bool samplePlaying = false;
 	int playbackPosition = 0;
 
+	void pushSample(uint8_t value, int offs)
+	{
+		if (isFull())
+			return;
+		uint32_t curWord = data[endIdx];
+		uint32_t mask = ~(0xFF << (offs * 8));
+		curWord &= mask;
+		curWord |= (value << (offs * 8));
+		data[endIdx] = curWord;
+	}
+
 	void advanceSamplePtr()
 	{
 		if (isFull())

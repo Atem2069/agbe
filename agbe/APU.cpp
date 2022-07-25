@@ -212,27 +212,11 @@ void APU::writeIO(uint32_t address, uint8_t value)
 	case 0x04000089:
 		SOUNDBIAS &= 0xFF; SOUNDBIAS |= (value << 8);
 		break;
-	case 0x040000A0: case 0x040000A1: case 0x040000A2: case 0x040000A3:			//TODO: these are not accurate. a 4 byte sample is always pushed even if written with 8/16 bit modes
-		if (!m_channels[0].isFull())                                            //whereas this only pushes a new sample once the final byte has been written
-		{
-			int offs = address & 3;
-			uint32_t curWord = m_channels[0].data[m_channels[0].endIdx];
-			uint32_t mask = ~(0xFF << (offs * 8));
-			curWord &= mask;
-			curWord |= (value << (offs * 8));
-			m_channels[0].data[m_channels[0].endIdx] = curWord;
-		}
+	case 0x040000A0: case 0x040000A1: case 0x040000A2: case 0x040000A3:			
+		m_channels[0].pushSample(value, address & 3);
 		break;
 	case 0x040000A4: case 0x040000A5: case 0x040000A6: case 0x040000A7:
-		if (!m_channels[1].isFull())
-		{
-			int offs = address & 3;
-			uint32_t curWord = m_channels[1].data[m_channels[1].endIdx];
-			uint32_t mask = ~(0xFF << (offs * 8));
-			curWord &= mask;
-			curWord |= (value << (offs * 8));
-			m_channels[1].data[m_channels[1].endIdx] = curWord;
-		}
+		m_channels[1].pushSample(value, address & 3);
 		break;
 
 	case 0x04000090: case 0x04000091: case 0x04000092: case 0x04000093: case 0x04000094: case 0x04000095: case 0x04000096: case 0x04000097:
