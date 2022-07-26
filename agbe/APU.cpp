@@ -12,7 +12,7 @@ APU::APU(std::shared_ptr<Scheduler> scheduler)
 	SDL_Init(SDL_INIT_AUDIO);
 	SDL_AudioSpec desiredSpec = {}, obtainedSpec = {};
 	desiredSpec.freq = sampleRate;
-	desiredSpec.format = AUDIO_S16;	
+	desiredSpec.format = AUDIO_F32;	
 	desiredSpec.channels = 2;		
 	desiredSpec.silence = 0;
 	desiredSpec.samples = sampleBufferSize;	
@@ -246,24 +246,22 @@ void APU::onSampleEvent()
 	//both of these are messy - but it extracts L/R enable bits to see if each channel is enabled for each output (L/R)
 	int16_t leftSample = (((SOUNDCNT_H >> 9) & 0b1) * chanASample) + (((SOUNDCNT_H >> 13) & 0b1) * chanBSample) + (((SOUNDCNT_L >> 12) & 0b1) * square1Sample)
 		+ (((SOUNDCNT_L >> 13) & 0b1) * square2Sample) + (((SOUNDCNT_L >> 14) & 0b1) * waveSample) + (((SOUNDCNT_L >> 15) & 0b1) * noiseSample);
-	leftSample <<= 2;
 
 	int16_t rightSample = (((SOUNDCNT_H >> 8) & 0b1) * chanASample) + (((SOUNDCNT_H >> 12) & 0b1) * chanBSample) + (((SOUNDCNT_L >> 8) & 0b1) * square1Sample)
 		+ (((SOUNDCNT_L >> 9) & 0b1) * square2Sample) + (((SOUNDCNT_L >> 10) & 0b1) * waveSample) + (((SOUNDCNT_L >> 11) & 0b1) * noiseSample);
-	rightSample <<= 2;
-	m_sampleBuffer[sampleIndex << 1] = leftSample;
-	m_sampleBuffer[(sampleIndex << 1) | 1] = rightSample;
+	m_sampleBuffer[sampleIndex << 1] = applyBiasAndClip(leftSample);
+	m_sampleBuffer[(sampleIndex << 1) | 1] = applyBiasAndClip(rightSample);
 
 	sampleIndex++;
 	if (sampleIndex == sampleBufferSize)
 	{
 		sampleIndex = 0;
 		//memcpy((void*)m_finalSamples, (void*)m_sampleBuffer, sampleBufferSize * 4);
-		int16_t m_finalSamples[sampleBufferSize * 2] = {};
-		lowPass(m_finalSamples, m_sampleBuffer);
-		SDL_QueueAudio(m_audioDevice, (void*)m_finalSamples, sampleBufferSize*4);
+		float m_finalSamples[sampleBufferSize * 2] = {};
+		memcpy(m_finalSamples, m_sampleBuffer, sampleBufferSize * 8);
+		SDL_QueueAudio(m_audioDevice, (void*)m_finalSamples, sampleBufferSize*8);
 
-		while (SDL_GetQueuedAudioSize(m_audioDevice) > sampleBufferSize * 4)
+		while (SDL_GetQueuedAudioSize(m_audioDevice) > sampleBufferSize * 8)
 			(void)0;
 	}
 
@@ -712,20 +710,24 @@ void APU::triggerNoise()
 	m_noiseChannel.lastCheckTimestamp = m_scheduler->getCurrentTimestamp();
 }
 
-void APU::lowPass(int16_t* outBuffer, int16_t* inBuffer)
+float APU::applyBiasAndClip(int16_t sampleIn)
 {
-	float dt = 1.0 / (float)sampleRate;
-	float a = (2.0 * 3.14 * 20000*dt) / ((2.0 * 3.14 * 20000*dt) + 1);	//20k cutoff for high pass
-	outBuffer[0] = a *inBuffer[0];
-	outBuffer[1] = a * inBuffer[1];
-	for (int i = 1; i < sampleBufferSize; i++)
-	{
-		float curSample = inBuffer[i * 2];
-		outBuffer[i * 2] = (float)outBuffer[(i * 2) - 2] + a * (curSample - (float)outBuffer[(i * 2) - 2]);
+	float sampleOut = 0.0f;
+	sampleOut = (sampleIn+0x200);								//TODO: account for real value in SOUNDBIAS!!!!
+	sampleOut = std::max((float)0, sampleOut);
+	sampleOut = std::min(sampleOut, (float)0x3FF);
 
-		curSample = inBuffer[(i * 2) + 1];
-		outBuffer[(i * 2) + 1] = (float)outBuffer[(i * 2) - 1] + a * (curSample - (float)outBuffer[(i * 2) - 1]);
-	}
+	sampleOut = ((sampleOut / 1023.f) - 0.5f) / 6.f;
+
+	return highPass(sampleOut);
+}
+
+float APU::highPass(float in)
+{
+	float sampleIn = (float)in;
+	float out = sampleIn - capacitor;
+	capacitor = sampleIn - out * 0.996336;
+	return out;
 }
 
 void APU::advanceSamplePtr(int channel)

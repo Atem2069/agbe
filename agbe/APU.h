@@ -258,8 +258,10 @@ private:
 
 
 	SDL_AudioDeviceID m_audioDevice = {};
-	int16_t m_sampleBuffer[sampleBufferSize*2] = {};
+	float m_sampleBuffer[sampleBufferSize*2] = {};
 	int sampleIndex = 0;
 
-	void lowPass(int16_t* outBuffer, int16_t* inBuffer);
+	float applyBiasAndClip(int16_t sampleIn);
+	float capacitor = 0.0f;
+	float highPass(float in);
 };
