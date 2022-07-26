@@ -20,6 +20,7 @@ APU::APU(std::shared_ptr<Scheduler> scheduler)
 	SDL_PauseAudioDevice(m_audioDevice, 0);
 
 	m_noiseChannel.LFSR = 0xFFFF;
+	SOUNDBIAS = (0x100) << 1;			//default bias level supposedly 0x100?
 }
 
 APU::~APU()
@@ -712,9 +713,10 @@ void APU::triggerNoise()
 
 float APU::applyBiasAndClip(int16_t sampleIn)
 {
+	int biasLevel = ((SOUNDBIAS >> 1) & 0x1FF);
+
 	float sampleOut = 0.0f;
-	sampleOut = (sampleIn+0x200);								//TODO: account for real value in SOUNDBIAS!!!!
-	sampleOut = std::max((float)0, sampleOut);
+	sampleOut = (sampleIn+biasLevel);								//TODO: account for real value in SOUNDBIAS!!!!
 	sampleOut = std::min(sampleOut, (float)0x3FF);
 
 	sampleOut = ((sampleOut / 1023.f) - 0.5f) / 6.f;
