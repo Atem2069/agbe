@@ -259,7 +259,8 @@ void APU::onSampleEvent()
 		sampleIndex = 0;
 		//memcpy((void*)m_finalSamples, (void*)m_sampleBuffer, sampleBufferSize * 4);
 		float m_finalSamples[sampleBufferSize * 2] = {};
-		memcpy(m_finalSamples, m_sampleBuffer, sampleBufferSize * 8);
+		//memcpy(m_finalSamples, m_sampleBuffer, sampleBufferSize * 8);
+		lowPass(m_finalSamples, m_sampleBuffer);
 		SDL_QueueAudio(m_audioDevice, (void*)m_finalSamples, sampleBufferSize*8);
 
 		while (SDL_GetQueuedAudioSize(m_audioDevice) > sampleBufferSize * 8)
@@ -730,6 +731,21 @@ float APU::highPass(float in)
 	float out = sampleIn - capacitor;
 	capacitor = sampleIn - out * 0.996336;
 	return out;
+}
+
+void APU::lowPass(float* outBuffer, float* inBuffer)
+{
+	float dt = 1.0 / (float)sampleRate;
+	float cutoff = 20000;
+	float a = (2.0 * 3.14 * cutoff * dt) / ((2.0 * 3.14 * cutoff * dt) + 1.0);
+	outBuffer[0] = a * inBuffer[0];
+	outBuffer[1] = a * inBuffer[1];
+
+	for (int i = 1; i < sampleBufferSize; i++)
+	{
+		outBuffer[i * 2] = outBuffer[(i * 2) - 2] + a * (inBuffer[i * 2] - outBuffer[(i * 2) - 2]);
+		outBuffer[(i * 2) + 1] = outBuffer[(i * 2) - 1] + a * (inBuffer[(i * 2) + 1] - outBuffer[(i * 2) - 1]);
+	}
 }
 
 void APU::advanceSamplePtr(int channel)

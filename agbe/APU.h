@@ -264,4 +264,5 @@ private:
 	float applyBiasAndClip(int16_t sampleIn);
 	float capacitor = 0.0f;
 	float highPass(float in);
+	void lowPass(float* outBuffer, float* inBuffer);
 };
