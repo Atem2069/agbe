@@ -1312,7 +1312,14 @@ void PPU::writeIO(uint32_t address, uint8_t value)
 		for (int i = 8; i < 12; i++)
 		{
 			if (((DISPCNT >> i) & 0b1))
+			{
 				m_backgroundLayers[i - 8].pendingEnable = true;
+				if (inVBlank)
+				{
+					m_backgroundLayers[i - 8].pendingEnable = false;
+					m_backgroundLayers[i - 8].enabled = true;
+				}
+			}
 			else
 			{
 				m_backgroundLayers[i - 8].pendingEnable = false;
@@ -1471,6 +1478,11 @@ void PPU::writeIO(uint32_t address, uint8_t value)
 	case 0x0400002B:
 		BG2X &= 0x00FFFFFF; BG2X |= (value << 24);
 		BG2X_dirty = true;
+		if (inVBlank)
+		{
+			BG2X_dirty = false;
+			BG2X_latch = BG2X;
+		}
 		break;
 	case 0x0400002C:
 		BG2Y &= 0xFFFFFF00; BG2Y |= value;
@@ -1484,6 +1496,11 @@ void PPU::writeIO(uint32_t address, uint8_t value)
 	case 0x0400002F:
 		BG2Y &= 0x00FFFFFF; BG2Y |= (value << 24);
 		BG2Y_dirty = true;
+		if (inVBlank)
+		{
+			BG2Y_dirty = false;
+			BG2Y_latch = BG2Y;
+		}
 		break;
 	case 0x04000030:
 		BG3PA &= 0xFF00; BG3PA |= value;
@@ -1521,6 +1538,11 @@ void PPU::writeIO(uint32_t address, uint8_t value)
 	case 0x0400003B:
 		BG3X &= 0x00FFFFFF; BG3X |= (value << 24);
 		BG3X_dirty = true;
+		if (inVBlank)
+		{
+			BG3X_dirty = false;
+			BG3X_latch = BG3X;
+		}
 		break;
 	case 0x0400003C:
 		BG3Y &= 0xFFFFFF00; BG3Y |= value;
@@ -1534,6 +1556,11 @@ void PPU::writeIO(uint32_t address, uint8_t value)
 	case 0x0400003F:
 		BG3Y &= 0x00FFFFFF; BG3Y |= (value << 24);
 		BG3Y_dirty = true;
+		if (inVBlank)
+		{
+			BG3Y_dirty = false;
+			BG3Y_latch = BG3Y;
+		}
 		break;
 	case 0x04000050:
 		BLDCNT &= 0xFF00; BLDCNT |= value;
