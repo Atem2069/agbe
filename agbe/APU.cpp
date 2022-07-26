@@ -314,7 +314,7 @@ void APU::updateSquare1()
 		timeDiff -= m_square1.frequency;
 		m_square1.dutyIdx++;
 		m_square1.dutyIdx &= 7;
-		m_square1.frequency = (2048 - (SOUND1CNT_X & 0x7FF)) * 16;
+		m_square1.frequency = (2048 - m_square1.shadowFrequency) * 16;
 		m_square1.output = 0;
 		if (m_square1.enabled)
 		{
@@ -558,35 +558,48 @@ void APU::clockVolumeEnvelope()
 void APU::clockFrequencySweep()
 {
 	//this code is disgusting: not sure why i wrote it like this but it's how my gb emu does it :P. 
+	if (!m_square1.sweepEnabled)
+		return;
 
-	if (m_square1.sweepPeriod != 0)
+	if (m_square1.sweepTimer > 0)
+		m_square1.sweepTimer--;
+
+	if (m_square1.sweepTimer == 0)
 	{
-		if (m_square1.sweepTimer > 0)
-			m_square1.sweepTimer--;
+		m_square1.sweepTimer = m_square1.sweepPeriod;
+		if (!m_square1.sweepPeriod)
+			m_square1.sweepTimer = 8;
 
-		if (m_square1.sweepTimer == 0)
+		if (m_square1.sweepPeriod)
 		{
-			m_square1.sweepTimer = m_square1.sweepPeriod;
-			
-			int oldFreq = SOUND1CNT_X & 0x7FF;
-			int newFreq = oldFreq >> m_square1.sweepShift;
-			if (m_square1.sweepNegate)
-				newFreq = oldFreq - newFreq;
-			else
-				newFreq = oldFreq + newFreq;
-
-			if (newFreq > 2047)				//overflow disable channel
-			{
-				m_square1.enabled = false;
-				SOUNDCNT_X &= ~0b1;
-			}
-			else
+			int newFreq = calcChan1Frequency();
+			if (newFreq <= 2047 && m_square1.sweepShift)
 			{
 				SOUND1CNT_X &= ~0x7FF;
-				SOUND1CNT_X |= (newFreq & 0x7FF);	//<----wtf? why did i do this?
+				SOUND1CNT_X |= (newFreq & 0x7FF);
+				m_square1.shadowFrequency = newFreq;
+				calcChan1Frequency();	//overflow check again, hm.
 			}
 		}
 	}
+}
+
+int APU::calcChan1Frequency()
+{
+	int oldFreq = SOUND1CNT_X & 0x7FF;
+	int newFreq = oldFreq >> m_square1.sweepShift;
+	if (m_square1.sweepNegate)
+		newFreq = oldFreq - newFreq;
+	else
+		newFreq = oldFreq + newFreq;
+
+	if (newFreq > 2047)
+	{
+		m_square1.enabled = false;
+		SOUNDCNT_X &= ~0b1;
+	}
+
+	return newFreq;
 }
 
 void APU::resetAllChannels()
@@ -657,8 +670,13 @@ void APU::triggerSquare1()
 
 	if (m_square1.lengthCounter == 0)
 		m_square1.lengthCounter = 64;
-	m_square1.frequency = (2048 - (SOUND1CNT_X & 0x7FF)) * 16;
+	m_square1.shadowFrequency = SOUND1CNT_X & 0x7FF;
+	m_square1.frequency = (2048 - m_square1.shadowFrequency) * 16;
 	m_square1.enabled = true;
+	m_square1.sweepEnabled = (m_square1.sweepShift || m_square1.sweepPeriod);
+	m_square1.sweepTimer = m_square1.sweepPeriod;
+	if (!m_square1.sweepTimer)
+		m_square1.sweepTimer = 8;
 	m_square1.dutyPattern = (SOUND1CNT_H >> 6) & 0b11;
 	m_square1.doLength = ((SOUND1CNT_X >> 14) & 0b1);
 	m_square1.envelopeTimer = m_square1.envelopePeriod;

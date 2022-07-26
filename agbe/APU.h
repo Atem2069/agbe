@@ -103,6 +103,8 @@ struct SquareChannel1
 	bool envelopeIncrease;
 
 	//chan 1 specific stuff
+	bool sweepEnabled;
+	int shadowFrequency;
 	int sweepPeriod;
 	int sweepTimer;
 	int sweepShift;
@@ -253,6 +255,7 @@ private:
 	void clockLengthCounters();
 	void clockVolumeEnvelope();
 	void clockFrequencySweep();
+	int calcChan1Frequency();
 
 	void resetAllChannels();
 
