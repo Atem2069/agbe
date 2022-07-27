@@ -201,7 +201,6 @@ void PPU::VBlank()
 
 		setVBlankFlag(false);
 		inVBlank = false;
-		shouldSyncVideo = true;
 		VCOUNT = 0;
 		m_state = PPUState::HDraw;
 		m_scheduler->addEvent(Event::PPU, &PPU::onSchedulerEvent, (void*)this, schedTimestamp+960);
@@ -1595,13 +1594,6 @@ void PPU::registerDMACallbacks(callbackFn HBlankCallback, callbackFn VBlankCallb
 	DMAVBlankCallback = VBlankCallback;
 	DMAVideoCaptureCallback = videoCapture;
 	callbackContext = ctx;
-}
-
-bool PPU::getShouldSync()
-{
-	bool res = shouldSyncVideo;
-	shouldSyncVideo = false;
-	return res;
 }
 
 void PPU::onSchedulerEvent(void* context)
