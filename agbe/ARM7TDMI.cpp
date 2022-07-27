@@ -76,6 +76,7 @@ void ARM7TDMI::execute()
 		return;
 	}
 
+	static constexpr auto armTable = genARMTable();
 	uint32_t lookup = ((m_currentOpcode & 0x0FF00000) >> 16) | ((m_currentOpcode & 0xF0) >> 4);	//bits 20-27 shifted down to bits 4-11. bits 4-7 shifted down to bits 0-4
 	instructionFn instr = armTable[lookup];
 	(this->*instr)();
@@ -83,6 +84,7 @@ void ARM7TDMI::execute()
 
 void ARM7TDMI::executeThumb()
 {
+	static constexpr auto thumbTable = genThumbTable();
 	uint16_t lookup = m_currentOpcode >> 6;
 	instructionFn instr = thumbTable[lookup];
 	(this->*instr)();
