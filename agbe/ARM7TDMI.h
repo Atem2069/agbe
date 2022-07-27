@@ -134,6 +134,46 @@ private:
 	void setLogicalFlags(uint32_t result, int carry);
 	void setArithmeticFlags(uint32_t input, uint64_t operand, uint32_t result, bool addition);
 
+	//magic code for generating compile time arm/thumb luts
+
+	template<int i, int max> static consteval void setARMTableEntries(auto& table)
+	{
+		uint32_t tempOpcode = ((i & 0xFF0) << 16) | ((i & 0xF) << 4);	//expand instruction so bits 20-27 contain top 8 bits of i, bits 4-7 contain lower 4 bits
+		if ((tempOpcode & 0b0000'1110'0000'0000'0000'0000'0000'0000) == 0b0000'1010'0000'0000'0000'0000'0000'0000)
+			table[i] = (instructionFn)&ARM7TDMI::ARM_Branch;
+		else if ((tempOpcode & 0b0000'1111'1100'0000'0000'0000'1111'0000) == 0b0000'0000'0000'0000'0000'0000'1001'0000)
+			table[i] = (instructionFn)&ARM7TDMI::ARM_Multiply;
+		else if ((tempOpcode & 0b0000'1111'1000'0000'0000'0000'1111'0000) == 0b0000'0000'1000'0000'0000'0000'1001'0000)
+			table[i] = (instructionFn)&ARM7TDMI::ARM_MultiplyLong;
+		else if ((tempOpcode & 0b0000'1111'1011'0000'0000'1111'1111'0000) == 0b0000'0001'0000'0000'0000'0000'1001'0000)
+			table[i] = (instructionFn)&ARM7TDMI::ARM_SingleDataSwap;
+		else if ((tempOpcode & 0b0000'1110'0100'0000'0000'1111'1001'0000) == 0b0000'0000'0000'0000'0000'0000'1001'0000)
+			table[i] = (instructionFn)&ARM7TDMI::ARM_HalfwordTransferRegisterOffset;
+		else if ((tempOpcode & 0b0000'1110'0100'0000'0000'0000'1001'0000) == 0b0000'0000'0100'0000'0000'0000'1001'0000)
+			table[i] = (instructionFn)&ARM7TDMI::ARM_HalfwordTransferImmediateOffset;
+		else if ((tempOpcode & 0b0000'1111'1111'0000'0000'0000'1111'0000) == 0b0000'0001'0010'0000'0000'0000'0001'0000)
+			table[i] = (instructionFn)&ARM7TDMI::ARM_BranchExchange;
+		else if ((tempOpcode & 0b0000'1100'0000'0000'0000'0000'0000'0000) == 0b0000'0000'0000'0000'0000'0000'0000'0000)
+			table[i] = (instructionFn)&ARM7TDMI::ARM_DataProcessing;
+		else if ((tempOpcode & 0b0000'1110'0000'0000'0000'0000'0001'0000) == 0b0000'0110'0000'0000'0000'0000'0001'0000)
+			table[i] = (instructionFn)&ARM7TDMI::ARM_Undefined;
+		else if ((tempOpcode & 0b0000'1100'0000'0000'0000'0000'0000'0000) == 0b0000'0100'0000'0000'0000'0000'0000'0000)
+			table[i] = (instructionFn)&ARM7TDMI::ARM_SingleDataTransfer;
+		else if ((tempOpcode & 0b0000'1110'0000'0000'0000'0000'0000'0000) == 0b0000'1000'0000'0000'0000'0000'0000'0000)
+			table[i] = (instructionFn)&ARM7TDMI::ARM_BlockDataTransfer;
+		else if ((tempOpcode & 0b0000'1110'0000'0000'0000'0000'0000'0000) == 0b0000'1100'0000'0000'0000'0000'0000'0000)
+			table[i] = (instructionFn)&ARM7TDMI::ARM_CoprocessorDataTransfer;
+		else if ((tempOpcode & 0b0000'1111'0000'0000'0000'0000'0001'0000) == 0b0000'1110'0000'0000'0000'0000'0000'0000)
+			table[i] = (instructionFn)&ARM7TDMI::ARM_CoprocessorDataOperation;
+		else if ((tempOpcode & 0b0000'1111'0000'0000'0000'0000'0001'0000) == 0b0000'1110'0000'0000'0000'0000'0001'0000)
+			table[i] = (instructionFn)&ARM7TDMI::ARM_CoprocessorDataTransfer;
+		else if ((tempOpcode & 0b0000'1111'0000'0000'0000'0000'0000'0000) == 0b0000'1111'0000'0000'0000'0000'0000'0000)
+			table[i] = (instructionFn)&ARM7TDMI::ARM_SoftwareInterrupt;
+
+		if constexpr ((i + 1) < max)
+			setARMTableEntries<i + 1, max>(table);
+	}
+
 	template<int i, int max> static consteval void setThumbTableEntries(auto& table)
 	{
 		uint16_t tempOpcode = (i << 6);
@@ -184,77 +224,6 @@ private:
 			setThumbTableEntries<i+1, max>(table);
 	}
 
-	static consteval std::array<instructionFn,1024> genThumbTable()
-	{
-		std::array<instructionFn, 1024> thumbTable;
-		thumbTable.fill((instructionFn)&ARM7TDMI::ARM_Undefined);
-		setThumbTableEntries<0, 256>(thumbTable);
-		setThumbTableEntries<256, 512>(thumbTable);
-		setThumbTableEntries<512, 768>(thumbTable);
-		setThumbTableEntries<768, 1024>(thumbTable);
-		return thumbTable;
-	}
-
-	template<int i, int max> static consteval void setARMTableEntries(auto& table)
-	{
-		uint32_t tempOpcode = ((i & 0xFF0) << 16) | ((i & 0xF) << 4);	//expand instruction so bits 20-27 contain top 8 bits of i, bits 4-7 contain lower 4 bits
-		if ((tempOpcode & 0b0000'1110'0000'0000'0000'0000'0000'0000) == 0b0000'1010'0000'0000'0000'0000'0000'0000)
-			table[i] = (instructionFn)&ARM7TDMI::ARM_Branch;
-		else if ((tempOpcode & 0b0000'1111'1100'0000'0000'0000'1111'0000) == 0b0000'0000'0000'0000'0000'0000'1001'0000)
-			table[i] = (instructionFn)&ARM7TDMI::ARM_Multiply;
-		else if ((tempOpcode & 0b0000'1111'1000'0000'0000'0000'1111'0000) == 0b0000'0000'1000'0000'0000'0000'1001'0000)
-			table[i] = (instructionFn)&ARM7TDMI::ARM_MultiplyLong;
-		else if ((tempOpcode & 0b0000'1111'1011'0000'0000'1111'1111'0000) == 0b0000'0001'0000'0000'0000'0000'1001'0000)
-			table[i] = (instructionFn)&ARM7TDMI::ARM_SingleDataSwap;
-		else if ((tempOpcode & 0b0000'1110'0100'0000'0000'1111'1001'0000) == 0b0000'0000'0000'0000'0000'0000'1001'0000)
-			table[i] = (instructionFn)&ARM7TDMI::ARM_HalfwordTransferRegisterOffset;
-		else if ((tempOpcode & 0b0000'1110'0100'0000'0000'0000'1001'0000) == 0b0000'0000'0100'0000'0000'0000'1001'0000)
-			table[i] = (instructionFn)&ARM7TDMI::ARM_HalfwordTransferImmediateOffset;
-		else if ((tempOpcode & 0b0000'1111'1111'0000'0000'0000'1111'0000) == 0b0000'0001'0010'0000'0000'0000'0001'0000)
-			table[i] = (instructionFn)&ARM7TDMI::ARM_BranchExchange;
-		else if ((tempOpcode & 0b0000'1100'0000'0000'0000'0000'0000'0000) == 0b0000'0000'0000'0000'0000'0000'0000'0000)
-			table[i] = (instructionFn)&ARM7TDMI::ARM_DataProcessing;
-		else if ((tempOpcode & 0b0000'1110'0000'0000'0000'0000'0001'0000) == 0b0000'0110'0000'0000'0000'0000'0001'0000)
-			table[i] = (instructionFn)&ARM7TDMI::ARM_Undefined;
-		else if ((tempOpcode & 0b0000'1100'0000'0000'0000'0000'0000'0000) == 0b0000'0100'0000'0000'0000'0000'0000'0000)
-			table[i] = (instructionFn)&ARM7TDMI::ARM_SingleDataTransfer;
-		else if ((tempOpcode & 0b0000'1110'0000'0000'0000'0000'0000'0000) == 0b0000'1000'0000'0000'0000'0000'0000'0000)
-			table[i] = (instructionFn)&ARM7TDMI::ARM_BlockDataTransfer;
-		else if ((tempOpcode & 0b0000'1110'0000'0000'0000'0000'0000'0000) == 0b0000'1100'0000'0000'0000'0000'0000'0000)
-			table[i] = (instructionFn)&ARM7TDMI::ARM_CoprocessorDataTransfer;
-		else if ((tempOpcode & 0b0000'1111'0000'0000'0000'0000'0001'0000) == 0b0000'1110'0000'0000'0000'0000'0000'0000)
-			table[i] = (instructionFn)&ARM7TDMI::ARM_CoprocessorDataOperation;
-		else if ((tempOpcode & 0b0000'1111'0000'0000'0000'0000'0001'0000) == 0b0000'1110'0000'0000'0000'0000'0001'0000)
-			table[i] = (instructionFn)&ARM7TDMI::ARM_CoprocessorDataTransfer;
-		else if ((tempOpcode & 0b0000'1111'0000'0000'0000'0000'0000'0000) == 0b0000'1111'0000'0000'0000'0000'0000'0000)
-			table[i] = (instructionFn)&ARM7TDMI::ARM_SoftwareInterrupt;
-
-		if constexpr ((i + 1) < max)
-			setARMTableEntries<i + 1, max>(table);
-	}
-
-	static consteval std::array<instructionFn,4096> genARMTable()
-	{
-		std::array<instructionFn, 4096> armTable;
-		armTable.fill((instructionFn)&ARM7TDMI::ARM_Undefined);
-		//bypass compiler recursion limit by splitting up into 256 long chunks of filling the table
-		setARMTableEntries<0, 256>(armTable);
-		setARMTableEntries<256, 512>(armTable);
-		setARMTableEntries<512, 768>(armTable);
-		setARMTableEntries<768, 1024>(armTable);
-		setARMTableEntries<1024, 1280>(armTable);
-		setARMTableEntries<1280, 1536>(armTable);
-		setARMTableEntries<1536, 1792>(armTable);
-		setARMTableEntries<1792, 2048>(armTable);
-		setARMTableEntries<2048, 2304>(armTable);
-		setARMTableEntries<2304, 2560>(armTable);
-		setARMTableEntries<2560, 2816>(armTable);
-		setARMTableEntries<2816, 3072>(armTable);
-		setARMTableEntries<3072, 3328>(armTable);
-		setARMTableEntries<3328, 3584>(armTable);
-		setARMTableEntries<3584, 3840>(armTable);
-		setARMTableEntries<3840, 4096>(armTable);
-
-		return armTable;
-	}
+	static consteval std::array<instructionFn, 4096> genARMTable();
+	static consteval std::array<instructionFn, 1024> genThumbTable();
 };

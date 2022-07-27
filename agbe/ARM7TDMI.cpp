@@ -23,6 +23,42 @@ ARM7TDMI::~ARM7TDMI()
 
 }
 
+consteval std::array<ARM7TDMI::instructionFn, 4096> ARM7TDMI::genARMTable()
+{
+	std::array<instructionFn, 4096> armTable;
+	armTable.fill((instructionFn)&ARM7TDMI::ARM_Undefined);
+	//bypass compiler recursion limit by splitting up into 256 long chunks of filling the table
+	setARMTableEntries<0, 256>(armTable);
+	setARMTableEntries<256, 512>(armTable);
+	setARMTableEntries<512, 768>(armTable);
+	setARMTableEntries<768, 1024>(armTable);
+	setARMTableEntries<1024, 1280>(armTable);
+	setARMTableEntries<1280, 1536>(armTable);
+	setARMTableEntries<1536, 1792>(armTable);
+	setARMTableEntries<1792, 2048>(armTable);
+	setARMTableEntries<2048, 2304>(armTable);
+	setARMTableEntries<2304, 2560>(armTable);
+	setARMTableEntries<2560, 2816>(armTable);
+	setARMTableEntries<2816, 3072>(armTable);
+	setARMTableEntries<3072, 3328>(armTable);
+	setARMTableEntries<3328, 3584>(armTable);
+	setARMTableEntries<3584, 3840>(armTable);
+	setARMTableEntries<3840, 4096>(armTable);
+
+	return armTable;
+}
+
+consteval std::array<ARM7TDMI::instructionFn, 1024> ARM7TDMI::genThumbTable()
+{
+	std::array<instructionFn, 1024> thumbTable;
+	thumbTable.fill((instructionFn)&ARM7TDMI::ARM_Undefined);
+	setThumbTableEntries<0, 256>(thumbTable);
+	setThumbTableEntries<256, 512>(thumbTable);
+	setThumbTableEntries<512, 768>(thumbTable);
+	setThumbTableEntries<768, 1024>(thumbTable);
+	return thumbTable;
+}
+
 void ARM7TDMI::step()
 {
 	fetch();
