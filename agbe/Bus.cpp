@@ -670,7 +670,7 @@ uint8_t Bus::readIO8(uint32_t address)
 	case 0x04000204:
 		return WAITCNT & 0xFF;
 	case 0x04000205:
-		return ((WAITCNT >> 8) & 0xFF);
+		return ((WAITCNT >> 8) & 0x7F);		//assume bit 15 basically always 0 (would only get set if cgb/dmg game inserted into console)
 	case 0x04000135:	//hack (tie top byte of rcnt to 0x80)
 		return 0x80;
 	case 0x04000300:
