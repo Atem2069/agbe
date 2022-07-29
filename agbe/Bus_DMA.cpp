@@ -448,7 +448,7 @@ void Bus::onVideoCapture()	//special video capture dma used by dma3 (scanlines 2
 		if (startTiming == 3)
 		{
 			if (m_ppu->getVCOUNT() == 161)						//clear repeat bit if on the last scanline of dma
-				m_dmaChannels[3].control &= 0xFDFF;
+				m_dmaChannels[3].control &= 0x7FFF;
 			doDMATransfer(3);
 		}
 	}
