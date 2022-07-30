@@ -403,10 +403,7 @@ uint32_t Bus::read32(uint32_t address, AccessType accessType)
 		if (accessType != AccessType::Prefetch)
 		{
 			if (prefetchShouldDelay && prefetchInProgress)
-			{
-				tickPrefetcher(1);
 				m_scheduler->addCycles(1);
-			}
 			prefetchShouldDelay = false;
 			invalidatePrefetchBuffer();
 		}
@@ -485,10 +482,7 @@ void Bus::write32(uint32_t address, uint32_t value, AccessType accessType)
 		cartCycles += waitstateSequentialTable[((page - 8) >> 1)];
 		m_scheduler->addCycles(cartCycles + 1);	//same setup as for read32
 		if (prefetchInProgress && prefetchShouldDelay)
-		{
-			tickPrefetcher(1);
 			m_scheduler->addCycles(1);
-		}
 		prefetchShouldDelay = false;
 		invalidatePrefetchBuffer();
 		break;
