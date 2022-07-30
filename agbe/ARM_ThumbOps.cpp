@@ -712,6 +712,7 @@ void ARM7TDMI::Thumb_SoftwareInterrupt()
 	CPSR &= 0xFFFFFFE0;	//clear mode bits (0-4)
 	CPSR &= ~0b100000;	//clear T bit
 	CPSR |= 0b10010011;	//set svc bits
+	swapBankedRegisters();
 
 	setSPSR(oldCPSR);			//set SPSR_svc
 	setReg(14, oldPC);			//Save old R15

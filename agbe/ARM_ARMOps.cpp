@@ -197,6 +197,7 @@ void ARM7TDMI::ARM_DataProcessing()
 		{
 			uint32_t newPSR = getSPSR();
 			CPSR = newPSR;
+			swapBankedRegisters();
 
 			if ((CPSR >> 5) & 0b1)
 				setReg(15, getReg(15) & ~0b1);
@@ -251,6 +252,7 @@ void ARM7TDMI::ARM_PSRTransfer()
 		{
 			CPSR &= ~fieldMask;
 			CPSR |= input;
+			swapBankedRegisters();
 			if (CPSR & 0x20)
 			{
 				// Switch to THUMB
@@ -733,6 +735,14 @@ void ARM7TDMI::ARM_BlockDataTransfer()
 	uint32_t base_addr = getReg(baseReg);
 	uint32_t old_base = base_addr;
 
+	uint32_t oldCPSR = CPSR;
+	if (psr)
+	{
+		//force user mode
+		CPSR = 0x1F;
+		swapBankedRegisters();
+	}
+
 	int transferCount = 0, baseIsFirst = false;
 	for (int i = 0; i < 16; i++)
 	{
@@ -768,7 +778,7 @@ void ARM7TDMI::ARM_BlockDataTransfer()
 				val = m_bus->read32(base_addr, (AccessType)!firstTransfer);
 			else
 			{
-				val = getReg(i, psr);
+				val = getReg(i);
 				if (i == 15)
 					val += 4;	//account for pipeline behaviour (pc+12)
 			}
@@ -788,7 +798,7 @@ void ARM7TDMI::ARM_BlockDataTransfer()
 			}
 
 			if (loadStore)
-				setReg(i, val, psr);
+				setReg(i, val);
 			else
 				m_bus->write32(base_addr, val, (AccessType)!firstTransfer);
 
@@ -837,6 +847,12 @@ void ARM7TDMI::ARM_BlockDataTransfer()
 	}
 
 	nextFetchNonsequential = true;
+
+	if (psr)
+	{
+		CPSR = oldCPSR;
+		swapBankedRegisters();
+	}
 }
 
 void ARM7TDMI::ARM_CoprocessorDataTransfer()
@@ -866,6 +882,7 @@ void ARM7TDMI::ARM_SoftwareInterrupt()
 
 	CPSR &= 0xFFFFFFE0;	//clear mode bits (0-4)
 	CPSR |= 0b0010011;	//set svc bits
+	swapBankedRegisters();
 
 	setSPSR(oldCPSR);			//set SPSR_svc
 	setReg(14, oldPC);			//Save old R15

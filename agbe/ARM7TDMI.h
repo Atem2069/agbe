@@ -39,12 +39,15 @@ private:
 	bool m_pipelineFlushed = false;
 	bool nextFetchNonsequential = true;
 
-	uint32_t R[16];	//general registers - and default registers in usermode
-	uint32_t R8_fiq=0, R9_fiq=0, R10_fiq=0, R11_fiq=0, R12_fiq=0, R13_fiq=0, R14_fiq=0;	//additional banked registers in FIQ mode
-	uint32_t R13_svc=0, R14_svc=0;												//SVC mode banked registers
-	uint32_t R13_abt=0, R14_abt=0;												//ABT mode banked registers (is this mode even used? GBA doesn't do data aborts..)
-	uint32_t R13_irq=0, R14_irq=0;												//IRQ mode banked registers
-	uint32_t R13_und=0, R14_und=0;												//UND(undefined) mode banked registers - trap for when CPU executes invalid opcode
+	uint32_t R[16];
+	uint32_t usrBankedRegisters[2];          //user mode r13-r14
+	uint32_t usrExtraBankedRegisters[5];	 //not really only usermode, but banks of r8-r12 for if fiq mode is used
+	uint32_t svcBankedRegisters[2];			 //supervisor r13-r14
+	uint32_t abtBankedRegisters[2];          //abort r13-r14
+	uint32_t irqBankedRegisters[2];          //irq r13-r14
+	uint32_t undBankedRegisters[2];          //undefined mode r13-r14
+	uint32_t fiqBankedRegisters[2];          //fiq r13-r14
+	uint32_t fiqExtraBankedRegisters[5];     //fiq r8-r12 (extra regs)
 
 	uint32_t CPSR=0;
 	uint32_t SPSR_fiq=0, SPSR_svc=0, SPSR_abt=0, SPSR_irq=0, SPSR_und=0;
@@ -74,8 +77,11 @@ private:
 	void m_setOverflowFlag(bool value);
 
 	//get/set registers
-	uint32_t getReg(uint8_t reg, bool forceUser=false);
-	void setReg(uint8_t reg, uint32_t value, bool forceUser=false);
+	uint32_t getReg(uint8_t reg);
+	void setReg(uint8_t reg, uint32_t value);
+
+	uint8_t m_lastCheckModeBits = 0;
+	void swapBankedRegisters();
 
 	uint32_t getSPSR();
 	void setSPSR(uint32_t value);

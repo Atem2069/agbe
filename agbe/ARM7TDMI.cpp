@@ -5,17 +5,16 @@ ARM7TDMI::ARM7TDMI(std::shared_ptr<Bus> bus, std::shared_ptr<InterruptManager> i
 	m_bus = bus;
 	m_interruptManager = interruptManager;
 	m_scheduler = scheduler;
-	CPSR = 0x1F;	//system starts in system mode
+	CPSR = 0x1F;	
+	m_lastCheckModeBits = 0x1F;	
 	for (int i = 0; i < 16; i++)
 		R[i] = 0;
 
-	//R[13] = 0x03007F00;
-	//R13_irq = 0x03007FA0;
-	//R13_svc = 0x03007FE0;
-	R[15] = 0x00000000;	//start of cartridge
+	R[15] = 0x00000000;
 	flushPipeline();
 	m_pipelineFlushed = false;
 	nextFetchNonsequential = true;
+
 }
 
 ARM7TDMI::~ARM7TDMI()
@@ -134,6 +133,7 @@ bool ARM7TDMI::dispatchInterrupt()
 	uint32_t oldCPSR = CPSR;
 	CPSR &= ~0x3F;
 	CPSR |= 0x92;
+	swapBankedRegisters();
 
 	bool wasThumb = ((oldCPSR >> 5) & 0b1);
 	constexpr int pcOffsetAmount[2] = { 4,0 };
@@ -237,137 +237,91 @@ void ARM7TDMI::m_setOverflowFlag(bool value)
 		CPSR &= (~mask);
 }
 
-uint32_t ARM7TDMI::getReg(uint8_t reg, bool forceUser)
+uint32_t ARM7TDMI::getReg(uint8_t reg)
 {
-	uint8_t mode = CPSR & 0x1F;
-	if (reg < 8 || forceUser)		//R0-R7 not banked so this is gucci
-		return R[reg];
-	switch (reg)
-	{
-	case 8:
-		if (mode == 0b10001)
-			return R8_fiq;
-		return R[8];
-	case 9:
-		if (mode == 0b10001)
-			return R9_fiq;
-		return R[9];
-	case 10:
-		if (mode == 0b10001)
-			return R10_fiq;
-		return R[10];
-	case 11:
-		if (mode == 0b10001)
-			return R11_fiq;
-		return R[11];
-	case 12:
-		if (mode == 0b10001)
-			return R12_fiq;
-		return R[12];
-	case 13:
-		if (mode == 0b10001)
-			return R13_fiq;
-		if (mode == 0b10011)
-			return R13_svc;
-		if (mode == 0b10111)
-			return R13_abt;
-		if (mode == 0b10010)
-			return R13_irq;
-		if (mode == 0b11011)
-			return R13_und;
-		return R[13];
-	case 14:
-		if (mode == 0b10001)
-			return R14_fiq;
-		if (mode == 0b10011)
-			return R14_svc;
-		if (mode == 0b10111)
-			return R14_abt;
-		if (mode == 0b10010)
-			return R14_irq;
-		if (mode == 0b11011)
-			return R14_und;
-		return R[14];
-	case 15:
-		return R[15];
-	}
+	return R[reg];
 }
 
-void ARM7TDMI::setReg(uint8_t reg, uint32_t value, bool forceUser)
+void ARM7TDMI::setReg(uint8_t reg, uint32_t value)
 {
-	uint8_t mode = CPSR & 0x1F;
-	if (reg < 8 || forceUser)		//R0-R7 not banked so this is gucci
-	{
-		R[reg] = value;
-		if (reg == 15)
-			flushPipeline();
+	R[reg] = value;
+	if (reg == 15)
+		flushPipeline();
+}
+
+void ARM7TDMI::swapBankedRegisters()
+{
+	uint8_t oldMode = m_lastCheckModeBits;
+	uint8_t newMode = CPSR & 0x1F;
+	m_lastCheckModeBits = newMode;
+
+	if ((oldMode == newMode) || (oldMode == 0b10000 && newMode == 0b11111) || (oldMode == 0b11111 && newMode == 0b10000))
 		return;
-	}
-	switch (reg)
+
+	//first, save registers back to correct bank
+	uint32_t* srcPtr = nullptr;
+	switch (oldMode)
 	{
-	case 8:
-		if (mode == 0b10001)
-			R8_fiq = value;
-		else
-			R[8] = value;
+	case 0b10000:
+		srcPtr = usrBankedRegisters; break;
+	case 0b10001:
+		srcPtr = fiqBankedRegisters;
+		memcpy(fiqExtraBankedRegisters, &R[8], 5 * sizeof(uint32_t));	//save FIQ banked R8-R12
+		R[8] = usrExtraBankedRegisters[0];          //then load original R8-R12 before banking
+		R[9] = usrExtraBankedRegisters[1];
+		R[10] = usrExtraBankedRegisters[2];
+		R[11] = usrExtraBankedRegisters[3];
+		R[12] = usrExtraBankedRegisters[4];
 		break;
-	case 9:
-		if (mode == 0b10001)
-			R9_fiq = value;
-		else
-			R[9] = value;
+	case 0b10010:
+		srcPtr = irqBankedRegisters; break;
+	case 0b10011:
+		srcPtr = svcBankedRegisters; break;
+	case 0b10111:
+		srcPtr = abtBankedRegisters; break;
+	case 0b11011:
+		srcPtr = undBankedRegisters; break;
+	case 0b11111:
+		srcPtr = usrBankedRegisters; break;
+	default:
+		srcPtr = usrBankedRegisters; break;
+	}
+
+	memcpy(srcPtr,&R[13], 2 * sizeof(uint32_t));
+
+	uint32_t* destPtr = nullptr;
+	switch (newMode)
+	{
+	case 0b10000:
+		destPtr = usrBankedRegisters; break;
+	case 0b10001:
+		destPtr = fiqBankedRegisters;
+		//save R8-R12
+		usrExtraBankedRegisters[0] = R[8];
+		usrExtraBankedRegisters[1] = R[9];
+		usrExtraBankedRegisters[2] = R[10];
+		usrExtraBankedRegisters[3] = R[11];
+		usrExtraBankedRegisters[4] = R[12];
+		//then load in banked R8-R12
+		memcpy(&R[8], fiqExtraBankedRegisters, 5 * sizeof(uint32_t));
 		break;
-	case 10:
-		if (mode == 0b10001)
-			R10_fiq = value;
-		else
-			R[10] = value;
-		break;
-	case 11:
-		if (mode == 0b10001)
-			R11_fiq = value;
-		else
-			R[11] = value;
-		break;
-	case 12:
-		if (mode == 0b10001)
-			R12_fiq = value;
-		else
-			R[12] = value;
-		break;
-	case 13:
-		if (mode == 0b10001)
-			R13_fiq = value;
-		else if (mode == 0b10011)
-			R13_svc = value;
-		else if (mode == 0b10111)
-			R13_abt = value;
-		else if (mode == 0b10010)
-			R13_irq = value;
-		else if (mode == 0b11011)
-			R13_und = value;
-		else
-			R[13] = value;
-		break;
-	case 14:
-		if (mode == 0b10001)
-			R14_fiq = value;
-		else if (mode == 0b10011)
-			R14_svc = value;
-		else if (mode == 0b10111)
-			R14_abt = value;
-		else if (mode == 0b10010)
-			R14_irq = value;
-		else if (mode == 0b11011)
-			R14_und = value;
-		else
-			R[14] = value;
-		break;
-	case 15:
-		flushPipeline();	//always flush when r15 modified
-		R[15] = value;
+	case 0b10010:
+		destPtr = irqBankedRegisters; break;
+	case 0b10011:
+		destPtr = svcBankedRegisters; break;
+	case 0b10111:
+		destPtr = abtBankedRegisters; break;
+	case 0b11011:
+		destPtr = undBankedRegisters; break;
+	case 0b11111:
+		destPtr = usrBankedRegisters; break;
+	default:
+		Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Invalid destination mode: {:#x}", (int)newMode));
+		destPtr = usrBankedRegisters;
 		break;
 	}
+
+	memcpy(&R[13], destPtr, 2 * sizeof(uint32_t));
 }
 
 uint32_t ARM7TDMI::getSPSR()
