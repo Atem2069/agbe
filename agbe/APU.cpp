@@ -250,8 +250,8 @@ void APU::onSampleEvent()
 
 	int16_t rightSample = (((SOUNDCNT_H >> 8) & 0b1) * chanASample) + (((SOUNDCNT_H >> 12) & 0b1) * chanBSample) + (((SOUNDCNT_L >> 8) & 0b1) * square1Sample)
 		+ (((SOUNDCNT_L >> 9) & 0b1) * square2Sample) + (((SOUNDCNT_L >> 10) & 0b1) * waveSample) + (((SOUNDCNT_L >> 11) & 0b1) * noiseSample);
-	m_sampleBuffer[sampleIndex << 1] = applyBiasAndClip(leftSample);
-	m_sampleBuffer[(sampleIndex << 1) | 1] = applyBiasAndClip(rightSample);
+	m_sampleBuffer[sampleIndex << 1] = clipSample(leftSample);
+	m_sampleBuffer[(sampleIndex << 1) | 1] = clipSample(rightSample);
 
 	sampleIndex++;
 	if (sampleIndex == sampleBufferSize)
@@ -730,24 +730,19 @@ void APU::triggerNoise()
 	m_noiseChannel.lastCheckTimestamp = m_scheduler->getCurrentTimestamp();
 }
 
-float APU::applyBiasAndClip(int16_t sampleIn)
+float APU::clipSample(int16_t sampleIn)
 {
-	int biasLevel = ((SOUNDBIAS >> 1) & 0x1FF);
-
-	float sampleOut = 0.0f;
-	sampleOut = (sampleIn+biasLevel);								//TODO: account for real value in SOUNDBIAS!!!!
-	sampleOut = std::min(sampleOut, (float)0x3FF);
-
-	sampleOut = ((sampleOut / 1023.f) - 0.5f) / 6.f;
-
-	return highPass(sampleOut);
+	sampleIn = std::max(sampleIn, (int16_t)-0x200);
+	sampleIn = std::min(sampleIn, (int16_t)0x1FF);
+	float sampleOut = (float)sampleIn / 512.f;
+	return highPass(sampleOut) / 8.f;
 }
 
 float APU::highPass(float in)
 {
 	float sampleIn = (float)in;
 	float out = sampleIn - capacitor;
-	capacitor = sampleIn - out * 0.996336;
+	capacitor = sampleIn - out * 0.9973155;
 	return out;
 }
 

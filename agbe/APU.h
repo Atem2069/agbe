@@ -264,7 +264,7 @@ private:
 	float m_sampleBuffer[sampleBufferSize*2] = {};
 	int sampleIndex = 0;
 
-	float applyBiasAndClip(int16_t sampleIn);
+	float clipSample(int16_t sampleIn);
 	float capacitor = 0.0f;
 	float highPass(float in);
 	void lowPass(float* outBuffer, float* inBuffer);
