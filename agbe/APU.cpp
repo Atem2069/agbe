@@ -314,7 +314,7 @@ void APU::updateSquare1()
 		timeDiff -= m_square1.frequency;
 		m_square1.dutyIdx++;
 		m_square1.dutyIdx &= 7;
-		m_square1.frequency = (2048 - m_square1.shadowFrequency) * 16;
+		m_square1.frequency = (2048 - (SOUND1CNT_X & 0x7FF)) * 16;
 		m_square1.output = 0;
 		if (m_square1.enabled)
 		{
