@@ -106,6 +106,7 @@ private:
 
 	bool biosLockout = false;
 	bool dmaInProgress = false;
+	int runningDMAPriority = 255;
 	bool busLocked = false;
 	bool dmaNonsequentialAccess = true;
 

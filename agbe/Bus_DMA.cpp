@@ -244,6 +244,16 @@ void Bus::doDMATransfer(int channel)
 		return;
 	}
 	m_openBusVals.dmaJustFinished = false;
+
+	//handle dma priority
+	int lastDMAPriority = runningDMAPriority;    //save last dma priority then restore when dma completes. initial val is 255 which is way lower priority than any dma :)
+	if (channel > lastDMAPriority)				//if a lower priority dma is running, then oops. wait until it's done
+	{
+		m_dmaChannels[channel].stalled = true;
+		return;
+	}
+	runningDMAPriority = channel;
+
 	bool dmaWasInProgress = dmaInProgress;
 	if(!dmaWasInProgress)
 		m_scheduler->addCycles(1);	//2 cycle startup delay?
@@ -393,6 +403,18 @@ void Bus::doDMATransfer(int channel)
 		m_openBusVals.lastDmaVal = m_openBusVals.dma[channel];
 	}
 	prefetcherHalted = false;
+
+	runningDMAPriority = lastDMAPriority;
+	//TODO: could probs handle this a little better, e.g. a check to see if *any* dma is stalled so this doesn't always run
+	for (int i = 0; i < 4; i++)
+	{
+		if (m_dmaChannels[i].stalled)
+		{
+			m_dmaChannels[i].stalled = false;
+			doDMATransfer(i);
+		}
+	}
+
 }
 
 void Bus::onVBlank()
