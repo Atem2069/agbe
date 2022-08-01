@@ -630,14 +630,9 @@ void APU::resetAllChannels()
 
 void APU::updateDMAChannel(int channel)
 {
-	int baseEnableIdx = (channel == 0) ? 8 : 12;
-	bool channelEnabled = ((SOUNDCNT_H >> baseEnableIdx) & 0b1) || ((SOUNDCNT_H >> (baseEnableIdx + 1)) & 0b1);	//see if fifo channel is enabled on either L/R output channels
-	if (channelEnabled)
-	{
-		if (m_channels[channel].size <= 3)	//need to request more data!!
-			FIFODMACallback(dmaContext, channel);
-		m_channels[channel].popSample();
-	}
+	if (m_channels[channel].size <= 3)	//need to request more data!!
+		FIFODMACallback(dmaContext, channel);
+	m_channels[channel].popSample();
 }
 
 void APU::sampleEventCallback(void* context)

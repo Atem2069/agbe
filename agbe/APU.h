@@ -35,7 +35,9 @@ struct AudioFIFO
 	{
 		if (isFull())
 			return;
-		endIdx = (endIdx + 1) % 7;	//limit range to 0->7
+		endIdx = (endIdx + 1);
+		if (endIdx == 7)
+			endIdx = 0;
 		size++;
 	}
 
@@ -45,7 +47,9 @@ struct AudioFIFO
 			return;
 		samplePlaying = true;
 		uint32_t retVal = data[startIdx];
-		startIdx = (startIdx + 1) % 7;
+		startIdx = (startIdx + 1);
+		if (startIdx == 7)
+			startIdx = 0;
 		size--;
 		inFlightWord = retVal;
 	}
