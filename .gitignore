@@ -362,5 +362,8 @@ MigrationBackup/
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
 
+# Don't include GBA bios or ROM dumps in build 
 *.gba
 *.bin
+# meh, should probs change. vsproj is the folder that I generate my vs solution/project in.
+vsproj/
