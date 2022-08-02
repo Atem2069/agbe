@@ -23,7 +23,8 @@ struct DMAChannel
 	uint32_t internalSrc;
 	uint16_t wordCount;
 	uint16_t control;
-	bool stalled;
+	bool busLockWait;				//wait until bus unlocked so dma can start
+	bool stalledLowerPriority;		//higher priority dma in progress so we're waiting for it to finish
 };
 
 struct OpenBus

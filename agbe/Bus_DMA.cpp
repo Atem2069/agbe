@@ -237,7 +237,7 @@ void Bus::doDMATransfer(int channel)
 {
 	if (busLocked)
 	{
-		m_dmaChannels[channel].stalled = true;
+		m_dmaChannels[channel].busLockWait = true;
 		m_scheduler->removeEvent(Event::DMA);
 		m_scheduler->addEvent(Event::DMA, &Bus::DMA_ImmediateCallback, (void*)this, m_scheduler->getCurrentTimestamp() + 1);
 		m_scheduler->forceSync(1);	//lol (is 3 cycles even accurate?)
@@ -249,7 +249,7 @@ void Bus::doDMATransfer(int channel)
 	int lastDMAPriority = runningDMAPriority;    //save last dma priority then restore when dma completes. initial val is 255 which is way lower priority than any dma :)
 	if (channel > lastDMAPriority)				//if a lower priority dma is running, then oops. wait until it's done
 	{
-		m_dmaChannels[channel].stalled = true;
+		m_dmaChannels[channel].stalledLowerPriority = true;
 		return;
 	}
 	runningDMAPriority = channel;
@@ -408,9 +408,9 @@ void Bus::doDMATransfer(int channel)
 	//TODO: could probs handle this a little better, e.g. a check to see if *any* dma is stalled so this doesn't always run
 	for (int i = 0; i < 4; i++)
 	{
-		if (m_dmaChannels[i].stalled)
+		if (m_dmaChannels[i].stalledLowerPriority)
 		{
-			m_dmaChannels[i].stalled = false;
+			m_dmaChannels[i].stalledLowerPriority = false;
 			doDMATransfer(i);
 		}
 	}
@@ -454,9 +454,9 @@ void Bus::onImmediate()
 		{
 			//dma enabled
 			uint8_t startTiming = ((curCtrlReg >> 12) & 0b11);
-			if(startTiming==0 || m_dmaChannels[i].stalled)
+			if(startTiming==0 || m_dmaChannels[i].busLockWait)
 				doDMATransfer(i);
-			m_dmaChannels[i].stalled = false;
+			m_dmaChannels[i].busLockWait = false;
 		}
 	}
 }
