@@ -634,6 +634,10 @@ void APU::resetAllChannels()
 
 	SOUND4CNT_L = {};
 	SOUND4CNT_H = {};
+
+	//empty fifos
+	m_channels[0].empty();
+	m_channels[1].empty();
 }
 
 void APU::updateDMAChannel(int channel)
