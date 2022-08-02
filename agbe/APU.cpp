@@ -198,9 +198,17 @@ void APU::writeIO(uint32_t address, uint8_t value)
 	case 0x04000083:
 		SOUNDCNT_H &= 0xFF; SOUNDCNT_H |= (value << 8);
 		if ((SOUNDCNT_H >> 11) & 0b1)
+		{
+			//clear bit 11 (reset channel A)
+			SOUNDCNT_H &= ~(1 << 11);
 			m_channels[0].empty();
+		}
 		if ((SOUNDCNT_H >> 15) & 0b1)
+		{
+			//clear bit 15 (reset channel B)
+			SOUNDCNT_H &= ~(1 << 15);
 			m_channels[1].empty();
+		}
 		break;
 	case 0x04000084:
 		SOUNDCNT_X = value & 0x80;	//rest of the bits are read only
@@ -234,8 +242,8 @@ void APU::onSampleEvent()
 	updateWave();
 	updateNoise();
 
-	int16_t chanASample = m_channels[0].currentSample << 1+((SOUNDCNT_H  >> 2) & 0b1);		//applies sound a/b volume. 100% = left shift by 1 (*2), 50% = no change
-	int16_t chanBSample = m_channels[1].currentSample << 1+((SOUNDCNT_H >> 3) & 0b1);
+	int16_t chanASample = m_channels[0].currentSample << (1+((SOUNDCNT_H  >> 2) & 0b1));		//applies sound a/b volume. 100% = left shift by 1 (*2), 50% = no change
+	int16_t chanBSample = m_channels[1].currentSample << (1+((SOUNDCNT_H >> 3) & 0b1));
 
 	int psgVolumeShift = (2 - (SOUNDCNT_H & 0b11));	//shift applied to all psg channels
 
