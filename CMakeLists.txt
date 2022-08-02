@@ -12,14 +12,12 @@ add_subdirectory("lib/glfw")
 add_subdirectory("lib/SDL2-2.0.20")
 
 set(SDL2_INCLUDE_DIR lib/SDL2-2.0.20/include)
-set(SDL2_LIB_DIR lib/SDL2-2.0.20/lib)
 set(IMGUI_INCLUDE_DIR lib/imgui)
 set(GLAD_INCLUDE_DIR lib/glad/include)
 
 include_directories(${SDL2_INCLUDE_DIR})
 include_directories(${IMGUI_INCLUDE_DIR})
 include_directories(${GLAD_INCLUDE_DIR})
-link_directories(${SDL2_LIB_DIR})
 
 file(GLOB SRC_FILES "agbe/*.cpp")
 file(GLOB HEADER_FILES "agbe/*.h")
