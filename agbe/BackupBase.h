@@ -28,8 +28,9 @@ protected:
 	bool getSaveData(std::vector<uint8_t>& vec)
 	{
 		std::string saveName = Config::GBA.RomName;
-		saveName.resize(saveName.size() - 3);	//assume end of filename is "gba", bit hacky :)
-		saveName += "sav";
+		int extensionStartIdx = saveName.find_last_of('.');
+		saveName = saveName.substr(0, extensionStartIdx);
+		saveName += ".sav";
 
 		m_saveName = saveName;
 
