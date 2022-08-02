@@ -31,6 +31,8 @@ target_compile_options(agbe PRIVATE "/Ox")
 target_compile_options(agbe PRIVATE "/Oy")
 target_compile_options(agbe PRIVATE "/O2")
 target_compile_options(agbe PRIVATE "/GL")
+target_compile_options(agbe PRIVATE "/Zi")
+target_link_options(agbe PRIVATE "/DEBUG")
 target_link_options(agbe PRIVATE "/LTCG:INCREMENTAL")
 
 source_group("Source Files" FILES ${SRC_FILES})
