@@ -643,12 +643,8 @@ void APU::resetAllChannels()
 void APU::updateDMAChannel(int channel)
 {
 	if (m_channels[channel].size <= 3)	//need to request more data!!
-	{
-		bool cantTransfer = m_channels[channel].isEmpty() && !m_channels[channel].samplePlaying;
 		FIFODMACallback(dmaContext, channel);
-		if (cantTransfer)
-			return;
-	}
+
 	m_channels[channel].popSample();
 }
 
