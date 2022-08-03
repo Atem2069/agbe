@@ -33,7 +33,7 @@ struct AudioFIFO
 
 	void advanceSamplePtr()
 	{
-		if (isFull())
+		if (isFull())				//supposedly, the fifo is 'reset to an empty state' upon overflow. not sure
 			return;
 		endIdx = (endIdx + 1);
 		if (endIdx == 7)
@@ -56,7 +56,7 @@ struct AudioFIFO
 
 	void popSample()
 	{
-		if (!samplePlaying || playbackPosition==4)
+		if (!samplePlaying)
 		{
 			samplePlaying = false;
 			playbackPosition = 0;
@@ -67,12 +67,13 @@ struct AudioFIFO
 		{
 			currentSample = (inFlightWord >> (playbackPosition * 8)) & 0xFF;
 			playbackPosition++;
+			if (playbackPosition == 4)
+				samplePlaying = false;
 		}
 	}
 
 	void empty()
 	{
-		samplePlaying = false;
 		startIdx = 0; endIdx = 0;
 		size = 0;
 	}
