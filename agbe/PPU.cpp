@@ -36,8 +36,6 @@ void PPU::eventHandler()
 	{
 	case PPUState::HDraw:
 		HDraw();
-		m_state = PPUState::HBlank;
-		m_scheduler->addEvent(Event::PPU, &PPU::onSchedulerEvent, (void*)this, schedTimestamp+46);
 		break;
 	case PPUState::HBlank:
 		HBlank();
@@ -82,28 +80,23 @@ void PPU::HDraw()
 	for (int i = 0; i < 4; i++)
 		m_backgroundLayers[i].masterEnable = false;
 	affineHorizontalMosaicCounter = 0;
+
+	if (((DISPSTAT >> 4) & 0b1))
+		m_scheduler->addEvent(Event::HBlankIRQ, &PPU::onHBlankIRQEvent, (void*)this, m_scheduler->getEventTime() + 4);
+	DMAHBlankCallback(callbackContext);
+
+	//timing for video capture is wrong! should fix!
+	if (VCOUNT >= 2)
+		DMAVideoCaptureCallback(callbackContext);
+
+	setHBlankFlag(true);
+	m_state = PPUState::HBlank;
+	m_scheduler->addEvent(Event::PPU, &PPU::onSchedulerEvent, (void*)this, m_scheduler->getEventTime() + 226);
 }
 
 void PPU::HBlank()
 {
 	uint64_t schedTimestamp = m_scheduler->getEventTime();
-
-	if (!hblank_flagSet)	//hblank set and dma ~cycle 1006
-	{
-		if (((DISPSTAT >> 4) & 0b1))
-			m_scheduler->addEvent(Event::HBlankIRQ, &PPU::onHBlankIRQEvent, (void*)this, schedTimestamp + 4);
-		DMAHBlankCallback(callbackContext);
-		if (VCOUNT >= 2)
-			DMAVideoCaptureCallback(callbackContext);
-
-		hblank_flagSet = true;
-		setHBlankFlag(true);
-		m_scheduler->addEvent(Event::PPU, &PPU::onSchedulerEvent, (void*)this, schedTimestamp+226);
-		return;
-	}
-
-	hblank_flagSet = false;
-
 	setHBlankFlag(false);
 	m_lineCycles = 0;
 
@@ -153,7 +146,7 @@ void PPU::HBlank()
 	//attempt to latch in new enable bits for bg
 	latchBackgroundEnableBits();
 
-	m_scheduler->addEvent(Event::PPU, &PPU::onSchedulerEvent, (void*)this, schedTimestamp+960);
+	m_scheduler->addEvent(Event::PPU, &PPU::onSchedulerEvent, (void*)this, schedTimestamp+1006);
 }
 
 void PPU::VBlank()
@@ -203,7 +196,6 @@ void PPU::VBlank()
 		inVBlank = false;
 		VCOUNT = 0;
 		m_state = PPUState::HDraw;
-		m_scheduler->addEvent(Event::PPU, &PPU::onSchedulerEvent, (void*)this, schedTimestamp+960);
 	}
 	else
 	{
@@ -218,7 +210,6 @@ void PPU::VBlank()
 		}
 		else
 			setVCounterFlag(false);
-		m_scheduler->addEvent(Event::PPU, &PPU::onSchedulerEvent, (void*)this, schedTimestamp+1006);
 	}
 
 	//attempt to latch in new enable bits for bg. i think this is instant in vblank as there being a 3 scanline delay would make no sense..
@@ -230,6 +221,7 @@ void PPU::VBlank()
 			m_backgroundLayers[i].enabled = true;
 		}
 	}
+	m_scheduler->addEvent(Event::PPU, &PPU::onSchedulerEvent, (void*)this, schedTimestamp + 1006);
 }
 
 void PPU::renderMode0()
