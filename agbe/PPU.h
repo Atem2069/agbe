@@ -128,6 +128,8 @@ private:
 	void HBlank();
 	void VBlank();
 
+	void checkVCOUNTInterrupt();
+
 	void renderMode0();
 	void renderMode1();
 	void renderMode2();

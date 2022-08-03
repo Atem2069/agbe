@@ -102,15 +102,7 @@ void PPU::HBlank()
 
 	VCOUNT++;
 
-	uint16_t vcountCmp = ((DISPSTAT >> 8) & 0xFF);
-	if ((VCOUNT & 0xFF) == vcountCmp)
-	{
-		setVCounterFlag(true);
-		if ((DISPSTAT >> 5) & 0b1)
-			m_interruptManager->requestInterrupt(InterruptType::VCount);
-	}
-	else
-		setVCounterFlag(false);
+	checkVCOUNTInterrupt();
 
 	if (VCOUNT == 160)
 	{
@@ -182,34 +174,18 @@ void PPU::VBlank()
 		BG2X_dirty = false; BG2Y_dirty = false; BG3X_dirty = false; BG3Y_dirty = false;
 
 		affineVerticalMosaicCounter = 0;
-		uint16_t vcountCmp = ((DISPSTAT >> 8) & 0xFF);
-		if (vcountCmp==0)
-		{
-			setVCounterFlag(true);
-			if ((DISPSTAT >> 5) & 0b1)
-				m_interruptManager->requestInterrupt(InterruptType::VCount);
-		}
-		else
-			setVCounterFlag(false);
 
 		setVBlankFlag(false);
 		inVBlank = false;
 		VCOUNT = 0;
+		checkVCOUNTInterrupt();
 		m_state = PPUState::HDraw;
 	}
 	else
 	{
 		if (VCOUNT == 227)			//set vblank flag false on last line of vblank (if applicable)
 			setVBlankFlag(false);
-		uint16_t vcountCmp = ((DISPSTAT >> 8) & 0xFF);
-		if ((VCOUNT & 0xFF) == vcountCmp)
-		{
-			setVCounterFlag(true);
-			if ((DISPSTAT >> 5) & 0b1)
-				m_interruptManager->requestInterrupt(InterruptType::VCount);
-		}
-		else
-			setVCounterFlag(false);
+		checkVCOUNTInterrupt();
 	}
 
 	//attempt to latch in new enable bits for bg. i think this is instant in vblank as there being a 3 scanline delay would make no sense..
@@ -222,6 +198,14 @@ void PPU::VBlank()
 		}
 	}
 	m_scheduler->addEvent(Event::PPU, &PPU::onSchedulerEvent, (void*)this, schedTimestamp + 1006);
+}
+
+void PPU::checkVCOUNTInterrupt()
+{
+	uint16_t vcountCompare = ((DISPSTAT >> 8) & 0xFF);
+	setVCounterFlag(vcountCompare == VCOUNT);
+	if (vcountCompare == VCOUNT && ((DISPSTAT >> 5) & 0b1))
+		m_interruptManager->requestInterrupt(InterruptType::VCount);
 }
 
 void PPU::renderMode0()
