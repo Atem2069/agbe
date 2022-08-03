@@ -25,6 +25,7 @@ struct DMAChannel
 	uint16_t control;
 	bool busLockWait;				//wait until bus unlocked so dma can start
 	bool stalledLowerPriority;		//higher priority dma in progress so we're waiting for it to finish
+	bool requested = false;
 };
 
 struct OpenBus
@@ -73,6 +74,7 @@ public:
 	uint32_t readIO32(uint32_t address);
 	void writeIO32(uint32_t address, uint32_t value);
 
+	static void DMA_CheckCallback(void* context);
 	static void DMA_VBlankCallback(void* context);
 	static void DMA_HBlankCallback(void* context);
 	static void DMA_ImmediateCallback(void* context);
@@ -128,6 +130,8 @@ private:
 	void DMARegWrite(uint32_t address, uint8_t value);
 	void checkDMAChannel(int idx);
 	void doDMATransfer(int channel);
+	void scheduleDMA(int channel);
+	void checkRequestedDMAs();
 	void onVBlank();
 	void onHBlank();
 	void onImmediate();

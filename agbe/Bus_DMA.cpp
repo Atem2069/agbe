@@ -417,6 +417,18 @@ void Bus::doDMATransfer(int channel)
 
 }
 
+void Bus::checkRequestedDMAs()
+{
+	for (int i = 0; i < 4; i++)
+	{
+		if (m_dmaChannels[i].requested)
+		{
+			m_dmaChannels[i].requested = false;
+			doDMATransfer(i);
+		}
+	}
+}
+
 void Bus::onVBlank()
 {
 	for (int i = 0; i < 4; i++)
@@ -426,7 +438,7 @@ void Bus::onVBlank()
 		{
 			uint8_t transferTiming = ((curCtrlReg >> 12) & 0b11);
 			if (transferTiming == 1)
-				doDMATransfer(i);
+				scheduleDMA(i);
 		}
 	}
 }
@@ -440,13 +452,14 @@ void Bus::onHBlank()
 		{
 			uint8_t transferTiming = ((curCtrlReg >> 12) & 0b11);
 			if (transferTiming == 2)
-				doDMATransfer(i);
+				scheduleDMA(i);
 		}
 	}
 }
 
 void Bus::onImmediate()
 {
+	//timing for immediate dma is weird, i think i do it wrong ....
 	for (int i = 0; i < 4; i++)
 	{
 		uint16_t curCtrlReg = m_dmaChannels[i].control;
@@ -471,7 +484,7 @@ void Bus::onVideoCapture()	//special video capture dma used by dma3 (scanlines 2
 		{
 			if (m_ppu->getVCOUNT() == 161)						//clear repeat bit if on the last scanline of dma
 				m_dmaChannels[3].control &= 0x7FFF;
-			doDMATransfer(3);
+			scheduleDMA(3);
 		}
 	}
 }
@@ -486,10 +499,22 @@ void Bus::onAudioFIFO(int channel)
 		{
 			//dma enabled
 			uint8_t startTiming = ((curCtrlReg >> 12) & 0b11);
-			if ((startTiming == 3) && m_dmaChannels[i].destAddress==addrLookup[channel])
-				doDMATransfer(i);
+			if ((startTiming == 3) && m_dmaChannels[i].destAddress == addrLookup[channel])
+				scheduleDMA(i);
 		}
 	}
+}
+
+void Bus::scheduleDMA(int channel)
+{
+	m_dmaChannels[channel].requested = true;
+	m_scheduler->addEvent(Event::DMA, &Bus::DMA_CheckCallback, (void*)this, m_scheduler->getEventTime() + 2);
+}
+
+void Bus::DMA_CheckCallback(void* context)
+{
+	Bus* thisPtr = (Bus*)context;
+	thisPtr->checkRequestedDMAs();
 }
 
 void Bus::DMA_VBlankCallback(void* context)
