@@ -226,9 +226,9 @@ void Bus::checkDMAChannel(int idx)
 		uint8_t startTiming = ((curCtrlReg >> 12) & 0b11);
 		if (startTiming == 0)
 		{
-			m_scheduler->removeEvent(Event::DMA);
-			m_scheduler->addEvent(Event::DMA, &Bus::DMA_ImmediateCallback, (void*)this, m_scheduler->getCurrentTimestamp() + 3);
-			m_scheduler->forceSync(3);	//lol (is 3 cycles even accurate?)
+			channelEnableMask |= (1 << idx);
+			m_scheduler->addEvent(Event::DMA, &Bus::DMA_CheckCallback, (void*)this, m_scheduler->getCurrentTimestamp() + 3);
+			m_scheduler->forceSync(3);	//i don't think 3 cycles is correct for immediate dma...
 		}
 	}
 }
@@ -237,10 +237,11 @@ void Bus::doDMATransfer(int channel)
 {
 	if (busLocked)
 	{
-		m_dmaChannels[channel].busLockWait = true;
-		m_scheduler->removeEvent(Event::DMA);
-		m_scheduler->addEvent(Event::DMA, &Bus::DMA_ImmediateCallback, (void*)this, m_scheduler->getCurrentTimestamp() + 1);
-		m_scheduler->forceSync(1);	//lol (is 3 cycles even accurate?)
+		Logger::getInstance()->msg(LoggerSeverity::Warn, "DMA start attempt while bus was locked. This codepath isn't fully tested..!!!");
+		//reschedule this dma and try again in a cycle
+		channelEnableMask |= (1 << channel);
+		m_scheduler->addEvent(Event::DMA, &Bus::DMA_CheckCallback, (void*)this, m_scheduler->getCurrentTimestamp() + 1);
+		m_scheduler->forceSync(1);	
 		return;
 	}
 	m_openBusVals.dmaJustFinished = false;
@@ -448,23 +449,6 @@ void Bus::onHBlank()
 	}
 }
 
-void Bus::onImmediate()
-{
-	//timing for immediate dma is weird, i think i do it wrong ....
-	for (int i = 0; i < 4; i++)
-	{
-		uint16_t curCtrlReg = m_dmaChannels[i].control;
-		if (((curCtrlReg >> 15) & 0b1))
-		{
-			//dma enabled
-			uint8_t startTiming = ((curCtrlReg >> 12) & 0b11);
-			if(startTiming==0 || m_dmaChannels[i].busLockWait)
-				doDMATransfer(i);
-			m_dmaChannels[i].busLockWait = false;
-		}
-	}
-}
-
 void Bus::onVideoCapture()	//special video capture dma used by dma3 (scanlines 2-162)
 {
 	uint16_t curCtrlReg = m_dmaChannels[3].control;
@@ -518,12 +502,6 @@ void Bus::DMA_HBlankCallback(void* context)
 {
 	Bus* thisPtr = (Bus*)context;
 	thisPtr->onHBlank();
-}
-
-void Bus::DMA_ImmediateCallback(void* context)
-{
-	Bus* thisPtr = (Bus*)context;
-	thisPtr->onImmediate();
 }
 
 void Bus::DMA_VideoCaptureCallback(void* context)

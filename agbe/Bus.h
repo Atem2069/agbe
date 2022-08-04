@@ -23,9 +23,7 @@ struct DMAChannel
 	uint32_t internalSrc;
 	uint16_t wordCount;
 	uint16_t control;
-	bool busLockWait;				//wait until bus unlocked so dma can start
 	bool stalledLowerPriority;		//higher priority dma in progress so we're waiting for it to finish
-	bool requested = false;
 };
 
 struct OpenBus
@@ -77,7 +75,6 @@ public:
 	static void DMA_CheckCallback(void* context);
 	static void DMA_VBlankCallback(void* context);
 	static void DMA_HBlankCallback(void* context);
-	static void DMA_ImmediateCallback(void* context);
 	static void DMA_VideoCaptureCallback(void* context);
 	static void DMA_AudioFIFOCallback(void* context, int channel);
 
@@ -134,7 +131,6 @@ private:
 	void checkRequestedDMAs();
 	void onVBlank();
 	void onHBlank();
-	void onImmediate();
 	void onVideoCapture();
 	void onAudioFIFO(int channel);
 	uint8_t channelEnableMask = 0;
