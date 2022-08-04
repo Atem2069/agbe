@@ -29,6 +29,7 @@ public:
 
 	void step();
 private:
+	static constexpr int incrAmountLUT[2] = { 4,2 };
 	std::shared_ptr<Bus> m_bus;
 	std::shared_ptr<InterruptManager> m_interruptManager;
 	std::shared_ptr<Scheduler> m_scheduler;
@@ -52,9 +53,12 @@ private:
 	uint32_t CPSR=0;
 	uint32_t SPSR_fiq=0, SPSR_svc=0, SPSR_abt=0, SPSR_irq=0, SPSR_und=0;
 
+	bool m_inThumbMode = false;
+
 	void fetch();
 	void execute();
 	void flushPipeline();
+	void refillPipeline();
 
 	void executeThumb();
 

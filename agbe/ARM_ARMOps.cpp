@@ -200,7 +200,10 @@ void ARM7TDMI::ARM_DataProcessing()
 			swapBankedRegisters();
 
 			if ((CPSR >> 5) & 0b1)
+			{
+				m_inThumbMode = true;
 				setReg(15, getReg(15) & ~0b1);
+			}
 		}
 
 	}
@@ -256,6 +259,7 @@ void ARM7TDMI::ARM_PSRTransfer()
 			if (CPSR & 0x20)
 			{
 				// Switch to THUMB
+				m_inThumbMode = true;
 				setReg(15, getReg(15) & ~0x1); // also flushes pipeline
 			}
 		}
@@ -408,6 +412,7 @@ void ARM7TDMI::ARM_BranchExchange()
 	if (newAddr & 0b1)	//start executing THUMB instrs
 	{
 		CPSR |= 0b100000;	//set T bit in CPSR
+		m_inThumbMode = true;
 		setReg(15, newAddr & ~0b1);
 	}
 	else				//keep going as ARM (but pipeline will be flushed)

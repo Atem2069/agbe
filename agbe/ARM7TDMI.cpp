@@ -12,6 +12,7 @@ ARM7TDMI::ARM7TDMI(std::shared_ptr<Bus> bus, std::shared_ptr<InterruptManager> i
 
 	R[15] = 0x00000000;
 	flushPipeline();
+	refillPipeline();
 	m_pipelineFlushed = false;
 	nextFetchNonsequential = true;
 
@@ -64,23 +65,23 @@ void ARM7TDMI::step()
 	if (dispatchInterrupt())	//if interrupt was dispatched then fetch new opcode (dispatchInterrupt already flushes pipeline !)
 		return;
 	execute();	//no decode stage because it's inherent to 'execute' - we accommodate for the decode stage's effect anyway
-	if(!m_pipelineFlushed)											//essentially only advance pipeline stage if the last operation didn't cause a pipeline flush
+	if (m_pipelineFlushed)
 	{
-		int incrAmountLUT[2] = { 4,2 };
-		bool thumb = (CPSR >> 5) & 0b1;	//increment pc only if pipeline not flushed
-		R[15] += incrAmountLUT[thumb];
-		m_pipelinePtr = ((m_pipelinePtr + 1) % 3);
+		refillPipeline();
+		return;
 	}
+
+	R[15] += incrAmountLUT[m_inThumbMode];
+	m_pipelinePtr = ((m_pipelinePtr + 1) % 3);
 	m_pipelineFlushed = false;
 	m_scheduler->tick();
 }
 
 void ARM7TDMI::fetch()
 {
-	bool thumb = (CPSR >> 5) & 0b1;
 	int curPipelinePtr = m_pipelinePtr;
 	m_pipeline[curPipelinePtr].state = PipelineState::FILLED;
-	if (thumb)
+	if (m_inThumbMode)
 		m_pipeline[curPipelinePtr].opcode = m_bus->fetch16(R[15],(AccessType)!nextFetchNonsequential);
 	else
 		m_pipeline[curPipelinePtr].opcode = m_bus->fetch32(R[15],(AccessType)!nextFetchNonsequential);
@@ -91,13 +92,11 @@ void ARM7TDMI::fetch()
 void ARM7TDMI::execute()
 {
 	int curPipelinePtr = (m_pipelinePtr + 1) % 3;	//+1 so when it wraps it's actually 2 behind the current fetch. e.g. cur fetch = 2, then cur execute = 0 (2 behind)
-	if (m_pipeline[curPipelinePtr].state == PipelineState::UNFILLED)	//return if we haven't put an opcode up to this point in the pipeline
-		return;
 	pipelineFull = true;
 	//NOTE: PC is 8 bytes ahead of opcode being executed
 
 	m_currentOpcode = m_pipeline[curPipelinePtr].opcode;
-	if ((CPSR >> 5) & 0b1)	//thumb mode? pass over to different function to decode
+	if (m_inThumbMode)	//thumb mode? pass over to different function to decode
 	{
 		executeThumb();
 		return;
@@ -127,12 +126,13 @@ void ARM7TDMI::executeThumb()
 
 bool ARM7TDMI::dispatchInterrupt()
 {
-	if (!pipelineFull || ((CPSR>>7)&0b1) || !m_interruptManager->getInterrupt() || !m_interruptManager->getInterruptsEnabled())
+	if (((CPSR>>7)&0b1) || !m_interruptManager->getInterrupt() || !m_interruptManager->getInterruptsEnabled())
 		return false;	//only dispatch if pipeline full (or not about to flush)
 	//irq bits: 10010
 	uint32_t oldCPSR = CPSR;
 	CPSR &= ~0x3F;
 	CPSR |= 0x92;
+	m_inThumbMode = false;
 	swapBankedRegisters();
 
 	bool wasThumb = ((oldCPSR >> 5) & 0b1);
@@ -141,18 +141,42 @@ bool ARM7TDMI::dispatchInterrupt()
 	setReg(14, getReg(15) - pcOffsetAmount[wasThumb]);
 	setReg(15, 0x00000018);
 	flushPipeline();
+	refillPipeline();
 	return true;
 }
 
 void ARM7TDMI::flushPipeline()
 {
-	for (int i = 0; i < 3; i++)
-		m_pipeline[i].state = PipelineState::UNFILLED;
-	m_pipelinePtr = 0;
 	m_pipelineFlushed = true;
-	nextFetchNonsequential = true;
 	m_bus->invalidatePrefetchBuffer();
 	pipelineFull = false;
+}
+
+void ARM7TDMI::refillPipeline()
+{
+	m_pipelineFlushed = false;
+
+	switch (m_inThumbMode)
+	{
+	case 0:		//refill ARM
+		m_pipeline[0].opcode = m_bus->fetch32(R[15], AccessType::Nonsequential);
+		m_pipeline[1].opcode = m_bus->fetch32(R[15] + 4, AccessType::Sequential);
+		R[15] += 8;
+		break;
+	case 1:		//refill thumb
+		m_pipeline[0].opcode = m_bus->fetch16(R[15], AccessType::Nonsequential);
+		m_pipeline[1].opcode = m_bus->fetch16(R[15] + 2, AccessType::Sequential);
+		R[15] += 4;
+		break;
+	}
+
+	nextFetchNonsequential = false;					//just so timing doesn't go wonky.
+	m_pipeline[0].state = PipelineState::FILLED;
+	m_pipeline[1].state = PipelineState::FILLED;
+	m_pipeline[2].state = PipelineState::UNFILLED;	//this will be filled upon next FDE cycle
+	m_pipelinePtr = 2;
+
+	m_scheduler->tick();
 }
 
 bool ARM7TDMI::checkConditions(uint8_t code)

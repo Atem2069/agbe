@@ -250,6 +250,7 @@ void ARM7TDMI::Thumb_HiRegisterOperations()
 		{
 			//enter arm
 			CPSR &= 0xFFFFFFDF;	//unset T bit
+			m_inThumbMode = false;
 			operand2 &= ~0b11;
 			setReg(15, operand2);
 			m_scheduler->addCycles(2);
@@ -712,6 +713,7 @@ void ARM7TDMI::Thumb_SoftwareInterrupt()
 	CPSR &= 0xFFFFFFE0;	//clear mode bits (0-4)
 	CPSR &= ~0b100000;	//clear T bit
 	CPSR |= 0b10010011;	//set svc bits
+	m_inThumbMode = false;
 	swapBankedRegisters();
 
 	setSPSR(oldCPSR);			//set SPSR_svc
