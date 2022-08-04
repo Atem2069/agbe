@@ -26,10 +26,8 @@ void GBA::run()
 		}
 		if (Config::GBA.shouldReset)
 		{
-			vramCopyLock.lock();
 			m_destroy();
 			m_initialise();
-			vramCopyLock.unlock();
 		}
 	}
 }
@@ -50,6 +48,7 @@ void GBA::frameEventHandler()
 	}
 	m_lastTime = curTime;
 
+	memcpy(safe_dispBuffer, m_ppu->getDisplayBuffer(), 240 * 160 * sizeof(uint32_t));
 	m_scheduler->addEvent(Event::Frame, &GBA::onEvent, (void*)this, m_scheduler->getEventTime() + 280896);
 
 	m_input->tick();
@@ -69,10 +68,6 @@ void GBA::notifyDetach()
 
 void* GBA::getPPUData()
 {
-	vramCopyLock.lock();
-	if(m_initialised)
-		memcpy(safe_dispBuffer, m_ppu->getDisplayBuffer(), 240 * 160 * sizeof(uint32_t));
-	vramCopyLock.unlock();
 	return safe_dispBuffer;
 }
 
