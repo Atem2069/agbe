@@ -32,11 +32,8 @@ void Scheduler::tick()
 	SchedulerEntry entry = {};
 	while (getEntryAtTimestamp(entry))
 	{
-		if (entry.callback && entry.context)
-		{
-			eventTime = entry.timestamp;
-			entry.callback(entry.context);	
-		}
+		eventTime = entry.timestamp;
+		entry.callback(entry.context);	
 	}
 }
 

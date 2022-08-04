@@ -41,7 +41,7 @@ void GBA::frameEventHandler()
 	Config::GBA.fps = 1.0 / (timeDiff / 1000);
 	if (!Config::GBA.disableVideoSync)
 	{
-		double target = ((280896.0) / (16777216.0)) * 1000;
+		static constexpr double target = ((280896.0) / (16777216.0)) * 1000;
 		while (timeDiff < target)
 		{
 			curTime = std::chrono::high_resolution_clock::now();
@@ -50,10 +50,7 @@ void GBA::frameEventHandler()
 	}
 	m_lastTime = curTime;
 
-	uint64_t curTicks = m_scheduler->getEventTime();
-	uint64_t tickDiff = curTicks - expectedNextFrame;
-	expectedNextFrame = (curTicks + 280896) - tickDiff;
-	m_scheduler->addEvent(Event::Frame, &GBA::onEvent, (void*)this, curTicks+280896);
+	m_scheduler->addEvent(Event::Frame, &GBA::onEvent, (void*)this, m_scheduler->getEventTime() + 280896);
 
 	m_input->tick();
 
