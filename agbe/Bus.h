@@ -137,6 +137,7 @@ private:
 	void onImmediate();
 	void onVideoCapture();
 	void onAudioFIFO(int channel);
+	uint8_t channelEnableMask = 0;
 
 	int waitstateNonsequentialTable[3] = {3,3,3};
 	int waitstateSequentialTable[3] = { 1,1,1 };

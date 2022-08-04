@@ -249,7 +249,7 @@ void Bus::doDMATransfer(int channel)
 	int lastDMAPriority = runningDMAPriority;    //save last dma priority then restore when dma completes. initial val is 255 which is way lower priority than any dma :)
 	if (channel > lastDMAPriority)				//if a lower priority dma is running, then oops. wait until it's done
 	{
-		m_dmaChannels[channel].stalledLowerPriority = true;
+		channelEnableMask |= (1 << channel);	//set channel enable bit again
 		return;
 	}
 	runningDMAPriority = channel;
@@ -405,27 +405,18 @@ void Bus::doDMATransfer(int channel)
 	prefetcherHalted = false;
 
 	runningDMAPriority = lastDMAPriority;
-	//TODO: could probs handle this a little better, e.g. a check to see if *any* dma is stalled so this doesn't always run
-	for (int i = 0; i < 4; i++)
-	{
-		if (m_dmaChannels[i].stalledLowerPriority)
-		{
-			m_dmaChannels[i].stalledLowerPriority = false;
-			doDMATransfer(i);
-		}
-	}
-
+	//check again if any dmas were stalled and need to run now
+	checkRequestedDMAs();
 }
 
 void Bus::checkRequestedDMAs()
 {
-	for (int i = 0; i < 4; i++)
+	static constexpr int lowestDMALUT[16] = { 0,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0 };
+	if (channelEnableMask)
 	{
-		if (m_dmaChannels[i].requested)
-		{
-			m_dmaChannels[i].requested = false;
-			doDMATransfer(i);
-		}
+		int dmaIdx = lowestDMALUT[channelEnableMask];
+		channelEnableMask &= ~(1 << dmaIdx);
+		doDMATransfer(dmaIdx);
 	}
 }
 
@@ -507,7 +498,7 @@ void Bus::onAudioFIFO(int channel)
 
 void Bus::scheduleDMA(int channel)
 {
-	m_dmaChannels[channel].requested = true;
+	channelEnableMask |= (1 << channel);
 	m_scheduler->addEvent(Event::DMA, &Bus::DMA_CheckCallback, (void*)this, m_scheduler->getEventTime() + 2);
 }
 
