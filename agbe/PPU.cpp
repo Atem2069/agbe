@@ -398,7 +398,7 @@ void PPU::composeLayers()
 		if (((BLDCNT >> 5) & 0b1))
 			blendPixelA = backDrop;
 
-		int highestBlendBPrio = 255, highestBlendAPrio = -1, blendALayer = 255;
+		int highestBlendBPrio = 255, blendALayer = 255;
 
 		int highestPriority = 255;
 		for (int layer = 3; layer >= 0; layer--)
@@ -414,17 +414,16 @@ void PPU::composeLayers()
 						highestPriority = m_backgroundLayers[layer].priorityBits;
 						finalCol = colAtLayer;
 						blendPixelA = 0x8000;					//blend target A must be top visible layer, so if this isn't a blend target it gets disabled
-						highestBlendAPrio = -1;
 						blendALayer = 255;
 						if ((BLDCNT >> layer) & 0b1)
 						{
-							highestBlendAPrio = highestPriority;
 							blendPixelA = finalCol;
 							blendALayer = layer;
 						}
 
 					}
 
+					//target b is next highest priority layer that isn't target a
 					if ((m_backgroundLayers[layer].priorityBits <= highestBlendBPrio) && (blendALayer!=layer))
 					{
 						blendPixelB = 0x8000;
@@ -459,20 +458,14 @@ void PPU::composeLayers()
 					{
 						//weird!! blend target b might not have been selected if the topmost layer before was A+B, so make sure we set it now
 						if (blendALayer <= 3 && ((BLDCNT >> (8 + blendALayer)) & 0b1))
-						{
 							blendPixelB = blendPixelA;
-							highestBlendBPrio = highestBlendAPrio;
-						}
 
 						transparentSpriteTop = m_spriteAttrBuffer[spriteX].transparent;
 						blendPixelA = finalCol;
 						blendALayer = 255;
 					}
 					else
-					{
 						blendPixelA = 0x8000;
-						highestBlendAPrio = -1;
-					}
 				}
 				//only choose as target b if not target a (i.e. not transparent), and not topmost visible layer
 				if (m_spriteAttrBuffer[x].priority > highestPriority && m_spriteAttrBuffer[x].priority <= highestBlendBPrio)
