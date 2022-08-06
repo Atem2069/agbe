@@ -9,7 +9,7 @@ PPU::PPU(std::shared_ptr<InterruptManager> interruptManager, std::shared_ptr<Sch
 	clearDisplayBuffers();
 
 	m_state = PPUState::HDraw;
-	m_scheduler->addEvent(Event::PPU, &PPU::onSchedulerEvent, (void*)this, 960);	//960 cycles from now, do hdraw for vcount=0
+	m_scheduler->addEvent(Event::PPU, &PPU::onSchedulerEvent, (void*)this, 1006);	//start of first hblank
 }
 
 PPU::~PPU()
@@ -91,7 +91,7 @@ void PPU::HDraw()
 
 	setHBlankFlag(true);
 	m_state = PPUState::HBlank;
-	m_scheduler->addEvent(Event::PPU, &PPU::onSchedulerEvent, (void*)this, m_scheduler->getEventTime() + 226);
+	m_scheduler->addEvent(Event::PPU, &PPU::onSchedulerEvent, (void*)this, m_scheduler->getEventTime() + 225);
 }
 
 void PPU::HBlank()
@@ -115,7 +115,7 @@ void PPU::HBlank()
 		pageIdx = !pageIdx;
 
 		m_state = PPUState::VBlank;
-		m_scheduler->addEvent(Event::PPU, &PPU::onSchedulerEvent, (void*)this, schedTimestamp+1006);
+		m_scheduler->addEvent(Event::PPU, &PPU::onSchedulerEvent, (void*)this, schedTimestamp+1007);
 
 		DMAVBlankCallback(callbackContext);
 
@@ -138,7 +138,7 @@ void PPU::HBlank()
 	//attempt to latch in new enable bits for bg
 	latchBackgroundEnableBits();
 
-	m_scheduler->addEvent(Event::PPU, &PPU::onSchedulerEvent, (void*)this, schedTimestamp+1006);
+	m_scheduler->addEvent(Event::PPU, &PPU::onSchedulerEvent, (void*)this, schedTimestamp+1007);
 }
 
 void PPU::VBlank()
@@ -155,7 +155,7 @@ void PPU::VBlank()
 			m_scheduler->addEvent(Event::HBlankIRQ, &PPU::onHBlankIRQEvent, (void*)this, schedTimestamp + 4);
 
 		vblank_setHblankBit = true;
-		m_scheduler->addEvent(Event::PPU, &PPU::onSchedulerEvent, (void*)this, schedTimestamp+226);
+		m_scheduler->addEvent(Event::PPU, &PPU::onSchedulerEvent, (void*)this, schedTimestamp+225);
 		if (VCOUNT < 162)
 			DMAVideoCaptureCallback(callbackContext);
 		return;
@@ -197,7 +197,7 @@ void PPU::VBlank()
 			m_backgroundLayers[i].enabled = true;
 		}
 	}
-	m_scheduler->addEvent(Event::PPU, &PPU::onSchedulerEvent, (void*)this, schedTimestamp + 1006);
+	m_scheduler->addEvent(Event::PPU, &PPU::onSchedulerEvent, (void*)this, schedTimestamp + 1007);
 }
 
 void PPU::checkVCOUNTInterrupt()
