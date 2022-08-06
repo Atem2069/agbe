@@ -52,7 +52,7 @@ void Timer::event()
 			m_timers[timerIdx].initialClock = m_timers[timerIdx].CNT_L;
 			m_timers[timerIdx].clock = m_timers[timerIdx].initialClock;
 			calculateNextOverflow(timerIdx, timerOverflowTime,false);	//don't update with our current clock, because we might have overshot the overflow time slightly.
-			setCurrentClock(timerIdx, m_timers[timerIdx].CNT_H & 0b11);
+			setCurrentClock(timerIdx, m_timers[timerIdx].CNT_H & 0b11,m_scheduler->getCurrentTimestamp());
 			checkCascade(timerIdx + 1);
 			bool doIrq = (ctrlreg >> 6) & 0b1;
 			if (doIrq)
@@ -73,7 +73,7 @@ uint8_t Timer::readIO(uint32_t address)
 	uint32_t timerIdx = ((address - 0x4000100) / 4);	//4000100-4000103 = timer 0, etc.
 	uint32_t addrOffset = ((address - 0x4000100) & 3);	//figure out which byte we're writing (0-3)
 
-	setCurrentClock(timerIdx, m_timers[timerIdx].CNT_H & 0b11);
+	setCurrentClock(timerIdx, m_timers[timerIdx].CNT_H & 0b11,m_scheduler->getCurrentTimestamp());
 
 	bool cascade = (m_timers[timerIdx].CNT_H >> 2) & 0b1;
 	if (cascade)
@@ -100,40 +100,23 @@ void Timer::writeIO(uint32_t address, uint8_t value)
 	switch (addrOffset)
 	{
 	case 0:
-		m_timers[timerIdx].CNT_L &= 0xFF00; m_timers[timerIdx].CNT_L |= value;
+		//m_timers[timerIdx].CNT_L &= 0xFF00; m_timers[timerIdx].CNT_L |= value;
+		m_timers[timerIdx].newReloadVal &= 0xFF00; m_timers[timerIdx].newReloadVal |= value;
+		m_timers[timerIdx].newReloadWritten = true;
+		m_scheduler->addEvent(Event::TimerRegWrite, &Timer::onReloadRegWrite, (void*)this, m_scheduler->getCurrentTimestamp() + 1);
 		break;
 	case 1:
-		m_timers[timerIdx].CNT_L &= 0xFF; m_timers[timerIdx].CNT_L |= ((value << 8));
+		m_timers[timerIdx].newReloadVal &= 0xFF;  m_timers[timerIdx].newReloadVal |= (value << 8);
+		if (!m_timers[timerIdx].newReloadWritten)	//if for some reason only the top byte of the reload is written? 
+		{
+			m_timers[timerIdx].newReloadWritten = true;
+			m_scheduler->addEvent(Event::TimerRegWrite, &Timer::onReloadRegWrite, (void*)this, m_scheduler->getCurrentTimestamp() + 1);
+		}
 		break;
 	case 2:
-		setCurrentClock(timerIdx, m_timers[timerIdx].CNT_H & 0b11);				//update clock first if possible
-		bool timerWasEnabled = (m_timers[timerIdx].CNT_H >> 7) & 0b1;
-		bool timerNowEnabled = (value >> 7) & 0b1;
-		bool countup = ((value >> 2) & 0b1);
-		bool wasCountup = (m_timers[timerIdx].CNT_H >> 2) & 0b1;
-		uint8_t oldPrescalerSetting = m_timers[timerIdx].CNT_H & 0b11;
-		uint8_t newPrescalerSetting = value & 0b11;
-
-		m_timers[timerIdx].CNT_H &= 0xFF00; m_timers[timerIdx].CNT_H |= value;
-
-		if (timerIdx == 0)
-		{
-			m_timers[timerIdx].CNT_H &= 0b11111011;	//clear cascade bit on timer0
-			countup = false;
-		}
-
-		if (!timerWasEnabled && timerNowEnabled)
-		{
-			m_timers[timerIdx].clock = m_timers[timerIdx].CNT_L;	//load in reload value
-			if (!countup)
-			{
-				m_timers[timerIdx].initialClock = m_timers[timerIdx].clock;
-				calculateNextOverflow(timerIdx, m_scheduler->getCurrentTimestamp(), true);
-			}
-		}
-		if(timerWasEnabled && timerNowEnabled)
-			calculateNextOverflow(timerIdx, m_scheduler->getCurrentTimestamp(), false);
-
+		m_timers[timerIdx].newControlWritten = true;
+		m_timers[timerIdx].newControlVal = value;
+		m_scheduler->addEvent(Event::TimerRegWrite, &Timer::onControlRegWrite, (void*)this, m_scheduler->getCurrentTimestamp() + 1);
 		break;
 	}
 }
@@ -150,6 +133,9 @@ void Timer::calculateNextOverflow(int timerIdx, uint64_t timeBase, bool first)
 
 	uint64_t cyclesToOverflow = (65535 - m_timers[timerIdx].clock) * prescalerCycles;
 
+	if (first)
+		timeBase++;
+
 	//this bit is magic :)
 	uint32_t nextPrescalerEdge = timeBase&0xFFFF;
 	if (shiftLut[prescalerSelect] != 0)
@@ -164,8 +150,6 @@ void Timer::calculateNextOverflow(int timerIdx, uint64_t timeBase, bool first)
 
 
 	uint64_t currentTime = timeBase;
-	if (first)
-		currentTime+=2;
 	uint64_t overflowTimestamp = currentTime + cyclesToOverflow;
 
 	Event timerEventLUT[4] = { Event::TIMER0,Event::TIMER1,Event::TIMER2,Event::TIMER3 };
@@ -203,7 +187,7 @@ void Timer::checkCascade(int timerIdx)
 		m_timers[timerIdx].clock++;
 }
 
-void Timer::setCurrentClock(int idx, uint8_t prescalerSetting)
+void Timer::setCurrentClock(int idx, uint8_t prescalerSetting, uint64_t timestamp)
 {
 	uint8_t timerctrl = m_timers[idx].CNT_H;
 
@@ -214,14 +198,74 @@ void Timer::setCurrentClock(int idx, uint8_t prescalerSetting)
 
 	static constexpr uint64_t cycleLut[4] = { 1, 64, 256, 1024 };
 	static constexpr uint64_t shiftLut[4] = { 0,6,8,10 };
-	uint64_t currentClock = (m_scheduler->getCurrentTimestamp() >> shiftLut[prescalerSetting]);
+	uint64_t currentClock = (timestamp >> shiftLut[prescalerSetting]);
 	uint64_t timeDiff = currentClock - m_timers[idx].lastUpdateClock;
 	m_timers[idx].clock += timeDiff;
 	m_timers[idx].lastUpdateClock = currentClock;
+}
+
+void Timer::writeControl()
+{
+	for (int timerIdx = 0; timerIdx < 4; timerIdx++)
+	{
+		if (!m_timers[timerIdx].newControlWritten)
+			continue;
+		m_timers[timerIdx].newControlWritten = false;
+		setCurrentClock(timerIdx, m_timers[timerIdx].CNT_H & 0b11,m_scheduler->getEventTime());				//update clock first if possible
+		bool timerWasEnabled = (m_timers[timerIdx].CNT_H >> 7) & 0b1;
+		bool timerNowEnabled = (m_timers[timerIdx].newControlVal >> 7) & 0b1;
+		bool countup = ((m_timers[timerIdx].newControlVal >> 2) & 0b1);
+		bool wasCountup = (m_timers[timerIdx].CNT_H >> 2) & 0b1;
+		uint8_t oldPrescalerSetting = m_timers[timerIdx].CNT_H & 0b11;
+		uint8_t newPrescalerSetting = m_timers[timerIdx].newControlVal & 0b11;
+
+		m_timers[timerIdx].CNT_H = m_timers[timerIdx].newControlVal;
+
+		if (timerIdx == 0)
+		{
+			m_timers[timerIdx].CNT_H &= 0b11111011;	//clear cascade bit on timer0
+			countup = false;
+		}
+
+		if (!timerWasEnabled && timerNowEnabled)
+		{
+			m_timers[timerIdx].clock = m_timers[timerIdx].CNT_L;	//load in reload value
+			if (!countup)
+			{
+				m_timers[timerIdx].initialClock = m_timers[timerIdx].clock;
+				calculateNextOverflow(timerIdx, m_scheduler->getEventTime(), true);
+			}
+		}
+		if (timerWasEnabled && timerNowEnabled)
+			calculateNextOverflow(timerIdx, m_scheduler->getEventTime(), false);
+	}
+}
+
+void Timer::writeReload()
+{
+	for (int timerIdx = 0; timerIdx < 4; timerIdx++)
+	{
+		if (!m_timers[timerIdx].newReloadWritten)
+			continue;
+		m_timers[timerIdx].newReloadWritten = false;
+		m_timers[timerIdx].CNT_L=m_timers[timerIdx].newReloadVal;
+	}
 }
 
 void Timer::onSchedulerEvent(void* context)
 {
 	Timer* thisPtr = (Timer*)context;
 	thisPtr->event();
+}
+
+void Timer::onControlRegWrite(void* context)
+{
+	Timer* thisPtr = (Timer*)context;
+	thisPtr->writeControl();
+}
+
+void Timer::onReloadRegWrite(void* context)
+{
+	Timer* thisPtr = (Timer*)context;
+	thisPtr->writeReload();
 }

@@ -13,6 +13,12 @@ struct TimerRegister
 	uint64_t timeActivated;
 	uint64_t overflowTime;
 	uint64_t lastUpdateClock;
+
+	uint16_t newControlVal;
+	bool newControlWritten = false;
+
+	uint16_t newReloadVal;
+	bool newReloadWritten = false;
 };
 
 class Timer
@@ -26,12 +32,17 @@ public:
 	void writeIO(uint32_t address, uint8_t value);
 
 	static void onSchedulerEvent(void* context);
+	static void onControlRegWrite(void* context);
+	static void onReloadRegWrite(void* context);
 
 private:
 	void event();
 	void calculateNextOverflow(int timerIdx, uint64_t timeBase, bool first);
 	void checkCascade(int timerIdx);
-	void setCurrentClock(int idx, uint8_t prescalerSetting);
+	void setCurrentClock(int idx, uint8_t prescalerSetting, uint64_t timestamp);
+
+	void writeControl();
+	void writeReload();
 	TimerRegister m_timers[4];
 
 	callbackFn apuOverflowCallbacks[2];
