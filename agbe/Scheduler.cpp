@@ -91,9 +91,10 @@ void Scheduler::removeEvent(Event type)
 		if ((*it).eventType == type)
 		{
 			removed = true;
-			m_entries.erase(it);
+			it = m_entries.erase(it);
 		}
-		it++;
+		else
+			it++;
 	}
 }
 
