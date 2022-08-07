@@ -13,36 +13,7 @@ InterruptManager::~InterruptManager()
 
 void InterruptManager::requestInterrupt(InterruptType type)
 {
-	switch (type)
-	{
-	case InterruptType::VBlank:
-		IF |= 0b1; break;
-	case InterruptType::HBlank:
-		IF |= 0b10; break;
-	case InterruptType::VCount:
-		IF |= 0b100; break;
-	case InterruptType::Timer0:
-		IF |= 0b1000; break;
-	case InterruptType::Timer1:
-		IF |= 0b10000; break;
-	case InterruptType::Timer2:
-		IF |= 0b100000; break;
-	case InterruptType::Timer3:
-		IF |= 0b1000000; break;
-	case InterruptType::Serial:
-		IF |= 0b10000000; break;
-	case InterruptType::DMA0:
-		IF |= 0b100000000; break;
-	case InterruptType::DMA1:
-		IF |= 0b1000000000; break;
-	case InterruptType::DMA2:
-		IF |= 0b10000000000; break;
-	case InterruptType::DMA3:
-		IF |= 0b100000000000; break;
-	case InterruptType::Keypad:
-		IF |= 0b1000000000000; break;
-
-	}
+	IF |= (1 << (int)type);
 	irqPending = true;
 	m_scheduler->addEvent(Event::IRQ, &InterruptManager::eventHandler, (void*)this, m_scheduler->getCurrentTimestamp() + 4);
 	m_scheduler->forceSync(4);
