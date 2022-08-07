@@ -8,6 +8,9 @@ PPU::PPU(std::shared_ptr<InterruptManager> interruptManager, std::shared_ptr<Sch
 	inVBlank = false;
 	clearDisplayBuffers();
 
+	for (int i = 0; i < 4; i++)			//initially clear all fields in bg layer structs
+		m_backgroundLayers[i] = {};
+
 	m_state = PPUState::HDraw;
 	m_scheduler->addEvent(Event::PPU, &PPU::onSchedulerEvent, (void*)this, 1006);	//start of first hblank
 }

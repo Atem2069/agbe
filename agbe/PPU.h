@@ -11,7 +11,6 @@
 struct BG
 {
 	int priorityBits;
-	int bgNumber;
 	bool masterEnable;
 	bool enabled;
 	bool affine;
