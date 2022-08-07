@@ -43,26 +43,16 @@ void Timer::event()
 	uint8_t ctrlreg = m_timers[timerIdx].CNT_H;
 	bool timerEnabled = (ctrlreg >> 7) & 0b1;
 	bool cascade = (ctrlreg >> 2) & 0b1;
-	if (timerEnabled && !cascade)
-	{
-		uint64_t timerOverflowTime = m_timers[timerIdx].overflowTime;
-		if (timerOverflowTime <= currentTimestamp)
-		{
-			//overflowed, need to handle
-			m_timers[timerIdx].initialClock = m_timers[timerIdx].CNT_L;
-			m_timers[timerIdx].clock = m_timers[timerIdx].initialClock;
-			calculateNextOverflow(timerIdx, timerOverflowTime,false);	//don't update with our current clock, because we might have overshot the overflow time slightly.
-			setCurrentClock(timerIdx, m_timers[timerIdx].CNT_H & 0b11,m_scheduler->getCurrentTimestamp());
-			checkCascade(timerIdx + 1);
-			bool doIrq = (ctrlreg >> 6) & 0b1;
-			if (doIrq)
-			{
-				InterruptType irqLUT[4] = { InterruptType::Timer0,InterruptType::Timer1,InterruptType::Timer2,InterruptType::Timer3 };
-				m_interruptManager->requestInterrupt(irqLUT[timerIdx]);
-			}
-
-		}
-	}
+	uint64_t timerOverflowTime = m_timers[timerIdx].overflowTime;
+	//overflowed, need to handle
+	m_timers[timerIdx].initialClock = m_timers[timerIdx].CNT_L;
+	m_timers[timerIdx].clock = m_timers[timerIdx].initialClock;
+	calculateNextOverflow(timerIdx, timerOverflowTime, false);	//don't update with our current clock, because we might have overshot the overflow time slightly.
+	setCurrentClock(timerIdx, m_timers[timerIdx].CNT_H & 0b11, m_scheduler->getCurrentTimestamp());
+	checkCascade(timerIdx + 1);
+	bool doIrq = (ctrlreg >> 6) & 0b1;
+	if (doIrq)
+		m_interruptManager->requestInterrupt(irqLUT[timerIdx]);
 
 	if ((timerIdx == 0 || timerIdx == 1) && timerEnabled && !cascade)
 		apuOverflowCallbacks[timerIdx](apuCtx);
@@ -152,7 +142,6 @@ void Timer::calculateNextOverflow(int timerIdx, uint64_t timeBase, bool first)
 	uint64_t currentTime = timeBase;
 	uint64_t overflowTimestamp = currentTime + cyclesToOverflow;
 
-	Event timerEventLUT[4] = { Event::TIMER0,Event::TIMER1,Event::TIMER2,Event::TIMER3 };
 	m_scheduler->removeEvent(timerEventLUT[timerIdx]);	//just in case :)
 	m_scheduler->addEvent(timerEventLUT[timerIdx], &Timer::onSchedulerEvent, (void*)this, overflowTimestamp);
 
@@ -177,10 +166,7 @@ void Timer::checkCascade(int timerIdx)
 		m_timers[timerIdx].clock = m_timers[timerIdx].CNT_L;
 		bool doIrq = (timerctrl >> 6) & 0b1;
 		if (doIrq)
-		{
-			InterruptType irqLUT[4] = { InterruptType::Timer0,InterruptType::Timer1,InterruptType::Timer2,InterruptType::Timer3 };
 			m_interruptManager->requestInterrupt(irqLUT[timerIdx]);
-		}
 		checkCascade(timerIdx + 1);
 	}
 	else
@@ -238,6 +224,9 @@ void Timer::writeControl()
 		}
 		if (timerWasEnabled && timerNowEnabled)
 			calculateNextOverflow(timerIdx, m_scheduler->getEventTime(), false);
+
+		if ((timerWasEnabled && !timerNowEnabled) || (countup))			//if timer becomes disabled, or it becomes a countup timer: unschedule
+			m_scheduler->removeEvent(timerEventLUT[timerIdx]);
 	}
 }
 
