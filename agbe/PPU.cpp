@@ -480,7 +480,8 @@ void PPU::composeLayers()
 			}
 		}
 
-		if (pointInfo.blendable)
+		//not sure about this. pokemon ruby depends on semi-transparent sprites bypassing the blend enable check. todo: confirm on hardware!
+		if (pointInfo.blendable || transparentSpriteTop)
 		{
 			uint8_t blendMode = ((BLDCNT >> 6) & 0b11);
 			if (transparentSpriteTop)	
@@ -488,7 +489,7 @@ void PPU::composeLayers()
 				if (!(blendPixelB >> 15))									//i think blend mode only gets overridden if there's a second target pixel?
 					blendMode = 1;
 				else if (!((BLDCNT >> 4) & 0b1) && (blendPixelB >> 15))		//hmm, if it's only 'semi-transparent' but there's no target B (and sprite not target A), then don't blend??
-					blendPixelA = 0x8000;
+					blendMode = 0;
 			}
 			switch (blendMode)
 			{
