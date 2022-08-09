@@ -71,7 +71,7 @@ void InterruptManager::writeIO(uint32_t address, uint8_t value)
 			IF = shadowIF;
 		}
 		else
-			IF &= ~(value);
+			IF &= ~((value<<8));
 		break;
 	}
 }
