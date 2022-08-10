@@ -194,6 +194,7 @@ void PPU::VBlank()
 	//attempt to latch in new enable bits for bg. i think this is instant in vblank as there being a 3 scanline delay would make no sense..
 	for (int i = 0; i < 4; i++)
 	{
+		m_backgroundLayers[i].scanlinesSinceEnable = 0;
 		if (m_backgroundLayers[i].pendingEnable)
 		{
 			m_backgroundLayers[i].pendingEnable = false;
