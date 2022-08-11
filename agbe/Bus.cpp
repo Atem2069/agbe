@@ -36,6 +36,8 @@ Bus::Bus(std::vector<uint8_t> BIOS, std::vector<uint8_t> cartData, std::shared_p
 	auto romAsString = std::string_view(reinterpret_cast<const char*>(m_mem->ROM), 32 * 1024 * 1024);
 	attemptSaveAutodetection(romAsString);
 
+	if (romSize == 1048576)
+		romAddressMask = 1048575;	//classic nes games have mirrored rom, instead of 'normal' OOB ROM access behaviour
 }
 
 Bus::~Bus()
@@ -117,14 +119,9 @@ uint8_t Bus::read8(uint32_t address, AccessType accessType)
 			m_scheduler->addCycles(1);
 		prefetchShouldDelay = false;
 		invalidatePrefetchBuffer();
-		if ((address & 0x01FFFFFF) >= romSize)
-		{
-			if (romSize == 1048576)
-				address &= 0xFFFFF;
-			else
-				return std::rotr((address / 2) & 0xFFFF, 8 * (address & 0b11));
-		}
-		return m_mem->ROM[address & 0x01FFFFFF];
+		if ((address & romAddressMask) >= romSize)
+			return std::rotr((address / 2) & 0xFFFF, 8 * (address & 0b11));
+		return m_mem->ROM[address & romAddressMask];
 	case 0xE: case 0xF:
 		m_scheduler->addCycles(SRAMCycles);	//hm.
 		if (prefetchInProgress && prefetchShouldDelay)
@@ -256,14 +253,9 @@ uint16_t Bus::read16(uint32_t address, AccessType accessType)
 			if(m_backupType == BackupType::EEPROM4K || m_backupType == BackupType::EEPROM64K)
 				return m_backupMemory->read(address);
 		}
-		if ((address & 0x01FFFFFF) >= romSize)
-		{
-			if (romSize == 1048576)
-				address &= 0xFFFFF;
-			else
-				return (address / 2) & 0xFFFF;
-		}
-		return getValue16(m_mem->ROM, address & 0x01FFFFFF,0xFFFFFFFF);
+		if ((address & romAddressMask) >= romSize)
+			return (address / 2) & 0xFFFF;
+		return getValue16(m_mem->ROM, address & romAddressMask,0xFFFFFFFF);
 	case 0xE: case 0xF:
 		m_scheduler->addCycles(SRAMCycles);
 		if (m_backupType == BackupType::SRAM)
@@ -407,14 +399,9 @@ uint32_t Bus::read32(uint32_t address, AccessType accessType)
 			prefetchShouldDelay = false;
 			invalidatePrefetchBuffer();
 		}
-		if ((address & 0x01FFFFFF) >= romSize)
-		{
-			if (romSize == 1048576)
-				address &= 0xFFFFF;
-			else
-				return ((address / 2) & 0xFFFF) | (((address + 2) / 2) & 0xFFFF) << 16;
-		}
-		return getValue32(m_mem->ROM, address & 0x01FFFFFF, 0xFFFFFFFF);
+		if ((address & romAddressMask) >= romSize)
+			return ((address / 2) & 0xFFFF) | (((address + 2) / 2) & 0xFFFF) << 16;
+		return getValue32(m_mem->ROM, address & romAddressMask, 0xFFFFFFFF);
 	case 0xE: case 0xF:
 		m_scheduler->addCycles(SRAMCycles);
 		if (m_backupType == BackupType::SRAM)
