@@ -11,12 +11,11 @@ EEPROM::EEPROM(BackupType type)
 	case BackupType::EEPROM64K:
 		addressSize = 14; break;
 	}
-	saveSize = (type == BackupType::EEPROM4K) ? 128 : 1024;
+	saveSize = (type == BackupType::EEPROM4K) ? 64 : 1024; //word count, where a word=8 bytes.
 
 	std::vector<uint8_t> saveData;
 	if (getSaveData(saveData))
 	{
-		//we can't just straight up memcpy unfortunately, bc endianness
 		for (int i = 0; i < saveSize; i++)
 		{
 			uint64_t currentWord = 0;
