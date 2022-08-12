@@ -35,9 +35,11 @@ public:
 	static void eventHandler(void* context);
 private:
 	void onEvent();
-	bool irqPending = false;
+	void checkIRQs();
+	bool irqAvailable = false;
+	bool pendingIrq = false;
 	std::shared_ptr<Scheduler> m_scheduler;
-	uint16_t IE = {}, shadowIF = {};
+	uint16_t IE = {};
 	uint16_t IF = {};
 	uint16_t IME = {};
 };
