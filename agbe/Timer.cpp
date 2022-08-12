@@ -47,7 +47,7 @@ void Timer::event()
 	//overflowed, need to handle
 	m_timers[timerIdx].initialClock = m_timers[timerIdx].CNT_L;
 	m_timers[timerIdx].clock = m_timers[timerIdx].initialClock;
-	calculateNextOverflow(timerIdx, timerOverflowTime, false);	//don't update with our current clock, because we might have overshot the overflow time slightly.
+	calculateNextOverflow(timerIdx, timerOverflowTime);	//don't update with our current clock, because we might have overshot the overflow time slightly.
 	setCurrentClock(timerIdx, m_timers[timerIdx].CNT_H & 0b11, m_scheduler->getCurrentTimestamp());
 	checkCascade(timerIdx + 1);
 	bool doIrq = (ctrlreg >> 6) & 0b1;
@@ -111,7 +111,7 @@ void Timer::writeIO(uint32_t address, uint8_t value)
 	}
 }
 
-void Timer::calculateNextOverflow(int timerIdx, uint64_t timeBase, bool first)
+void Timer::calculateNextOverflow(int timerIdx, uint64_t timeBase)
 {
 	uint8_t timerctrl = m_timers[timerIdx].CNT_H;
 
@@ -122,9 +122,6 @@ void Timer::calculateNextOverflow(int timerIdx, uint64_t timeBase, bool first)
 	uint64_t prescalerCycles = cycleLut[prescalerSelect];
 
 	uint64_t cyclesToOverflow = (65535 - m_timers[timerIdx].clock) * prescalerCycles;
-
-	if (first)
-		timeBase++;
 
 	//this bit is magic :)
 	uint32_t nextPrescalerEdge = timeBase&0xFFFF;
@@ -219,11 +216,11 @@ void Timer::writeControl()
 			if (!countup)
 			{
 				m_timers[timerIdx].initialClock = m_timers[timerIdx].clock;
-				calculateNextOverflow(timerIdx, m_scheduler->getEventTime(), true);
+				calculateNextOverflow(timerIdx, m_scheduler->getEventTime()+1);		//+1 to account for 2-cycle startup delay
 			}
 		}
 		if (timerWasEnabled && timerNowEnabled)
-			calculateNextOverflow(timerIdx, m_scheduler->getEventTime(), false);
+			calculateNextOverflow(timerIdx, m_scheduler->getEventTime());
 
 		if ((timerWasEnabled && !timerNowEnabled) || (countup))			//if timer becomes disabled, or it becomes a countup timer: unschedule
 			m_scheduler->removeEvent(timerEventLUT[timerIdx]);

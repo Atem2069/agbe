@@ -39,7 +39,7 @@ private:
 	static constexpr Event timerEventLUT[4] = { Event::TIMER0,Event::TIMER1,Event::TIMER2,Event::TIMER3 };
 	static constexpr InterruptType irqLUT[4] = { InterruptType::Timer0,InterruptType::Timer1,InterruptType::Timer2,InterruptType::Timer3 };
 	void event();
-	void calculateNextOverflow(int timerIdx, uint64_t timeBase, bool first);
+	void calculateNextOverflow(int timerIdx, uint64_t timeBase);
 	void checkCascade(int timerIdx);
 	void setCurrentClock(int idx, uint8_t prescalerSetting, uint64_t timestamp);
 
