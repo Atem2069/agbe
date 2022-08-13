@@ -66,7 +66,8 @@ void InterruptManager::writeIO(uint32_t address, uint8_t value)
 
 void InterruptManager::onEvent()
 {
-	irqAvailable = pendingIrq;
+	pendingIrq = false;
+	irqAvailable = true;
 }
 
 void InterruptManager::eventHandler(void* context)
@@ -78,9 +79,11 @@ void InterruptManager::eventHandler(void* context)
 void InterruptManager::checkIRQs()
 {
 	pendingIrq = ((IF & IE & 0b0011111111111111));
-	if (pendingIrq != irqAvailable)																													//irq line changed - need to update
+	if (pendingIrq)																													//new irq? schedule irq signal change
 	{
 		m_scheduler->addEvent(Event::IRQ, &InterruptManager::eventHandler, (void*)this, m_scheduler->getCurrentTimestamp() + 4);
 		m_scheduler->forceSync(4);
 	}
+	else
+		irqAvailable = false;																										//otherwise reset irq line
 }
