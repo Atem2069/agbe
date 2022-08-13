@@ -84,6 +84,9 @@ void InterruptManager::checkIRQs()
 		m_scheduler->addEvent(Event::IRQ, &InterruptManager::eventHandler, (void*)this, m_scheduler->getCurrentTimestamp() + 4);
 		m_scheduler->forceSync(4);
 	}
-	else
-		irqAvailable = false;																										//otherwise reset irq line
+	else																															//not completely sure. maybe IF&IE going 0 while in the synchronizer could cancel the irq?
+	{
+		m_scheduler->removeEvent(Event::IRQ);
+		irqAvailable = false;
+	}																									
 }
