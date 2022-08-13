@@ -53,7 +53,7 @@ void InterruptManager::writeIO(uint32_t address, uint8_t value)
 		IE &= 0xFF00; IE |= value; break;
 	case 0x04000201:
 		IE &= 0x00FF; IE |= ((value << 8)); break;
-	case 0x04000202:				//why does this work? 
+	case 0x04000202:			
 		IF &= ~(value);
 		break;
 	case 0x04000203:
