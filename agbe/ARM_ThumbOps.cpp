@@ -584,101 +584,79 @@ void ARM7TDMI::Thumb_PushPopRegisters()
 
 void ARM7TDMI::Thumb_MultipleLoadStore()
 {
-	bool loadStore = ((m_currentOpcode >> 11) & 0b1);
+	bool loadStore = (m_currentOpcode >> 11) & 0b1;
 	uint8_t baseRegIdx = ((m_currentOpcode >> 8) & 0b111);
 	uint8_t regList = m_currentOpcode & 0xFF;
-	uint8_t regListOriginal = regList;
 
-	uint32_t base = getReg(baseRegIdx);
-	uint32_t oldBase = base;
-	bool baseIncluded = false;
-	if ((regListOriginal >> baseRegIdx) & 0b1)
-		baseIncluded = true;
-
-	int lowestReg = -1;
-	for (int i = 0; i < 8; i++)
-	{
-		if (((regListOriginal >> i) & 0b1))
-		{
-			lowestReg = i;
-			i = 99999;
-			break;
-		}
-	}
-
-	bool baseIsLowest = false;
-	if (baseRegIdx == lowestReg)
-		baseIsLowest = true;
-
-	bool firstTransfer = true;
-
+	bool writeback = true;								//writeback implied, except for some odd LDM behaviour
+	bool baseIsFirst = false;
 	int transferCount = 0;
 
-	if (loadStore)	//LDMIA
+	for (int i = 0; i < 8; i++)
 	{
-		for (int i = 0; i < 8; i++)
+		if ((regList >> i) & 0b1)
 		{
-			if (regList & 0b1)
-			{
-				transferCount++;
-				uint32_t cur = m_bus->read32(base,(AccessType)!firstTransfer);
-				setReg(i, cur);
-				base += 4;	//base always increments with this opcode
-				firstTransfer = false;
-			}
-			regList >>= 1;	//shift one to the right to check next register
+			transferCount++;
+			if (transferCount == 1 && (i == baseRegIdx))	//base reg first to be transferred? 
+				baseIsFirst = true;
 		}
-		m_scheduler->addCycles(transferCount + 2);
-		m_bus->tickPrefetcher(1);
-	}
-	else			//STMIA
-	{
-		for (int i = 0; i < 8; i++)
-		{
-			if (regList & 0b1)
-			{
-				transferCount++;
-				if (i == baseRegIdx)
-				{
-					if (baseIsLowest)
-						m_bus->write32(base, oldBase,(AccessType)!firstTransfer);
-					else
-					{
-						int numRegs = std::popcount(regListOriginal);
-						m_bus->write32(base, oldBase + (numRegs * 4),(AccessType)!firstTransfer);
-					}
-				}
-				else
-				{
-					uint32_t cur = getReg(i);
-					m_bus->write32(base, cur,(AccessType)!firstTransfer);
-				}
-				base += 4;
-				firstTransfer = false;
-			}
-			regList >>= 1;
-			setReg(baseRegIdx, base);
-		}
-		m_scheduler->addCycles(transferCount + 1);
 	}
 
-	if (regListOriginal == 0)
+	uint32_t base = getReg(baseRegIdx);
+	uint32_t finalBase = base + (transferCount * 4);	//figure out final val of base address
+
+	bool firstAccess = true;
+	for (int i = 0; i < 8; i++)
+	{
+		if ((regList >> i) & 0b1)
+		{
+			if (loadStore)
+			{
+				uint32_t val = m_bus->read32(base, (AccessType)!firstAccess);
+				setReg(i, val);
+				if (i == baseRegIdx)		//load with base included -> no writeback
+					writeback = false;
+			}
+
+			else
+			{
+				uint32_t val = getReg(i);
+				if (i == baseRegIdx && !baseIsFirst)
+					val = finalBase;
+				m_bus->write32(base, val, (AccessType)!firstAccess);
+			}
+			firstAccess = false;
+			base += 4;
+		}
+	}
+
+	if (transferCount)
+	{
+		int totalCycles = transferCount + ((loadStore) ? 2 : 1);
+		m_scheduler->addCycles(totalCycles);
+		if (loadStore)
+			m_bus->tickPrefetcher(1);
+	}
+	else
 	{
 		if (loadStore)
 		{
-			setReg(15, m_bus->read32(base, (AccessType)false));
+			//not sure about this timing.
+			setReg(15, m_bus->read32(base, AccessType::Nonsequential));
 			m_scheduler->addCycles(3);
+			m_bus->tickPrefetcher(1);
 		}
 		else
 		{
-			m_bus->write32(base, getReg(15) + 2, (AccessType)false);
-			m_scheduler->addCycles(2);	//<--not sure if 2
+			m_bus->write32(base, getReg(15)+2, AccessType::Nonsequential);	//+2 for pipeline effect
+			m_scheduler->addCycles(2);
 		}
-		base += 0x40;
+		setReg(baseRegIdx, base + 0x40);
+		writeback = false;
 	}
-	if (!loadStore || (loadStore && !baseIncluded))
-		setReg(baseRegIdx, base);
-	//TODO: writeback with rb in rlist has different behaviour that's unimplemented (see gbatek)
+
+	if (writeback)
+		setReg(baseRegIdx, finalBase);
 	nextFetchNonsequential = true;
 }
 
