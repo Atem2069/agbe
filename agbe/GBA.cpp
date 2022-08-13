@@ -18,17 +18,9 @@ void GBA::run()
 {
 	auto lastTime = std::chrono::high_resolution_clock::now();
 	m_lastTime = std::chrono::high_resolution_clock::now();
-	while (!m_shouldStop)
+	while (!Config::GBA.shouldReset)
 	{
-		if (m_initialised)
-		{
-			m_cpu->step();
-		}
-		if (Config::GBA.shouldReset)
-		{
-			m_destroy();
-			m_initialise();
-		}
+		m_cpu->step();
 	}
 }
 

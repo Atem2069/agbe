@@ -46,16 +46,29 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _
 	m_display.registerDragDropCallback((GLFWdropfun)dragDropCallback);
 
 	inputState = std::make_shared<InputState>();
-	m_gba = std::make_shared<GBA>();
-	m_gba->registerInput(inputState);
-	std::thread m_workerThread(&emuWorkerThread);
-
+	std::thread m_workerThread;
+	Config::GBA.shouldReset = true;
 	while (!m_display.getShouldClose())
 	{
-		//update texture
-		void* data = m_gba->getPPUData();
-		if(data!=nullptr)
-			m_display.update(data);
+		if (Config::GBA.shouldReset)
+		{
+			if (m_workerThread.joinable())
+				m_workerThread.join();
+			m_gba = nullptr;
+			if (Config::GBA.RomName.length())
+			{
+				m_gba = std::make_shared<GBA>();
+				m_gba->registerInput(inputState);
+				m_workerThread = std::thread(&emuWorkerThread);
+			}
+		}
+		else
+		{
+			//update texture
+			void* data = m_gba->getPPUData();
+			if (data != nullptr)
+				m_display.update(data);
+		}
 		m_display.draw();
 
 		//blarg. key input
@@ -72,9 +85,12 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _
 
 	}
 
-	m_gba->notifyDetach();	//tell gba instance to stop
-
-	m_workerThread.join();
+	if (m_workerThread.joinable())
+	{
+		Config::GBA.shouldReset = true;
+		m_workerThread.join();
+	}
+	m_gba = nullptr;
 
 	return 0;
 }
