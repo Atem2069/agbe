@@ -208,8 +208,9 @@ void PPU::checkVCOUNTInterrupt()
 {
 	uint16_t vcountCompare = ((DISPSTAT >> 8) & 0xFF);
 	setVCounterFlag(vcountCompare == VCOUNT);
-	if (vcountCompare == VCOUNT && ((DISPSTAT >> 5) & 0b1))
+	if (vcountCompare == VCOUNT && ((DISPSTAT >> 5) & 0b1) && !vcountIRQLine)
 		m_interruptManager->requestInterrupt(InterruptType::VCount);
+	vcountIRQLine = (vcountCompare == VCOUNT);
 }
 
 void PPU::renderMode0()
@@ -1306,6 +1307,7 @@ void PPU::writeIO(uint32_t address, uint8_t value)
 		break;
 	case 0x04000005:
 		DISPSTAT &= 0x00FF; DISPSTAT |= (value << 8);
+		checkVCOUNTInterrupt();
 		break;
 	case 0x04000008:
 		BG0CNT &= 0xFF00; BG0CNT |= value;

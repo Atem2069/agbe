@@ -128,6 +128,7 @@ private:
 	void VBlank();
 
 	void checkVCOUNTInterrupt();
+	bool vcountIRQLine = false;
 
 	void renderMode0();
 	void renderMode1();
