@@ -207,10 +207,11 @@ void PPU::VBlank()
 void PPU::checkVCOUNTInterrupt()
 {
 	uint16_t vcountCompare = ((DISPSTAT >> 8) & 0xFF);
-	setVCounterFlag(vcountCompare == VCOUNT);
-	if (vcountCompare == VCOUNT && ((DISPSTAT >> 5) & 0b1) && !vcountIRQLine)
+	bool vcountMatches = (vcountCompare == VCOUNT);
+	setVCounterFlag(vcountMatches);
+	if (vcountMatches && ((DISPSTAT >> 5) & 0b1) && !vcountIRQLine)
 		m_interruptManager->requestInterrupt(InterruptType::VCount);
-	vcountIRQLine = (vcountCompare == VCOUNT);
+	vcountIRQLine = vcountMatches;
 }
 
 void PPU::renderMode0()
