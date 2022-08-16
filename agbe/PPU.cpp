@@ -1444,12 +1444,15 @@ void PPU::writeIO(uint32_t address, uint8_t value)
 		break;
 	case 0x04000028:
 		BG2X &= 0xFFFFFF00; BG2X |= value;
+		BG2X_dirty = true;
 		break;
 	case 0x04000029:
 		BG2X &= 0xFFFF00FF; BG2X |= (value << 8);
+		BG2X_dirty = true;
 		break;
 	case 0x0400002A:
 		BG2X &= 0xFF00FFFF; BG2X |= (value << 16);
+		BG2X_dirty = true;
 		break;
 	case 0x0400002B:
 		BG2X &= 0x00FFFFFF; BG2X |= (value << 24);
@@ -1462,12 +1465,15 @@ void PPU::writeIO(uint32_t address, uint8_t value)
 		break;
 	case 0x0400002C:
 		BG2Y &= 0xFFFFFF00; BG2Y |= value;
+		BG2Y_dirty = true;
 		break;
 	case 0x0400002D:
 		BG2Y &= 0xFFFF00FF; BG2Y |= (value << 8);
+		BG2Y_dirty = true;
 		break;
 	case 0x0400002E:
 		BG2Y &= 0xFF00FFFF; BG2Y |= (value << 16);
+		BG2Y_dirty = true;
 		break;
 	case 0x0400002F:
 		BG2Y &= 0x00FFFFFF; BG2Y |= (value << 24);
@@ -1504,12 +1510,15 @@ void PPU::writeIO(uint32_t address, uint8_t value)
 		break;
 	case 0x04000038:
 		BG3X &= 0xFFFFFF00; BG3X |= value;
+		BG3X_dirty = true;
 		break;
 	case 0x04000039:
 		BG3X &= 0xFFFF00FF; BG3X |= (value << 8);
+		BG3X_dirty = true;
 		break;
 	case 0x0400003A:
 		BG3X &= 0xFF00FFFF; BG3X |= (value << 16);
+		BG3X_dirty = true;
 		break;
 	case 0x0400003B:
 		BG3X &= 0x00FFFFFF; BG3X |= (value << 24);
@@ -1522,12 +1531,15 @@ void PPU::writeIO(uint32_t address, uint8_t value)
 		break;
 	case 0x0400003C:
 		BG3Y &= 0xFFFFFF00; BG3Y |= value;
+		BG3Y_dirty = true;
 		break;
 	case 0x0400003D:
 		BG3Y &= 0xFFFF00FF; BG3Y |= (value << 8);
+		BG3Y_dirty = true;
 		break;
 	case 0x0400003E:
 		BG3Y &= 0xFF00FFFF; BG3Y |= (value << 16);
+		BG3Y_dirty = true;
 		break;
 	case 0x0400003F:
 		BG3Y &= 0x00FFFFFF; BG3Y |= (value << 24);
