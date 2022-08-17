@@ -117,23 +117,13 @@ void Timer::calculateNextOverflow(int timerIdx, uint64_t timeBase)
 
 	static constexpr uint64_t cycleLut[4] = { 1, 64, 256, 1024 };
 	static constexpr uint64_t shiftLut[4] = { 0,6,8,10 };
-	static constexpr uint64_t unsetMask[4] = { 0xFFFFFFFF,0xFFFFFFC0,0xFFFFFF00,0xFFFFFC00 };
 	uint8_t prescalerSelect = (timerctrl & 0b11);
 	uint64_t prescalerCycles = cycleLut[prescalerSelect];
 
-	uint64_t cyclesToOverflow = (65535 - m_timers[timerIdx].clock) * prescalerCycles;
-
-	//this bit is magic :)
-	uint32_t nextPrescalerEdge = timeBase&0xFFFF;
-	if (shiftLut[prescalerSelect] != 0)
-	{
-		uint16_t addMask = 0b1 << (shiftLut[prescalerSelect]);
-		nextPrescalerEdge += addMask;								//essentially finding the prescaler cycle where the next falling edge occurs
-		nextPrescalerEdge &= unsetMask[prescalerSelect];
-		cyclesToOverflow += (nextPrescalerEdge - (timeBase&0xFFFF));	//then finding out how many cycles until it happens
-	}
-	else
-		cyclesToOverflow++;
+	uint64_t cyclesToOverflow = (65535 - m_timers[timerIdx].clock) * prescalerCycles; //cycles for each subsequent tick following the first, as the first may have slightly different timing due to the global prescaler
+	uint64_t nextGlobalTick = (timeBase >> shiftLut[prescalerSelect]) + 1;		
+	uint64_t firstTickTimestamp = (nextGlobalTick << shiftLut[prescalerSelect]);	//the next prescaler clock that will cause the timer to tick
+	cyclesToOverflow += (firstTickTimestamp - timeBase);
 
 
 	uint64_t currentTime = timeBase;
