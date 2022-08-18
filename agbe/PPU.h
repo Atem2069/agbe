@@ -159,16 +159,7 @@ private:
 
 	void latchBackgroundEnableBits();
 
-	//todo: these names are confusing (m_calc..., calc....) so probs rewrite with nicer function names at some point so I don't confuse myself :P
-	inline void m_calcAffineCoords(bool mosaic, int32_t& xRef, int32_t& yRef, int16_t dx, int16_t dy)
-	{
-		if (mosaic)
-			calcAffineCoords<true>(xRef, yRef, dx, dy);
-		else
-			calcAffineCoords<false>(xRef, yRef, dx, dy);
-	}
-
-	template<bool doMosaic> void calcAffineCoords(int32_t& xRef, int32_t& yRef, int16_t dx, int16_t dy)	//<-- put into own function because mosaic can affect *when* these are updated
+	inline void m_calcAffineCoords(bool doMosaic, int32_t& xRef, int32_t& yRef, int16_t dx, int16_t dy)	//<-- put into own function because mosaic can affect *when* these are updated
 	{
 		if (doMosaic)
 		{
@@ -188,15 +179,7 @@ private:
 		}
 	}
 
-	inline void m_updateAffineRegisters(bool mosaic, int bg)
-	{
-		if (mosaic)
-			updateAffineRegisters<true>(bg);
-		else
-			updateAffineRegisters<false>(bg);
-	}
-
-	template<bool doMosaic> void updateAffineRegisters(int bg)											//similar story, however the reference points are actually updated per-scanline
+	inline void m_updateAffineRegisters(bool doMosaic, int bg)											//similar story, however the reference points are actually updated per-scanline
 	{
 		int multiplyAmount = 1;
 		if (doMosaic)
