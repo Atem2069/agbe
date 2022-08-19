@@ -23,17 +23,12 @@ uint32_t ARM7TDMI::LSL(uint32_t val, int shiftAmount, int& carry)
 
 uint32_t ARM7TDMI::LSR(uint32_t val, int shiftAmount, int& carry)
 {
-	if (shiftAmount >= 32)
+	if (shiftAmount >= 32 || shiftAmount == 0)
 	{
-		if (shiftAmount == 32)
+		if (shiftAmount == 32 || shiftAmount==0)
 			carry = ((val >> 31) & 0b1);
 		else
 			carry = 0;
-		return 0;
-	}
-	if (shiftAmount == 0)
-	{
-		carry = ((val >> 31) & 0b1);
 		return 0;
 	}
 	int carryBit = shiftAmount - 1;
