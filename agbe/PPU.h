@@ -20,6 +20,14 @@ struct BG
 	int scanlinesSinceEnable;
 };
 
+struct Window
+{
+	uint8_t x1;
+	uint8_t x2;
+	uint8_t y1; 
+	uint8_t y2;
+};
+
 union SpriteAttribute
 {
 	uint8_t attr;
@@ -107,6 +115,7 @@ private:
 	int m_spriteCyclesElapsed = 0;		//checks how many cycles have elapsed since sprite rendering started, to enforce the max allowed cycles for sprite pre-rendering
 
 	BG m_backgroundLayers[4];
+	Window m_windows[2];
 
 	PPUState m_state = {};
 
@@ -240,10 +249,6 @@ private:
 	uint16_t BG2VOFS = {};
 	uint16_t BG3HOFS = {};
 	uint16_t BG3VOFS = {};
-	uint16_t WIN0H = {};
-	uint16_t WIN1H = {};
-	uint16_t WIN0V = {};
-	uint16_t WIN1V = {};
 	uint16_t WININ = {};
 	uint16_t WINOUT = {};
 	uint32_t BG2X = {}, BG2X_latch = {};

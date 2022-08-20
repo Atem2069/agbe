@@ -11,6 +11,8 @@ PPU::PPU(std::shared_ptr<InterruptManager> interruptManager, std::shared_ptr<Sch
 	for (int i = 0; i < 4; i++)			//initially clear all fields in bg layer structs
 		m_backgroundLayers[i] = {};
 
+	m_windows[0] = {}; m_windows[1] = {};
+
 	m_state = PPUState::HDraw;
 	m_scheduler->addEvent(Event::PPU, &PPU::onSchedulerEvent, (void*)this, 1006);	//start of first hblank
 }
@@ -1122,11 +1124,7 @@ PointRenderableInfo PPU::getPointDrawable(int x, int y)
 	//also todo: window priority. win0 has higher priority than win1, win1 has higher priority than obj window
 	if (window0Enabled)
 	{
-		int winRight = min((WIN0H & 0xFF)-1,239);
-		int winLeft = ((WIN0H >> 8) & 0xFF);
-		int winBottom = min((WIN0V & 0xFF) - 1,159);	
-		int winTop = ((WIN0V >> 8) & 0xFF);
-		bool inWindow = (x >= winLeft && x <= winRight && y >= winTop && y <= winBottom);
+		bool inWindow = (x >= m_windows[0].x1 && x <= m_windows[0].x2 && y >= m_windows[0].y1 && y <= m_windows[0].y2);
 		if (inWindow)
 		{
 			info.objDrawable = ((WININ >> 4) & 0b1);
@@ -1138,11 +1136,7 @@ PointRenderableInfo PPU::getPointDrawable(int x, int y)
 	}
 	if (window1Enabled)
 	{
-		int winRight = min((WIN1H & 0xFF)-1,239);
-		int winLeft = ((WIN1H >> 8) & 0xFF);
-		int winBottom = min((WIN1V & 0xFF) - 1,159);
-		int winTop = ((WIN1V >> 8) & 0xFF);
-		bool inWindow = (x >= winLeft && x <= winRight && y >= winTop && y <= winBottom);
+		bool inWindow = (x >= m_windows[1].x1 && x <= m_windows[1].x2 && y >= m_windows[1].y1 && y <= m_windows[1].y2);
 		if (inWindow)
 		{
 			info.objDrawable = ((WININ >> 12) & 0b1);
@@ -1383,28 +1377,28 @@ void PPU::writeIO(uint32_t address, uint8_t value)
 		BG3VOFS &= 0xFF; BG3VOFS |= (((value&0b1) << 8));
 		break;
 	case 0x04000040:
-		WIN0H &= 0xFF00; WIN0H |= value;
+		m_windows[0].x2 = min(239,value - 1);
 		break;
 	case 0x04000041:
-		WIN0H &= 0xFF; WIN0H |= (value << 8);
+		m_windows[0].x1 = value;
 		break;
 	case 0x04000042:
-		WIN1H &= 0xFF00; WIN1H |= value;
+		m_windows[1].x2 = min(239, value - 1);
 		break;
 	case 0x04000043:
-		WIN1H &= 0xFF; WIN1H |= ((value << 8));
+		m_windows[1].x1 = value;
 		break;
 	case 0x04000044:
-		WIN0V &= 0xFF00; WIN0V |= value;
+		m_windows[0].y2 = min(159,value - 1);
 		break;
 	case 0x04000045:
-		WIN0V &= 0xFF; WIN0V |= (value << 8);
+		m_windows[0].y1 = value;
 		break;
 	case 0x04000046:
-		WIN1V &= 0xFF00; WIN1V |= value;
+		m_windows[1].y2 = min(159,value - 1);
 		break;
 	case 0x04000047:
-		WIN1V &= 0xFF; WIN1V |= (value << 8);
+		m_windows[1].y1 = value;
 		break;
 	case 0x04000048:
 		WININ &= 0xFF00; WININ |= value;
