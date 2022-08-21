@@ -22,10 +22,13 @@ struct BG
 
 struct Window
 {
-	uint8_t x1;
-	uint8_t x2;
-	uint8_t y1; 
-	uint8_t y2;
+	int16_t x1;
+	int16_t x2;
+	int16_t y1;
+	int16_t y2;
+	bool layerDrawable[4];
+	bool objDrawable;
+	bool blendable;
 };
 
 union SpriteAttribute
@@ -64,13 +67,6 @@ union OAMEntry
 		unsigned priority : 2;
 		unsigned paletteNumber : 4;
 	};
-};
-
-struct PointRenderableInfo	//used for seeing if point should be renderable/blendable (e.g. because it lies in/out a window, or if no windows are active)
-{
-	bool layerDrawable[4];
-	bool objDrawable;
-	bool blendable;
 };
 
 enum class PPUState
@@ -115,7 +111,7 @@ private:
 	int m_spriteCyclesElapsed = 0;		//checks how many cycles have elapsed since sprite rendering started, to enforce the max allowed cycles for sprite pre-rendering
 
 	BG m_backgroundLayers[4];
-	Window m_windows[2];
+	Window m_windows[3];
 
 	PPUState m_state = {};
 
@@ -164,7 +160,7 @@ private:
 
 	uint32_t col16to32(uint16_t col);
 
-	PointRenderableInfo getPointDrawable(int x, int y);
+	Window getWindowAttributes(int x, int y);
 
 	void latchBackgroundEnableBits();
 

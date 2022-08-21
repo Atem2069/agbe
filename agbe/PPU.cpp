@@ -11,7 +11,7 @@ PPU::PPU(std::shared_ptr<InterruptManager> interruptManager, std::shared_ptr<Sch
 	for (int i = 0; i < 4; i++)			//initially clear all fields in bg layer structs
 		m_backgroundLayers[i] = {};
 
-	m_windows[0] = {}; m_windows[1] = {};
+	m_windows[0] = {}; m_windows[1] = {}; m_windows[2] = {};
 
 	m_state = PPUState::HDraw;
 	m_scheduler->addEvent(Event::PPU, &PPU::onSchedulerEvent, (void*)this, 1006);	//start of first hblank
@@ -395,7 +395,7 @@ void PPU::composeLayers()
 			continue;
 		}
 
-		PointRenderableInfo pointInfo = getPointDrawable(x, VCOUNT);
+		Window pointInfo = getWindowAttributes(x, VCOUNT);
 
 		uint16_t finalCol = backDrop;
 		bool transparentSpriteTop = false;
@@ -1112,58 +1112,55 @@ uint32_t PPU::col16to32(uint16_t col)
 
 }
 
-PointRenderableInfo PPU::getPointDrawable(int x, int y)
+Window PPU::getWindowAttributes(int x, int y)
 {
-	PointRenderableInfo info = {};
+	//todo fix
+	Window activeWindow = {};
 	bool window0Enabled = ((DISPCNT >> 13) & 0b1);
 	bool window1Enabled = ((DISPCNT >> 14) & 0b1);
 	bool objWindowEnabled = ((DISPCNT >> 15) & 0b1) && ((DISPCNT >> 12) & 0b1);
 	if (!(window0Enabled || window1Enabled || objWindowEnabled))		//drawable if neither window enabled
-		return { {true,true,true,true},true,true };
-	//todo: obj window
-	//also todo: window priority. win0 has higher priority than win1, win1 has higher priority than obj window
-	if (window0Enabled)
 	{
-		bool inWindow = (x >= m_windows[0].x1 && x <= m_windows[0].x2 && y >= m_windows[0].y1 && y <= m_windows[0].y2);
+		activeWindow.blendable = true;
+		activeWindow.objDrawable = true;
+		activeWindow.layerDrawable[0] = true; activeWindow.layerDrawable[1] = true;
+		activeWindow.layerDrawable[2] = true; activeWindow.layerDrawable[3] = true;
+		return activeWindow;
+	}
+
+	//todo: this can be cleared up some more (specifically window 0/1);
+	bool inWindow = false;
+	int enabledWindowIdx = -1;
+	if (objWindowEnabled)
+	{
+		inWindow = m_spriteAttrBuffer[x].objWindow;
 		if (inWindow)
-		{
-			info.objDrawable = ((WININ >> 4) & 0b1);
-			for(int i = 0; i < 4; i++)
-				info.layerDrawable[i] = ((WININ >> i) & 0b1);
-			info.blendable = ((WININ >> 5) & 0b1);
-			return info;
-		}
+			enabledWindowIdx = 2;
 	}
 	if (window1Enabled)
 	{
-		bool inWindow = (x >= m_windows[1].x1 && x <= m_windows[1].x2 && y >= m_windows[1].y1 && y <= m_windows[1].y2);
+		inWindow = (x >= m_windows[1].x1 && x <= m_windows[1].x2 && y >= m_windows[1].y1 && y <= m_windows[1].y2);
 		if (inWindow)
-		{
-			info.objDrawable = ((WININ >> 12) & 0b1);
-			for(int i = 0; i < 4; i++)
-				info.layerDrawable[i] = ((WININ >> (i + 8)) & 0b1);
-			info.blendable = ((WININ >> 13) & 0b1);
-			return info;
-		}
+			enabledWindowIdx = 1;
 	}
-	if (objWindowEnabled)
+	if (window0Enabled)
 	{
-		bool pointInWindow = m_spriteAttrBuffer[x].objWindow;	//<--why does vs care about this line? x can never be above 239.
-		if (pointInWindow)
-		{
-			info.objDrawable = ((WINOUT >> 12) & 0b1);
-			for (int i = 0; i < 4; i++)
-				info.layerDrawable[i] = ((WINOUT >> (i + 8)) & 0b1);
-			info.blendable = ((WINOUT >> 13) & 0b1);
-			return info;
-		}
+		inWindow = (x >= m_windows[0].x1 && x <= m_windows[0].x2 && y >= m_windows[0].y1 && y <= m_windows[0].y2);
+		if (inWindow)
+			enabledWindowIdx = 0;
 	}
 
-	info.objDrawable = ((WINOUT >> 4) & 0b1);
-	for (int i = 0; i < 4; i++)
-		info.layerDrawable[i] = ((WINOUT >> i) & 0b1);
-	info.blendable = ((WINOUT >> 5) & 0b1);
-	return info;
+	if (enabledWindowIdx >= 0)
+		return m_windows[enabledWindowIdx];
+	else
+	{
+		//todo: specific window layer just for any point outside of a window?
+		activeWindow.objDrawable = ((WINOUT >> 4) & 0b1);
+		for (int i = 0; i < 4; i++)
+			activeWindow.layerDrawable[i] = ((WINOUT >> i) & 0b1);
+		activeWindow.blendable = ((WINOUT >> 5) & 0b1);
+		return activeWindow; 
+	}
 }
 
 void PPU::latchBackgroundEnableBits()
@@ -1402,15 +1399,27 @@ void PPU::writeIO(uint32_t address, uint8_t value)
 		break;
 	case 0x04000048:
 		WININ &= 0xFF00; WININ |= value;
+		for (int i = 0; i < 4; i++)
+			m_windows[0].layerDrawable[i] = (WININ >> i) & 0b1;
+		m_windows[0].objDrawable = (WININ >> 4) & 0b1;
+		m_windows[0].blendable = (WININ >> 5) & 0b1;
 		break;
 	case 0x04000049:
 		WININ &= 0xFF; WININ |= (value << 8);
+		for (int i = 0; i < 4; i++)
+			m_windows[1].layerDrawable[i] = (WININ >> (8 + i)) & 0b1;
+		m_windows[1].objDrawable = (WININ >> 12) & 0b1;
+		m_windows[1].blendable = (WININ >> 13) & 0b1;
 		break;
 	case 0x0400004A:
 		WINOUT &= 0xFF00; WINOUT |= value;
 		break;
 	case 0x0400004B:
 		WINOUT &= 0xFF; WINOUT |= (value << 8);
+		for (int i = 0; i < 4; i++)
+			m_windows[2].layerDrawable[i] = (WINOUT >> (8 + i)) & 0b1;
+		m_windows[2].objDrawable = (WINOUT >> 12) & 0b1;
+		m_windows[2].blendable = (WINOUT >> 13) & 0b1;
 		break;
 	case 0x04000020:
 		BG2PA &= 0xFF00; BG2PA |= value;
