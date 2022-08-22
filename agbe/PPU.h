@@ -111,7 +111,7 @@ private:
 	int m_spriteCyclesElapsed = 0;		//checks how many cycles have elapsed since sprite rendering started, to enforce the max allowed cycles for sprite pre-rendering
 
 	BG m_backgroundLayers[4];
-	Window m_windows[3];
+	Window m_windows[4];
 
 	PPUState m_state = {};
 

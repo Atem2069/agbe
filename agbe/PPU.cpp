@@ -9,9 +9,11 @@ PPU::PPU(std::shared_ptr<InterruptManager> interruptManager, std::shared_ptr<Sch
 	clearDisplayBuffers();
 
 	for (int i = 0; i < 4; i++)			//initially clear all fields in bg layer structs
+	{
+		m_windows[i] = {};
 		m_backgroundLayers[i] = {};
+	}
 
-	m_windows[0] = {}; m_windows[1] = {}; m_windows[2] = {};
 
 	m_state = PPUState::HDraw;
 	m_scheduler->addEvent(Event::PPU, &PPU::onSchedulerEvent, (void*)this, 1006);	//start of first hblank
@@ -1114,7 +1116,6 @@ uint32_t PPU::col16to32(uint16_t col)
 
 Window PPU::getWindowAttributes(int x, int y)
 {
-	//todo fix
 	Window activeWindow = {};
 	bool window0Enabled = ((DISPCNT >> 13) & 0b1);
 	bool window1Enabled = ((DISPCNT >> 14) & 0b1);
@@ -1127,40 +1128,17 @@ Window PPU::getWindowAttributes(int x, int y)
 		activeWindow.layerDrawable[2] = true; activeWindow.layerDrawable[3] = true;
 		return activeWindow;
 	}
+	
+	//check whether point is in each window. window 0 > window 1 > obj window.
+	if (window0Enabled && (x >= m_windows[0].x1 && x <= m_windows[0].x2 && y >= m_windows[0].y1 && y <= m_windows[0].y2))
+		return m_windows[0];
+	if (window1Enabled && (x >= m_windows[1].x1 && x <= m_windows[1].x2 && y >= m_windows[1].y1 && y <= m_windows[1].y2))
+		return m_windows[1];
+	if (objWindowEnabled && m_spriteAttrBuffer[x].objWindow)
+		return m_windows[2];
 
-	//todo: this can be cleared up some more (specifically window 0/1);
-	bool inWindow = false;
-	int enabledWindowIdx = -1;
-	if (objWindowEnabled)
-	{
-		inWindow = m_spriteAttrBuffer[x].objWindow;
-		if (inWindow)
-			enabledWindowIdx = 2;
-	}
-	if (window1Enabled)
-	{
-		inWindow = (x >= m_windows[1].x1 && x <= m_windows[1].x2 && y >= m_windows[1].y1 && y <= m_windows[1].y2);
-		if (inWindow)
-			enabledWindowIdx = 1;
-	}
-	if (window0Enabled)
-	{
-		inWindow = (x >= m_windows[0].x1 && x <= m_windows[0].x2 && y >= m_windows[0].y1 && y <= m_windows[0].y2);
-		if (inWindow)
-			enabledWindowIdx = 0;
-	}
-
-	if (enabledWindowIdx >= 0)
-		return m_windows[enabledWindowIdx];
-	else
-	{
-		//todo: specific window layer just for any point outside of a window?
-		activeWindow.objDrawable = ((WINOUT >> 4) & 0b1);
-		for (int i = 0; i < 4; i++)
-			activeWindow.layerDrawable[i] = ((WINOUT >> i) & 0b1);
-		activeWindow.blendable = ((WINOUT >> 5) & 0b1);
-		return activeWindow; 
-	}
+	//if point not in any window 
+	return m_windows[3];
 }
 
 void PPU::latchBackgroundEnableBits()
@@ -1397,7 +1375,7 @@ void PPU::writeIO(uint32_t address, uint8_t value)
 	case 0x04000047:
 		m_windows[1].y1 = value;
 		break;
-	case 0x04000048:
+	case 0x04000048:												//WININ/WINOUT code could be rewritten to avoid this duplication stuff..
 		WININ &= 0xFF00; WININ |= value;
 		for (int i = 0; i < 4; i++)
 			m_windows[0].layerDrawable[i] = (WININ >> i) & 0b1;
@@ -1413,6 +1391,10 @@ void PPU::writeIO(uint32_t address, uint8_t value)
 		break;
 	case 0x0400004A:
 		WINOUT &= 0xFF00; WINOUT |= value;
+		for (int i = 0; i < 4; i++)
+			m_windows[3].layerDrawable[i] = (WINOUT >> i) & 0b1;
+		m_windows[3].objDrawable = (WINOUT >> 4) & 0b1;
+		m_windows[3].blendable = (WINOUT >> 5) & 0b1;
 		break;
 	case 0x0400004B:
 		WINOUT &= 0xFF; WINOUT |= (value << 8);
