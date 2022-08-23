@@ -39,8 +39,7 @@ void GBA::frameEventHandler()
 		}
 	}
 	m_lastTime = curTime;
-
-	memcpy(safe_dispBuffer, m_ppu->getDisplayBuffer(), 240 * 160 * sizeof(uint32_t));
+	m_ppu->updateDisplayOutput();	//maybe just move to vblank instead..
 	m_scheduler->addEvent(Event::Frame, &GBA::onEvent, (void*)this, m_scheduler->getEventTime() + 280896);
 
 	m_input->tick();
@@ -60,7 +59,7 @@ void GBA::notifyDetach()
 
 void* GBA::getPPUData()
 {
-	return safe_dispBuffer;
+	return PPU::m_safeDisplayBuffer;
 }
 
 void GBA::registerInput(std::shared_ptr<InputState> inp)

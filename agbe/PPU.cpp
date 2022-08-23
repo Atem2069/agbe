@@ -27,6 +27,12 @@ PPU::~PPU()
 void PPU::clearDisplayBuffers()
 {
 	memset(m_renderBuffer, 0, 240 * 160 * 8);
+	updateDisplayOutput();
+}
+
+void PPU::updateDisplayOutput()
+{
+	memcpy(m_safeDisplayBuffer, m_renderBuffer[!pageIdx], 240 * 160 * sizeof(uint32_t));
 }
 
 void PPU::registerMemory(std::shared_ptr<GBAMem> mem)
@@ -1160,11 +1166,6 @@ void PPU::latchBackgroundEnableBits()
 	}
 }
 
-uint32_t* PPU::getDisplayBuffer()
-{
-	return m_renderBuffer[!pageIdx];
-}
-
 void PPU::setVBlankFlag(bool value)
 {
 	if (value)
@@ -1586,3 +1587,5 @@ int PPU::getVCOUNT()
 {
 	return VCOUNT;
 }
+
+uint32_t PPU::m_safeDisplayBuffer[240 * 160] = {};

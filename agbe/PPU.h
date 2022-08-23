@@ -84,10 +84,9 @@ public:
 	~PPU();
 
 	void clearDisplayBuffers();
+	void updateDisplayOutput();
 
 	void registerMemory(std::shared_ptr<GBAMem> mem);
-
-	uint32_t* getDisplayBuffer();
 
 	uint8_t readIO(uint32_t address);
 	void writeIO(uint32_t address, uint8_t value);
@@ -97,7 +96,7 @@ public:
 	static void onHBlankIRQEvent(void* context);
 
 	int getVCOUNT();
-
+	static uint32_t m_safeDisplayBuffer[240 * 160];
 private:
 	bool registered = false;
 	std::shared_ptr<GBAMem> m_mem;
