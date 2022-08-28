@@ -21,6 +21,7 @@ struct DMAChannel
 	uint32_t destAddress;
 	uint32_t internalDest;
 	uint32_t internalSrc;
+	uint16_t internalWordCount;
 	uint16_t wordCount;
 	uint16_t control;
 	bool stalledLowerPriority;		//higher priority dma in progress so we're waiting for it to finish

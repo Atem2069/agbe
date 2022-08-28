@@ -69,6 +69,7 @@ void Bus::DMARegWrite(uint32_t address, uint8_t value)
 		{
 			m_dmaChannels[0].internalDest = m_dmaChannels[0].destAddress;
 			m_dmaChannels[0].internalSrc = m_dmaChannels[0].srcAddress;
+			m_dmaChannels[0].internalWordCount = m_dmaChannels[0].wordCount;
 		}
 		setByteInHalfword(&(m_dmaChannels[0].control), value, 1);
 		checkDMAChannel(0);
@@ -114,6 +115,7 @@ void Bus::DMARegWrite(uint32_t address, uint8_t value)
 		{
 			m_dmaChannels[1].internalDest = m_dmaChannels[1].destAddress;
 			m_dmaChannels[1].internalSrc = m_dmaChannels[1].srcAddress;
+			m_dmaChannels[1].internalWordCount = m_dmaChannels[1].wordCount;
 		}
 		setByteInHalfword(&(m_dmaChannels[1].control), value, 1);
 		checkDMAChannel(1);
@@ -160,6 +162,7 @@ void Bus::DMARegWrite(uint32_t address, uint8_t value)
 		{
 			m_dmaChannels[2].internalDest = m_dmaChannels[2].destAddress;
 			m_dmaChannels[2].internalSrc = m_dmaChannels[2].srcAddress;
+			m_dmaChannels[2].internalWordCount = m_dmaChannels[2].wordCount;
 		}
 		setByteInHalfword(&(m_dmaChannels[2].control), value, 1);
 		checkDMAChannel(2);
@@ -206,6 +209,7 @@ void Bus::DMARegWrite(uint32_t address, uint8_t value)
 		{
 			m_dmaChannels[3].internalDest = m_dmaChannels[3].destAddress;
 			m_dmaChannels[3].internalSrc = m_dmaChannels[3].srcAddress;
+			m_dmaChannels[3].internalWordCount = m_dmaChannels[3].wordCount;
 		}
 		setByteInHalfword(&(m_dmaChannels[3].control), value, 1);
 		checkDMAChannel(3);
@@ -271,7 +275,7 @@ void Bus::doDMATransfer(int channel)
 	uint32_t src = curChannel.internalSrc & srcAddrMask;
 	uint32_t dest = curChannel.internalDest & destAddrMask;
 
-	int numWords = curChannel.wordCount;
+	int numWords = curChannel.internalWordCount;
 	if (channel != 3)
 		numWords &= 0x3FFF;
 	if (numWords == 0)
@@ -377,7 +381,7 @@ void Bus::doDMATransfer(int channel)
 	}
 	m_dmaChannels[channel].internalSrc = src;
 	m_dmaChannels[channel].internalDest = dest;
-	m_dmaChannels[channel].wordCount = 0;
+	m_dmaChannels[channel].internalWordCount = 0;
 
 	if (((curChannel.control >> 14) & 0b1))
 	{
@@ -391,7 +395,7 @@ void Bus::doDMATransfer(int channel)
 		if (reloadDest)
 			m_dmaChannels[channel].internalDest = m_dmaChannels[channel].destAddress;
 		m_dmaChannels[channel].internalSrc = src;
-		m_dmaChannels[channel].wordCount = numWords;
+		m_dmaChannels[channel].internalWordCount = numWords;
 	}
 	else
 		m_dmaChannels[channel].control &= 0x7FFF;	//clear DMA enable
