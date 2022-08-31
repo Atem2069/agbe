@@ -18,6 +18,7 @@ Display::Display(int scaleFactor)
 	}
 
 	glfwMakeContextCurrent(m_window);
+	glfwSetFramebufferSizeCallback(m_window, Display::onFramebufferResize);
 
 	if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
 	{
@@ -142,4 +143,10 @@ bool Display::getPressed(unsigned int key)
 void Display::registerDragDropCallback(GLFWdropfun callbackFn)
 {
 	glfwSetDropCallback(m_window, callbackFn);
+}
+
+void Display::onFramebufferResize(GLFWwindow* window, int width, int height)
+{
+	//todo: maybe have ortho projection or something for rendering textured quad so we can preserve aspect ratio when resizing?
+	glViewport(0, 0, width, height);
 }

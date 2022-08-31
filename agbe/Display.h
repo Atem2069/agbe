@@ -42,6 +42,7 @@ public:
 	bool getPressed(unsigned int key);
 	void registerDragDropCallback(GLFWdropfun callbackFn);
 private:
+	static void onFramebufferResize(GLFWwindow* window, int width, int height);
 	GLFWwindow* m_window;
 
 	GLuint m_VBO = 0, m_VAO = 0, m_program = 0;
