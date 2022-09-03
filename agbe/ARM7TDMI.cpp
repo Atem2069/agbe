@@ -5,8 +5,8 @@ ARM7TDMI::ARM7TDMI(std::shared_ptr<Bus> bus, std::shared_ptr<InterruptManager> i
 	m_bus = bus;
 	m_interruptManager = interruptManager;
 	m_scheduler = scheduler;
-	CPSR = 0x1F;	
-	m_lastCheckModeBits = 0x1F;	
+	CPSR = 0x13;				//starts in svc mode upon boot?
+	m_lastCheckModeBits = 0x13;
 	for (int i = 0; i < 16; i++)
 		R[i] = 0;
 
