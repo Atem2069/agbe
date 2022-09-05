@@ -66,9 +66,6 @@ private:
 
 	uint32_t m_currentOpcode = 0;
 
-	//checking conditions for ARM opcodes
-	bool checkConditions(uint8_t code);
-
 	//misc flag stuff
 	bool m_getNegativeFlag();
 	bool m_getZeroFlag();
@@ -236,4 +233,39 @@ private:
 
 	static consteval std::array<instructionFn, 4096> genARMTable();
 	static consteval std::array<instructionFn, 1024> genThumbTable();
+
+	//messy.. generates 16x16 LUT covering all combinations of CPSR flags and condition codes (reduces extra call at runtime)
+	static consteval std::array<std::array<bool, 16>, 16> genConditionCodeTable()
+	{
+		std::array<std::array<bool, 16>, 16> conditionCodeLUT;
+		for (int i = 0; i < 16; i++)		//going through all possible CPSR condition combinations
+		{
+			//extract flags 
+			bool N = (i >> 3) & 0b1;
+			bool Z = (i >> 2) & 0b1;
+			bool C = (i >> 1) & 0b1;
+			bool V = i & 0b1;
+
+			//set flags for all 16 possible condition codes
+			conditionCodeLUT[i][0] = Z;
+			conditionCodeLUT[i][1] = !Z;
+			conditionCodeLUT[i][2] = C;
+			conditionCodeLUT[i][3] = !C;
+			conditionCodeLUT[i][4] = N;
+			conditionCodeLUT[i][5] = !N;
+			conditionCodeLUT[i][6] = V;
+			conditionCodeLUT[i][7] = !V;
+			conditionCodeLUT[i][8] = (C && !Z);
+			conditionCodeLUT[i][9] = (!C || Z);
+			conditionCodeLUT[i][10] = (N == V);
+			conditionCodeLUT[i][11] = (N != V);
+			conditionCodeLUT[i][12] = (!Z) && (N == V);
+			conditionCodeLUT[i][13] = Z || (N != V);
+			conditionCodeLUT[i][14] = true;
+			conditionCodeLUT[i][15] = true;	//think this should be right
+
+		}
+
+		return conditionCodeLUT;
+	}
 };

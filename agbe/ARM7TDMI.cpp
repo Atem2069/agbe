@@ -104,7 +104,8 @@ void ARM7TDMI::execute()
 
 	//check conditions before executing
 	uint8_t conditionCode = ((m_currentOpcode >> 28) & 0xF);
-	if (!checkConditions(conditionCode))
+	static constexpr auto conditionLUT = genConditionCodeTable();
+	if (!conditionLUT[(CPSR>>28)&0xF][conditionCode]) [[unlikely]]
 	{
 		m_scheduler->addCycles(1);
 		return;
@@ -177,31 +178,6 @@ void ARM7TDMI::refillPipeline()
 	m_pipelinePtr = 2;
 
 	m_scheduler->tick();
-}
-
-bool ARM7TDMI::checkConditions(uint8_t code)
-{
-	uint8_t opFlags = code; 
-	switch (opFlags)
-	{
-	case 0: return m_getZeroFlag();
-	case 1: return !m_getZeroFlag();
-	case 2: return m_getCarryFlag();
-	case 3: return !m_getCarryFlag();
-	case 4: return m_getNegativeFlag();
-	case 5: return !m_getNegativeFlag();
-	case 6: return m_getOverflowFlag();
-	case 7: return !m_getOverflowFlag();
-	case 8: return (m_getCarryFlag() && !m_getZeroFlag());
-	case 9: return ((!m_getCarryFlag()) || m_getZeroFlag());
-	case 10: return ((m_getNegativeFlag() && m_getOverflowFlag()) || (!m_getNegativeFlag() && !m_getOverflowFlag()));
-	case 11: return (m_getNegativeFlag() != m_getOverflowFlag());
-	case 12: return !m_getZeroFlag() && (m_getNegativeFlag() == m_getOverflowFlag());
-	case 13: return m_getZeroFlag() || (m_getNegativeFlag() != m_getOverflowFlag());
-	case 14: return true;
-	case 15: Logger::getInstance()->msg(LoggerSeverity::Error, "Invalid condition code 1111 !!!!"); break;
-	}
-	return true;
 }
 
 //misc flag stuff

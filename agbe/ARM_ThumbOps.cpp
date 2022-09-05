@@ -670,7 +670,8 @@ void ARM7TDMI::Thumb_ConditionalBranch()
 	uint8_t condition = ((m_currentOpcode >> 8) & 0xF);
 	if (condition == 14 || condition == 15)
 		Logger::getInstance()->msg(LoggerSeverity::Error, "Invalid condition code - opcode decoding is likely wrong!!");
-	if (!checkConditions(condition))
+	static constexpr auto conditionTable = genConditionCodeTable();
+	if (!conditionTable[(CPSR>>28)&0xF][condition])
 	{
 		m_scheduler->addCycles(1);
 		return;
