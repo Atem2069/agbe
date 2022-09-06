@@ -105,7 +105,8 @@ void ARM7TDMI::execute()
 	//check conditions before executing
 	uint8_t conditionCode = ((m_currentOpcode >> 28) & 0xF);
 	static constexpr auto conditionLUT = genConditionCodeTable();
-	if (!conditionLUT[(CPSR>>28)&0xF][conditionCode]) [[unlikely]]
+	bool conditionMet = (conditionLUT[(CPSR >> 28) & 0xF] >> conditionCode) & 0b1;
+	if (!conditionMet) [[unlikely]]
 	{
 		m_scheduler->addCycles(1);
 		return;

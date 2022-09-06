@@ -235,9 +235,9 @@ private:
 	static consteval std::array<instructionFn, 1024> genThumbTable();
 
 	//messy.. generates 16x16 LUT covering all combinations of CPSR flags and condition codes (reduces extra call at runtime)
-	static consteval std::array<std::array<bool, 16>, 16> genConditionCodeTable()
+	static consteval std::array<uint16_t, 16> genConditionCodeTable()
 	{
-		std::array<std::array<bool, 16>, 16> conditionCodeLUT;
+		std::array<uint16_t, 16> conditionCodeLUT;
 		for (int i = 0; i < 16; i++)		//going through all possible CPSR condition combinations
 		{
 			//extract flags 
@@ -247,22 +247,22 @@ private:
 			bool V = i & 0b1;
 
 			//set flags for all 16 possible condition codes
-			conditionCodeLUT[i][0] = Z;
-			conditionCodeLUT[i][1] = !Z;
-			conditionCodeLUT[i][2] = C;
-			conditionCodeLUT[i][3] = !C;
-			conditionCodeLUT[i][4] = N;
-			conditionCodeLUT[i][5] = !N;
-			conditionCodeLUT[i][6] = V;
-			conditionCodeLUT[i][7] = !V;
-			conditionCodeLUT[i][8] = (C && !Z);
-			conditionCodeLUT[i][9] = (!C || Z);
-			conditionCodeLUT[i][10] = (N == V);
-			conditionCodeLUT[i][11] = (N != V);
-			conditionCodeLUT[i][12] = (!Z) && (N == V);
-			conditionCodeLUT[i][13] = Z || (N != V);
-			conditionCodeLUT[i][14] = true;
-			conditionCodeLUT[i][15] = true;	//think this should be right
+			conditionCodeLUT[i] = Z;
+			conditionCodeLUT[i] |= (!Z) << 1;
+			conditionCodeLUT[i] |= (C) << 2;
+			conditionCodeLUT[i] |= (!C) << 3;
+			conditionCodeLUT[i] |= (N) << 4;
+			conditionCodeLUT[i] |= (!N) << 5;
+			conditionCodeLUT[i] |= (V) <<  6;
+			conditionCodeLUT[i] |= (!V) << 7;
+			conditionCodeLUT[i] |= (C && !Z) << 8;
+			conditionCodeLUT[i] |= (!C || Z) << 9;
+			conditionCodeLUT[i] |= (N == V) << 10;
+			conditionCodeLUT[i] |= (N != V) << 11;
+			conditionCodeLUT[i] |= ((!Z) && (N == V)) << 12;
+			conditionCodeLUT[i] |= (Z || (N != V)) << 13;
+			conditionCodeLUT[i] |= (1 << 14);
+			conditionCodeLUT[i] |= (1 << 15);	//think this should be right
 
 		}
 
