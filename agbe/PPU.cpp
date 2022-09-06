@@ -1135,9 +1135,9 @@ Window PPU::getWindowAttributes(int x, int y)
 		return activeWindow;
 	}
 	
-	if (window0Enabled && (x >= m_windows[0].x1 && (x <= m_windows[0].x2 || m_windows[0].x1 > m_windows[0].x2)) && (y >= m_windows[0].y1 && (y <= m_windows[0].y2 || m_windows[0].y1 > m_windows[0].y2)))
+	if (window0Enabled && (x >= m_windows[0].x1 && (x < m_windows[0].x2 || m_windows[0].x1 > m_windows[0].x2)) && (y >= m_windows[0].y1 && (y < m_windows[0].y2 || m_windows[0].y1 > m_windows[0].y2)))
 		return m_windows[0];
-	if (window1Enabled && (x >= m_windows[1].x1 && (x <= m_windows[1].x2 || m_windows[1].x1 > m_windows[1].x2)) && (y >= m_windows[1].y1 && (y <= m_windows[1].y2 || m_windows[1].y1 > m_windows[1].y2)))
+	if (window1Enabled && (x >= m_windows[1].x1 && (x < m_windows[1].x2 || m_windows[1].x1 > m_windows[1].x2)) && (y >= m_windows[1].y1 && (y < m_windows[1].y2 || m_windows[1].y1 > m_windows[1].y2)))
 		return m_windows[1];
 	if (objWindowEnabled && m_spriteAttrBuffer[x].objWindow)
 		return m_windows[2];
@@ -1352,25 +1352,25 @@ void PPU::writeIO(uint32_t address, uint8_t value)
 		BG3VOFS &= 0xFF; BG3VOFS |= (((value&0b1) << 8));
 		break;
 	case 0x04000040:
-		m_windows[0].x2 = min(239,max(0,value - 1));
+		m_windows[0].x2 = min(240,value);
 		break;
 	case 0x04000041:
 		m_windows[0].x1 = value;
 		break;
 	case 0x04000042:
-		m_windows[1].x2 = min(239, max(0,value - 1));
+		m_windows[1].x2 = min(240, value);
 		break;
 	case 0x04000043:
 		m_windows[1].x1 = value;
 		break;
 	case 0x04000044:
-		m_windows[0].y2 = min(159,max(0,value - 1));
+		m_windows[0].y2 = min(160,value);
 		break;
 	case 0x04000045:
 		m_windows[0].y1 = value;
 		break;
 	case 0x04000046:
-		m_windows[1].y2 = min(159,max(0,value - 1));
+		m_windows[1].y2 = min(160,value);
 		break;
 	case 0x04000047:
 		m_windows[1].y1 = value;
