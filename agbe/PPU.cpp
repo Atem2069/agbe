@@ -1135,10 +1135,12 @@ Window PPU::getWindowAttributes(int x, int y)
 		return activeWindow;
 	}
 	
-	if (window0Enabled && (x >= m_windows[0].x1 && (x < m_windows[0].x2 || m_windows[0].x1 > m_windows[0].x2)) && (y >= m_windows[0].y1 && (y < m_windows[0].y2 || m_windows[0].y1 > m_windows[0].y2)))
-		return m_windows[0];
-	if (window1Enabled && (x >= m_windows[1].x1 && (x < m_windows[1].x2 || m_windows[1].x1 > m_windows[1].x2)) && (y >= m_windows[1].y1 && (y < m_windows[1].y2 || m_windows[1].y1 > m_windows[1].y2)))
-		return m_windows[1];
+	//todo: handling garbage window y coords isn't completely correct. should fix !!
+	for (int i = 0; i < 2; i++)
+	{
+		if (((DISPCNT >> (13 + i)) & 0b1) && (x >= m_windows[i].x1 && (x < m_windows[i].x2 || m_windows[i].x1 > m_windows[i].x2)) && (y >= m_windows[i].y1 && (y < m_windows[i].y2 || m_windows[i].y1 > m_windows[i].y2)))
+			return m_windows[i];
+	}
 	if (objWindowEnabled && m_spriteAttrBuffer[x].objWindow)
 		return m_windows[2];
 
@@ -1364,13 +1366,13 @@ void PPU::writeIO(uint32_t address, uint8_t value)
 		m_windows[1].x1 = value;
 		break;
 	case 0x04000044:
-		m_windows[0].y2 = min(160,value);
+		m_windows[0].y2 = value;
 		break;
 	case 0x04000045:
 		m_windows[0].y1 = value;
 		break;
 	case 0x04000046:
-		m_windows[1].y2 = min(160,value);
+		m_windows[1].y2 = value;
 		break;
 	case 0x04000047:
 		m_windows[1].y1 = value;
