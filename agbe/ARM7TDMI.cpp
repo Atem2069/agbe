@@ -64,7 +64,19 @@ void ARM7TDMI::step()
 	fetch();
 	if (dispatchInterrupt())	//if interrupt was dispatched then fetch new opcode (dispatchInterrupt already flushes pipeline !)
 		return;
-	execute();	//no decode stage because it's inherent to 'execute' - we accommodate for the decode stage's effect anyway
+	
+	int exPipelinePtr = m_pipelinePtr + 1;
+	if (exPipelinePtr == 3)			//seems faster than using modulus
+		exPipelinePtr = 0;
+	m_currentOpcode = m_pipeline[exPipelinePtr].opcode;
+	switch (m_inThumbMode)
+	{
+	case 0:
+		executeARM(); break;
+	case 1:
+		executeThumb(); break;
+	}
+
 	if (m_pipelineFlushed)
 	{
 		refillPipeline();
@@ -72,7 +84,7 @@ void ARM7TDMI::step()
 	}
 
 	R[15] += incrAmountLUT[m_inThumbMode];
-	m_pipelinePtr = ((m_pipelinePtr + 1) % 3);
+	m_pipelinePtr = exPipelinePtr;
 	m_pipelineFlushed = false;
 	m_scheduler->tick();
 }
@@ -89,37 +101,27 @@ void ARM7TDMI::fetch()
 	nextFetchNonsequential = false;
 }
 
-void ARM7TDMI::execute()
+void ARM7TDMI::executeARM()
 {
-	int curPipelinePtr = (m_pipelinePtr + 1) % 3;	//+1 so when it wraps it's actually 2 behind the current fetch. e.g. cur fetch = 2, then cur execute = 0 (2 behind)
 	pipelineFull = true;
-	//NOTE: PC is 8 bytes ahead of opcode being executed
-
-	m_currentOpcode = m_pipeline[curPipelinePtr].opcode;
-	if (m_inThumbMode)	//thumb mode? pass over to different function to decode
-	{
-		executeThumb();
-		return;
-	}
-
 	//check conditions before executing
 	uint8_t conditionCode = ((m_currentOpcode >> 28) & 0xF);
 	static constexpr auto conditionLUT = genConditionCodeTable();
 	bool conditionMet = (conditionLUT[(CPSR >> 28) & 0xF] >> conditionCode) & 0b1;
-	if (!conditionMet) [[unlikely]]
+	if (conditionMet) [[likely]]
 	{
-		m_scheduler->addCycles(1);
-		return;
+		static constexpr auto armTable = genARMTable();
+		uint32_t lookup = ((m_currentOpcode & 0x0FF00000) >> 16) | ((m_currentOpcode & 0xF0) >> 4);	//bits 20-27 shifted down to bits 4-11. bits 4-7 shifted down to bits 0-4
+		instructionFn instr = armTable[lookup];
+		(this->*instr)();
 	}
-
-	static constexpr auto armTable = genARMTable();
-	uint32_t lookup = ((m_currentOpcode & 0x0FF00000) >> 16) | ((m_currentOpcode & 0xF0) >> 4);	//bits 20-27 shifted down to bits 4-11. bits 4-7 shifted down to bits 0-4
-	instructionFn instr = armTable[lookup];
-	(this->*instr)();
+	else
+		m_scheduler->addCycles(1);		//condition not met: 1seq/nonseq just for the instruction fetch probs.
 }
 
 void ARM7TDMI::executeThumb()
 {
+	pipelineFull = true;
 	static constexpr auto thumbTable = genThumbTable();
 	uint16_t lookup = m_currentOpcode >> 6;
 	instructionFn instr = thumbTable[lookup];

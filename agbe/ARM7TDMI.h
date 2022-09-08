@@ -56,10 +56,10 @@ private:
 	bool m_inThumbMode = false;
 
 	void fetch();
-	void execute();
 	void flushPipeline();
 	void refillPipeline();
 
+	void executeARM();
 	void executeThumb();
 
 	bool dispatchInterrupt();
