@@ -5,19 +5,19 @@
 
 enum class InterruptType	//todo: more interrupt sources!
 {
-	VBlank=0,
-	HBlank=1,
-	VCount=2,
-	Timer0=3,
-	Timer1=4,
-	Timer2=5,
-	Timer3=6,
-	Serial=7,
-	DMA0=8,
-	DMA1=9,
-	DMA2=10,
-	DMA3=11,
-	Keypad=12
+	VBlank=1,
+	HBlank=2,
+	VCount=4,
+	Timer0=8,
+	Timer1=16,
+	Timer2=32,
+	Timer3=64,
+	Serial=128,
+	DMA0=256,
+	DMA1=512,
+	DMA2=1024,
+	DMA3=2048,
+	Keypad=4096
 };
 
 class InterruptManager

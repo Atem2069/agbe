@@ -13,7 +13,7 @@ InterruptManager::~InterruptManager()
 
 void InterruptManager::requestInterrupt(InterruptType type)
 {
-	IF |= (1 << (int)type);
+	IF |= (uint16_t)type;
 	checkIRQs();
 }
 
