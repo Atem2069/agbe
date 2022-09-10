@@ -206,38 +206,34 @@ bool ARM7TDMI::m_getOverflowFlag()
 
 void ARM7TDMI::m_setNegativeFlag(bool value)
 {
-	uint32_t mask = (1 << 31);
+	constexpr uint32_t mask = (1 << 31);
+	CPSR &= ~(mask);
 	if (value)
 		CPSR |= mask;
-	else
-		CPSR &= (~mask);
 }
 
 void ARM7TDMI::m_setZeroFlag(bool value)
 {
-	uint32_t mask = (1 << 30);
+	constexpr uint32_t mask = (1 << 30);
+	CPSR &= ~(mask);
 	if (value)
 		CPSR |= mask;
-	else
-		CPSR &= (~mask);
 }
 
 void ARM7TDMI::m_setCarryFlag(bool value)
 {
-	uint32_t mask = (1 << 29);
+	constexpr uint32_t mask = (1 << 29);
+	CPSR &= ~(mask);
 	if (value)
 		CPSR |= mask;
-	else
-		CPSR &= (~mask);
 }
 
 void ARM7TDMI::m_setOverflowFlag(bool value)
 {
-	uint32_t mask = (1 << 28);
+	constexpr uint32_t mask = (1 << 28);
+	CPSR &= ~(mask);
 	if (value)
 		CPSR |= mask;
-	else
-		CPSR &= (~mask);
 }
 
 uint32_t ARM7TDMI::getReg(uint8_t reg)
