@@ -77,15 +77,14 @@ void ARM7TDMI::step()
 		executeThumb(); break;
 	}
 
-	if (m_pipelineFlushed)
+	if (!m_pipelineFlushed)
 	{
-		refillPipeline();
-		return;
+		R[15] += incrAmountLUT[m_inThumbMode];
+		m_pipelinePtr = exPipelinePtr;
+		m_pipelineFlushed = false;
 	}
-
-	R[15] += incrAmountLUT[m_inThumbMode];
-	m_pipelinePtr = exPipelinePtr;
-	m_pipelineFlushed = false;
+	else
+		refillPipeline();
 	m_scheduler->tick();
 }
 
