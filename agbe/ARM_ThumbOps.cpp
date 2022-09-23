@@ -9,7 +9,7 @@ void ARM7TDMI::Thumb_MoveShiftedRegister()
 	uint8_t srcRegIdx = ((m_currentOpcode >> 3) & 0b111);
 	uint8_t destRegIdx = m_currentOpcode & 0b111;
 
-	uint32_t srcVal = getReg(srcRegIdx);
+	uint32_t srcVal = R[srcRegIdx];
 	uint32_t result = 0;
 	int carry = -1;
 	switch (operation)
@@ -20,7 +20,7 @@ void ARM7TDMI::Thumb_MoveShiftedRegister()
 	}
 
 	setLogicalFlags(result, carry);
-	setReg(destRegIdx, result);
+	R[destRegIdx] = result;
 	m_scheduler->addCycles(1);	//not sure, but it is an 'alu op'
 }
 
@@ -31,7 +31,7 @@ void ARM7TDMI::Thumb_AddSubtract()
 	uint8_t op = ((m_currentOpcode >> 9) & 0b1);
 	bool immediate = ((m_currentOpcode >> 10) & 0b1);
 
-	uint32_t operand1 = getReg(srcRegIndex);
+	uint32_t operand1 = R[srcRegIndex];
 	uint32_t operand2 = 0;
 	uint32_t result = 0;
 
@@ -40,19 +40,19 @@ void ARM7TDMI::Thumb_AddSubtract()
 	else
 	{
 		uint8_t tmp = ((m_currentOpcode >> 6) & 0b111);
-		operand2 = getReg(tmp);
+		operand2 = R[tmp];
 	}
 
 	switch (op)
 	{
 	case 0:
 		result = operand1 + operand2;
-		setReg(destRegIndex, result);
+		R[destRegIndex] = result;
 		setArithmeticFlags(operand1, operand2, result, true);
 		break;
 	case 1:
 		result = operand1 - operand2;
-		setReg(destRegIndex, result);
+		R[destRegIndex] = result;
 		setArithmeticFlags(operand1, operand2, result, false);
 		break;
 	}
@@ -65,14 +65,14 @@ void ARM7TDMI::Thumb_MoveCompareAddSubtractImm()
 	uint8_t srcDestRegIdx = ((m_currentOpcode >> 8) & 0b111);
 	uint8_t operation = ((m_currentOpcode >> 11) & 0b11);
 
-	uint32_t operand1 = getReg(srcDestRegIdx);
+	uint32_t operand1 = R[srcDestRegIdx];
 	uint32_t result = 0;
 
 	switch (operation)
 	{
 	case 0:
 		result = offset;
-		setReg(srcDestRegIdx, result);
+		R[srcDestRegIdx] = result;
 		setLogicalFlags(result, -1);
 		break;
 	case 1:
@@ -81,12 +81,12 @@ void ARM7TDMI::Thumb_MoveCompareAddSubtractImm()
 		break;
 	case 2:
 		result = operand1 + offset;
-		setReg(srcDestRegIdx, result);
+		R[srcDestRegIdx] = result;
 		setArithmeticFlags(operand1, offset, result, true);
 		break;
 	case 3:
 		result = operand1 - offset;
-		setReg(srcDestRegIdx, result);
+		R[srcDestRegIdx] = result;
 		setArithmeticFlags(operand1, offset, result, false);
 		break;
 	}
@@ -99,8 +99,8 @@ void ARM7TDMI::Thumb_ALUOperations()
 	uint8_t op2RegIdx = ((m_currentOpcode >> 3) & 0b111);
 	uint8_t operation = ((m_currentOpcode >> 6) & 0xF);
 
-	uint32_t operand1 = getReg(srcDestRegIdx);
-	uint32_t operand2 = getReg(op2RegIdx);
+	uint32_t operand1 = R[srcDestRegIdx];
+	uint32_t operand2 = R[op2RegIdx];
 	uint32_t result = 0;
 
 	int tempCarry = -1;
@@ -110,12 +110,12 @@ void ARM7TDMI::Thumb_ALUOperations()
 	{
 	case 0:	//AND
 		result = operand1 & operand2;
-		setReg(srcDestRegIdx, result);
+		R[srcDestRegIdx] = result;
 		setLogicalFlags(result, -1);
 		break;
 	case 1:	//EOR
 		result = operand1 ^ operand2;
-		setReg(srcDestRegIdx, result);
+		R[srcDestRegIdx] = result;
 		setLogicalFlags(result, -1);
 		break;
 	case 2:	//LSL
@@ -123,7 +123,7 @@ void ARM7TDMI::Thumb_ALUOperations()
 			result = LSL(operand1, operand2, tempCarry);
 		else
 			result = operand1;
-		setReg(srcDestRegIdx, result);
+		R[srcDestRegIdx] = result;
 		setLogicalFlags(result, tempCarry);
 		break;
 	case 3:	//LSR
@@ -131,7 +131,7 @@ void ARM7TDMI::Thumb_ALUOperations()
 			result = LSR(operand1, operand2, tempCarry);
 		else
 			result = operand1;
-		setReg(srcDestRegIdx, result);
+		R[srcDestRegIdx] = result;
 		setLogicalFlags(result, tempCarry);
 		break;
 	case 4:	//ASR
@@ -139,17 +139,17 @@ void ARM7TDMI::Thumb_ALUOperations()
 			result = ASR(operand1, operand2, tempCarry);
 		else
 			result = operand1;
-		setReg(srcDestRegIdx, result);
+		R[srcDestRegIdx] = result;
 		setLogicalFlags(result, tempCarry);
 		break;
 	case 5:	//ADC
 		result = operand1 + operand2 + carryIn;
-		setReg(srcDestRegIdx, result);
+		R[srcDestRegIdx] = result;
 		setArithmeticFlags(operand1, operand2, result, true);
 		break;
 	case 6:	//SBC
 		result = operand1 - operand2 - (!carryIn);
-		setReg(srcDestRegIdx, result);
+		R[srcDestRegIdx] = result;
 		setArithmeticFlags(operand1, (uint64_t)operand2 + (uint64_t)(!carryIn), result, false);	//<--this is sussy...
 		break;
 	case 7:	//ROR
@@ -159,7 +159,7 @@ void ARM7TDMI::Thumb_ALUOperations()
 			result = ROR(operand1, operand2, tempCarry);
 		else
 			result = operand1;
-		setReg(srcDestRegIdx, result);
+		R[srcDestRegIdx] = result;
 		setLogicalFlags(result, tempCarry);
 		break;
 	case 8:	//TST
@@ -168,7 +168,7 @@ void ARM7TDMI::Thumb_ALUOperations()
 		break;
 	case 9:	//NEG
 		result = (~operand2) + 1;
-		setReg(srcDestRegIdx, result);
+		R[srcDestRegIdx] = result;
 		setArithmeticFlags(0, operand2, result, false);	//not sure about this
 		break;
 	case 10: //CMP
@@ -181,12 +181,12 @@ void ARM7TDMI::Thumb_ALUOperations()
 		break;
 	case 12: //ORR
 		result = operand1 | operand2;
-		setReg(srcDestRegIdx, result);
+		R[srcDestRegIdx] = result;
 		setLogicalFlags(result, -1);
 		break;
 	case 13: //MUL
 		result = operand1 * operand2;
-		setReg(srcDestRegIdx, result);
+		R[srcDestRegIdx] = result;
 		setLogicalFlags(result, -1);	//hmm...
 		m_scheduler->addCycles(calculateMultiplyCycles(operand1, true));
 		m_bus->tickPrefetcher(calculateMultiplyCycles(operand1, true));
@@ -194,12 +194,12 @@ void ARM7TDMI::Thumb_ALUOperations()
 		break;
 	case 14: //BIC
 		result = operand1 & (~operand2);
-		setReg(srcDestRegIdx, result);
+		R[srcDestRegIdx] = result;
 		setLogicalFlags(result, -1);
 		break;
 	case 15: //MVN
 		result = (~operand2);
-		setReg(srcDestRegIdx, result);
+		R[srcDestRegIdx] = result;
 		setLogicalFlags(result, -1);
 		break;
 	}
@@ -270,12 +270,12 @@ void ARM7TDMI::Thumb_HiRegisterOperations()
 void ARM7TDMI::Thumb_PCRelativeLoad()
 {
 	uint32_t offset = (m_currentOpcode & 0xFF) << 2;
-	uint32_t PC = getReg(15) & ~0b11;	//PC is force aligned to word boundary
+	uint32_t PC = R[15] & ~0b11;	//PC is force aligned to word boundary
 
 	uint8_t destRegIdx = ((m_currentOpcode >> 8) & 0b111);
 
 	uint32_t val = m_bus->read32(PC + offset, AccessType::Nonsequential);
-	setReg(destRegIdx, val);
+	R[destRegIdx] = val;
 	m_scheduler->addCycles(3);	//probs right? 
 	m_bus->tickPrefetcher(1);
 	nextFetchNonsequential = true;
@@ -289,22 +289,22 @@ void ARM7TDMI::Thumb_LoadStoreRegisterOffset()
 	uint8_t baseRegIdx = ((m_currentOpcode >> 3) & 0b111);
 	uint8_t srcDestRegIdx = m_currentOpcode & 0b111;
 
-	uint32_t base = getReg(baseRegIdx);
-	base += getReg(offsetRegIdx);
+	uint32_t base = R[baseRegIdx];
+	base += R[offsetRegIdx];
 
 	if (loadStore)	//load
 	{
 		if (byteWord)
 		{
 			uint32_t val = m_bus->read8(base, AccessType::Nonsequential);
-			setReg(srcDestRegIdx, val);
+			R[srcDestRegIdx] = val;
 		}
 		else
 		{
 			uint32_t val = m_bus->read32(base, AccessType::Nonsequential);
 			if (base & 3)
 				val = std::rotr(val, (base & 3) * 8);
-			setReg(srcDestRegIdx, val);
+			R[srcDestRegIdx] = val;
 		}
 		m_scheduler->addCycles(3);
 		m_bus->tickPrefetcher(1);
@@ -313,12 +313,12 @@ void ARM7TDMI::Thumb_LoadStoreRegisterOffset()
 	{
 		if (byteWord)
 		{
-			uint8_t val = getReg(srcDestRegIdx) & 0xFF;
+			uint8_t val = R[srcDestRegIdx] & 0xFF;
 			m_bus->write8(base, val, AccessType::Nonsequential);
 		}
 		else
 		{
-			uint32_t val = getReg(srcDestRegIdx);
+			uint32_t val = R[srcDestRegIdx];
 			m_bus->write32(base, val, AccessType::Nonsequential);
 		}
 		m_scheduler->addCycles(2);
@@ -333,12 +333,12 @@ void ARM7TDMI::Thumb_LoadStoreSignExtended()
 	uint8_t baseRegIdx = ((m_currentOpcode >> 3) & 0b111);
 	uint8_t srcDestRegIdx = m_currentOpcode & 0b111;
 
-	uint32_t addr = getReg(baseRegIdx) + getReg(offsetRegIdx);
+	uint32_t addr = R[baseRegIdx] + R[offsetRegIdx];
 
 
 	if (op == 0)
 	{
-		uint16_t val = getReg(srcDestRegIdx) & 0xFFFF;
+		uint16_t val = R[srcDestRegIdx] &0xFFFF;
 		m_bus->write16(addr, val, AccessType::Nonsequential);
 		m_scheduler->addCycles(2);
 	}
@@ -347,7 +347,7 @@ void ARM7TDMI::Thumb_LoadStoreSignExtended()
 		uint32_t val = m_bus->read16(addr, AccessType::Nonsequential);
 		if (addr & 0b1)
 			val = std::rotr(val, 8);
-		setReg(srcDestRegIdx, val);
+		R[srcDestRegIdx] = val;
 		m_scheduler->addCycles(3);
 		m_bus->tickPrefetcher(1);
 	}
@@ -356,7 +356,7 @@ void ARM7TDMI::Thumb_LoadStoreSignExtended()
 		uint32_t val = m_bus->read8(addr, AccessType::Nonsequential);
 		if (((val >> 7) & 0b1))
 			val |= 0xFFFFFF00;
-		setReg(srcDestRegIdx, val);
+		R[srcDestRegIdx] = val;
 		m_scheduler->addCycles(3);
 		m_bus->tickPrefetcher(1);
 	}
@@ -375,7 +375,7 @@ void ARM7TDMI::Thumb_LoadStoreSignExtended()
 			if (((val >> 7) & 0b1))
 				val |= 0xFFFFFF00;
 		}
-		setReg(srcDestRegIdx, val);
+		R[srcDestRegIdx] = val;
 		m_scheduler->addCycles(3);
 		m_bus->tickPrefetcher(1);
 	}
@@ -390,7 +390,7 @@ void ARM7TDMI::Thumb_LoadStoreImmediateOffset()
 	uint8_t baseRegIdx = ((m_currentOpcode >> 3) & 0b111);
 	uint8_t srcDestRegIdx = m_currentOpcode & 0b111;
 
-	uint32_t baseAddr = getReg(baseRegIdx);
+	uint32_t baseAddr = R[baseRegIdx];
 	if (!byteWord)		//if word, then it's a 7 bit address and word aligned so shl by 2
 		offset <<= 2;
 	baseAddr += offset;
@@ -406,13 +406,13 @@ void ARM7TDMI::Thumb_LoadStoreImmediateOffset()
 			if (baseAddr & 3)
 				val = std::rotr(val, (baseAddr & 3) * 8);
 		}
-		setReg(srcDestRegIdx, val);
+		R[srcDestRegIdx] = val;
 		m_scheduler->addCycles(3);
 		m_bus->tickPrefetcher(1);
 	}
 	else			//Store value to memory
 	{
-		uint32_t val = getReg(srcDestRegIdx);
+		uint32_t val = R[srcDestRegIdx];
 		if (byteWord)
 			m_bus->write8(baseAddr, val & 0xFF, AccessType::Nonsequential);
 		else
@@ -432,7 +432,7 @@ void ARM7TDMI::Thumb_LoadStoreHalfword()
 
 	offset <<= 1;	//6 bit address, might be sign extended? probs not
 
-	uint32_t base = getReg(baseRegIdx);
+	uint32_t base = R[baseRegIdx];
 	base += offset;
 
 	if (loadStore)
@@ -440,13 +440,13 @@ void ARM7TDMI::Thumb_LoadStoreHalfword()
 		uint32_t val = m_bus->read16(base, AccessType::Nonsequential);
 		if (base & 0b1)
 			val = std::rotr(val, 8);
-		setReg(srcDestRegIdx, val);
+		R[srcDestRegIdx] = val;
 		m_scheduler->addCycles(3);
 		m_bus->tickPrefetcher(1);
 	}
 	else
 	{
-		uint16_t val = getReg(srcDestRegIdx) & 0xFFFF;
+		uint16_t val = R[srcDestRegIdx] &0xFFFF;
 		m_bus->write16(base, val, AccessType::Nonsequential);
 		m_scheduler->addCycles(2);
 	}
@@ -467,13 +467,13 @@ void ARM7TDMI::Thumb_SPRelativeLoadStore()
 		uint32_t val = m_bus->read32(addr, AccessType::Nonsequential);
 		if (addr & 3)
 			val = std::rotr(val, (addr & 3) * 8);
-		setReg(destRegIdx, val);
+		R[destRegIdx] = val;
 		m_scheduler->addCycles(3);
 		m_bus->tickPrefetcher(1);
 	}
 	else
 	{
-		uint32_t val = getReg(destRegIdx);
+		uint32_t val = R[destRegIdx];
 		m_bus->write32(addr, val, AccessType::Nonsequential);
 		m_scheduler->addCycles(2);
 	}
@@ -492,13 +492,13 @@ void ARM7TDMI::Thumb_LoadAddress()
 	{
 		uint32_t SP = getReg(13);
 		SP += offset;
-		setReg(destRegIdx, SP);
+		R[destRegIdx] = SP;
 	}
 	else		//PC used as base
 	{
-		uint32_t PC = getReg(15) &~0b11;
+		uint32_t PC = R[15] & ~0b11;
 		PC += offset;
-		setReg(destRegIdx, PC);
+		R[destRegIdx] = PC;
 	}
 	m_scheduler->addCycles(1);	//probs right?
 }
@@ -520,7 +520,7 @@ void ARM7TDMI::Thumb_AddOffsetToStackPointer()
 void ARM7TDMI::Thumb_PushPopRegisters()
 {
 	bool loadStore = ((m_currentOpcode >> 11) & 0b1);
-	bool R = ((m_currentOpcode >> 8) & 0b1);	//couldnt think of good abbreviation :/
+	bool PCLR = ((m_currentOpcode >> 8) & 0b1);	//couldnt think of good abbreviation :/
 	uint32_t regs = m_currentOpcode & 0xFF;
 
 	uint32_t SP = getReg(13);
@@ -536,13 +536,13 @@ void ARM7TDMI::Thumb_PushPopRegisters()
 			{
 				transferCount++;
 				uint32_t popVal = m_bus->read32(SP,(AccessType)!firstTransfer);
-				setReg(i, popVal);
+				R[i] = popVal;
 				SP += 4;
 				firstTransfer = false;
 			}
 		}
 
-		if (R)
+		if (PCLR)
 		{
 			uint32_t newPC = m_bus->read32(SP,(AccessType)!firstTransfer);
 			setReg(15, newPC & ~0b1);
@@ -556,7 +556,7 @@ void ARM7TDMI::Thumb_PushPopRegisters()
 	else          //Store - i.e. push to stack
 	{
 
-		if (R)
+		if (PCLR)
 		{
 			SP -= 4;
 			m_bus->write32(SP, getReg(14), AccessType::Nonsequential);
@@ -570,7 +570,7 @@ void ARM7TDMI::Thumb_PushPopRegisters()
 			{
 				transferCount++;
 				SP -= 4;
-				m_bus->write32(SP, getReg(i),(AccessType)!firstTransfer);
+				m_bus->write32(SP, R[i], (AccessType)!firstTransfer);
 				firstTransfer = false;
 			}
 		}
@@ -602,7 +602,7 @@ void ARM7TDMI::Thumb_MultipleLoadStore()
 		}
 	}
 
-	uint32_t base = getReg(baseRegIdx);
+	uint32_t base = R[baseRegIdx];
 	uint32_t finalBase = base + (transferCount * 4);	//figure out final val of base address
 
 	bool firstAccess = true;
@@ -613,14 +613,14 @@ void ARM7TDMI::Thumb_MultipleLoadStore()
 			if (loadStore)
 			{
 				uint32_t val = m_bus->read32(base, (AccessType)!firstAccess);
-				setReg(i, val);
+				R[i] = val;
 				if (i == baseRegIdx)		//load with base included -> no writeback
 					writeback = false;
 			}
 
 			else
 			{
-				uint32_t val = getReg(i);
+				uint32_t val = R[i];
 				if (i == baseRegIdx && !baseIsFirst)
 					val = finalBase;
 				m_bus->write32(base, val, (AccessType)!firstAccess);
@@ -648,15 +648,15 @@ void ARM7TDMI::Thumb_MultipleLoadStore()
 		}
 		else
 		{
-			m_bus->write32(base, getReg(15)+2, AccessType::Nonsequential);	//+2 for pipeline effect
+			m_bus->write32(base, R[15] + 2, AccessType::Nonsequential);	//+2 for pipeline effect
 			m_scheduler->addCycles(2);
 		}
-		setReg(baseRegIdx, base + 0x40);
+		R[baseRegIdx] = base + 0x40;
 		writeback = false;
 	}
 
 	if (writeback)
-		setReg(baseRegIdx, finalBase);
+		R[baseRegIdx] = finalBase;
 	nextFetchNonsequential = true;
 }
 
@@ -678,7 +678,7 @@ void ARM7TDMI::Thumb_ConditionalBranch()
 		return;
 	}
 
-	setReg(15, getReg(15) + offset);
+	setReg(15, R[15] + offset);
 	m_scheduler->addCycles(3);
 }
 
@@ -688,7 +688,7 @@ void ARM7TDMI::Thumb_SoftwareInterrupt()
 	int swiId = m_currentOpcode & 0xFF;
 	//svc mode bits are 10011
 	uint32_t oldCPSR = CPSR;
-	uint32_t oldPC = getReg(15) - 2;	//-2 because it points to next instruction
+	uint32_t oldPC = R[15] - 2;	//-2 because it points to next instruction
 
 	CPSR &= 0xFFFFFFE0;	//clear mode bits (0-4)
 	CPSR &= ~0b100000;	//clear T bit
@@ -709,7 +709,7 @@ void ARM7TDMI::Thumb_UnconditionalBranch()
 	if (((offset >> 11) & 0b1))	//offset is two's complement so sign extend if necessary
 		offset |= 0xFFFFF000;
 
-	setReg(15, getReg(15) + offset);
+	setReg(15, R[15] + offset);
 	m_scheduler->addCycles(3);
 }
 
@@ -721,7 +721,7 @@ void ARM7TDMI::Thumb_LongBranchWithLink()
 	{
 		offset <<= 12;
 		if (offset & 0x400000) { offset |= 0xFF800000; }
-		uint32_t res = getReg(15) + offset;
+		uint32_t res = R[15] + offset;
 		setReg(14, res & ~0b1);
 		m_scheduler->addCycles(1);
 	}
@@ -730,7 +730,7 @@ void ARM7TDMI::Thumb_LongBranchWithLink()
 		offset <<= 1;
 		uint32_t LR = getReg(14);
 		LR += offset;
-		setReg(14, ((getReg(15) - 2) | 0b1));	//set LR to point to instruction after this one
+		setReg(14, ((R[15] - 2) | 0b1));	//set LR to point to instruction after this one
 		setReg(15, LR);				//set PC to old LR contents (plus the offset)
 		m_scheduler->addCycles(3);
 	}
