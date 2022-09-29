@@ -819,7 +819,7 @@ void Bus::haltSystem(bool stop)
 {
 	if (stop)	//TODO: research this on real hardware. (e.g. if IF gets set if KEYCNT.14 not enabled??)
 	{
-		m_ppu->clearDisplayBuffers();	//display disabled on real hardware, so set screen to all black
+		m_ppu->reset();	//display disabled on real hardware, so set screen to all black
 		Logger::getInstance()->msg(LoggerSeverity::Info, "STOP mode entered. ");
 		while (!m_input->getIRQConditionsMet() && !Config::GBA.shouldReset)	//<-- potentially game pak or SIO irq could exit stop
 			m_input->tick();												//but fwiw games only really use stop for 'sleep mode', exited thru the joypad

@@ -4,9 +4,7 @@ PPU::PPU(std::shared_ptr<InterruptManager> interruptManager, std::shared_ptr<Sch
 {
 	m_scheduler = scheduler;
 	m_interruptManager = interruptManager;
-	VCOUNT = 0;
-	inVBlank = false;
-	clearDisplayBuffers();
+	reset();
 
 	for (int i = 0; i < 4; i++)			//initially clear all fields in bg layer structs
 	{
@@ -14,9 +12,6 @@ PPU::PPU(std::shared_ptr<InterruptManager> interruptManager, std::shared_ptr<Sch
 		m_backgroundLayers[i] = {};
 	}
 
-
-	m_state = PPUState::HDraw;
-	m_scheduler->addEvent(Event::PPU, &PPU::onSchedulerEvent, (void*)this, 1006);	//start of first hblank
 }
 
 PPU::~PPU()
@@ -24,8 +19,14 @@ PPU::~PPU()
 
 }
 
-void PPU::clearDisplayBuffers()
+void PPU::reset()
 {
+	//reset ppu state, reschedule hdraw vcount=0
+	m_scheduler->removeEvent(Event::PPU);
+	m_scheduler->addEvent(Event::PPU, &PPU::onSchedulerEvent, (void*)this, m_scheduler->getCurrentTimestamp() + 1006);
+	VCOUNT = 0;
+	inVBlank = false;
+	m_state = PPUState::HDraw;
 	memset(m_renderBuffer, 0, 240 * 160 * 8);
 	updateDisplayOutput();
 }
