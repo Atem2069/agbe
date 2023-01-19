@@ -13,6 +13,8 @@ Bus::Bus(std::vector<uint8_t> BIOS, std::vector<uint8_t> cartData, std::shared_p
 	m_timer->registerAPUCallbacks((callbackFn)&APU::timer0Callback, (callbackFn)&APU::timer1Callback, (void*)m_apu.get());
 	m_apu->registerDMACallback((FIFOcallbackFn)&Bus::DMA_AudioFIFOCallback, (void*)this);
 	m_serial = std::make_shared<SerialStub>(m_scheduler, m_interruptManager);
+	m_rtc = std::make_shared<RTC>();
+
 	m_ppu->registerMemory(m_mem);
 	m_ppu->registerDMACallbacks(&Bus::DMA_HBlankCallback, &Bus::DMA_VBlankCallback, &Bus::DMA_VideoCaptureCallback, (void*)this);
 	if (BIOS.size() != 16384)
@@ -119,6 +121,8 @@ uint8_t Bus::read8(uint32_t address, AccessType accessType)
 			m_scheduler->addCycles(1);
 		prefetchShouldDelay = false;
 		invalidatePrefetchBuffer();
+		if (address >= 0x080000C4 && address <= 0x080000C9)
+			return m_rtc->read(address);
 		if ((address & romAddressMask) >= romSize)
 			return std::rotr((address / 2) & 0xFFFF, 8 * (address & 0b11));
 		return m_mem->ROM[address & romAddressMask];
@@ -248,6 +252,8 @@ uint16_t Bus::read16(uint32_t address, AccessType accessType)
 			invalidatePrefetchBuffer();
 			m_scheduler->addCycles(cartCycles);
 		}
+		if (address >= 0x080000C4 && address <= 0x080000C9)
+			return m_rtc->read(address);
 		if (page==0xD)
 		{
 			if(m_backupType == BackupType::EEPROM4K || m_backupType == BackupType::EEPROM64K)
@@ -325,6 +331,8 @@ void Bus::write16(uint32_t address, uint16_t value, AccessType accessType)
 			m_scheduler->addCycles(1);
 		prefetchShouldDelay = false;
 		invalidatePrefetchBuffer();
+		if (address >= 0x080000C4 && address <= 0x080000C9)
+			m_rtc->write16(address, value);
 		if (page==0xD && (m_backupType == BackupType::EEPROM4K || m_backupType == BackupType::EEPROM64K))
 		{
 			m_backupMemory->write(address, value);
@@ -399,6 +407,8 @@ uint32_t Bus::read32(uint32_t address, AccessType accessType)
 			prefetchShouldDelay = false;
 			invalidatePrefetchBuffer();
 		}
+		if (address >= 0x080000C4 && address <= 0x080000C9)
+			return m_rtc->read(address);
 		if ((address & romAddressMask) >= romSize)
 			return ((address / 2) & 0xFFFF) | (((address + 2) / 2) & 0xFFFF) << 16;
 		return getValue32(m_mem->ROM, address & romAddressMask, 0xFFFFFFFF);
@@ -472,6 +482,8 @@ void Bus::write32(uint32_t address, uint32_t value, AccessType accessType)
 			m_scheduler->addCycles(1);
 		prefetchShouldDelay = false;
 		invalidatePrefetchBuffer();
+		if (address >= 0x080000C4 && address <= 0x080000C9)
+			m_rtc->write32(address, value);
 		break;
 	case 0xE: case 0xF:
 		m_scheduler->addCycles(SRAMCycles);

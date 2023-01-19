@@ -12,6 +12,7 @@
 #include"Scheduler.h"
 #include"APU.h"
 #include"SerialStub.h"
+#include"GPIO_RTC.h"
 
 #include<iostream>
 
@@ -92,6 +93,7 @@ private:
 	std::shared_ptr<Timer> m_timer;
 	std::shared_ptr<APU> m_apu;
 	std::shared_ptr<SerialStub> m_serial;
+	std::shared_ptr<RTC> m_rtc;
 
 	std::shared_ptr<BackupBase> m_backupMemory;
 	BackupType m_backupType = BackupType::None;

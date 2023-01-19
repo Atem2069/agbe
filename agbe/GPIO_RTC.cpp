@@ -12,6 +12,7 @@ RTC::~RTC()
 
 uint8_t RTC::read(uint32_t address)
 {
+	Logger::getInstance()->msg(LoggerSeverity::Info, std::format("GPIO read addr={:#x}", address));
 	if (!readWriteMask)
 		return 0x0;
 
@@ -29,7 +30,7 @@ uint8_t RTC::read(uint32_t address)
 //according to gbatek: rom space writes can only be 16/32 bit..hmm
 void RTC::write16(uint32_t address, uint16_t value)
 {
-
+	Logger::getInstance()->msg(LoggerSeverity::Info, std::format("GPIO write addr={:#x} val={:#x}", address, value));
 }
 
 void RTC::write32(uint32_t address, uint32_t value)
