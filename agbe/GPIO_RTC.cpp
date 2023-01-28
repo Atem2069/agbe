@@ -53,7 +53,7 @@ void RTC::write32(uint32_t address, uint32_t value)
 	switch (address)										//handle 32 bit reads when they need to be split up into separate register reads (i.e. reading port data/direction regs)
 	{
 	case 0x080000C4: case 0x080000C6:
-		write16(address + 2, (uint16_t)value & 0xFFFF);
+		write16(address + 2, (uint16_t)((value>>16)&0xFFFF));
 		break;
 	}
 }
