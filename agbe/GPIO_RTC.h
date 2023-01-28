@@ -23,12 +23,15 @@ public:
 private:
 
 	void m_writeDataRegister(uint8_t value);
+	uint8_t m_reverseBits(uint8_t a);
 
 	uint8_t data = {};
 	uint8_t directionMask = {};
 	bool readWriteMask = false;
 
 	uint64_t m_dataLatch = 0;
+	uint8_t m_command = 0;
+	int m_shiftCount = 0;
 
 	GPIOState m_state;
 };

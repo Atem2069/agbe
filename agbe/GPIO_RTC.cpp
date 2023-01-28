@@ -66,6 +66,7 @@ void RTC::m_writeDataRegister(uint8_t value)
 	data = value & 0xF;
 	bool csRising = (~((oldData >> 2) & 0b1)) & ((data >> 2) & 0b1);	//CS low before, now high
 	bool csFalling = ((oldData >> 2) & 0b1) & (~((data >> 2) & 0b1));	//CS high before, now low
+	bool sckRising = (~(oldData & 0b1)) & (data & 0b1);					//SCK low before, now high
 
 	switch (m_state)
 	{
@@ -74,15 +75,44 @@ void RTC::m_writeDataRegister(uint8_t value)
 		if ((data & 0b1) && csRising)
 		{
 			m_state = GPIOState::Command;
-			Logger::getInstance()->msg(LoggerSeverity::Info, "GPIO transfer started. .");
+			m_shiftCount = 0;
+			m_command = 0;
+			m_dataLatch = 0;
+			Logger::getInstance()->msg(LoggerSeverity::Info, "GPIO transfer started..");
 		}
 		break;
 	}
 
 	case GPIOState::Command:
 	{
-		//todo
-		m_state = GPIOState::Read;	//weird stub :)
+		if (sckRising)
+		{
+			uint8_t serialData = (data >> 1) & 0b1;
+			m_command |= (serialData << m_shiftCount);
+			m_shiftCount++;
+
+			if (m_shiftCount == 8)
+			{
+				m_shiftCount = 0;
+				if ((m_command & 0xF0) != 0b01100000)	//bits 4-7 should be 0110, otherwise flip
+					m_command = m_reverseBits(m_command);
+				Logger::getInstance()->msg(LoggerSeverity::Info, std::format("GPIO command received: {:#x}", m_command));
+				
+				//should decode bits 1-3 here, decide which register being read/written (important to determine byte size for r/w)...
+
+				//bit 0 denotes whether read/write command. 0=write,1=read
+				if (m_command & 0b1)
+				{
+					Logger::getInstance()->msg(LoggerSeverity::Info, "Process GPIO read command..");
+					m_state = GPIOState::Read;
+				}
+				else
+				{
+					Logger::getInstance()->msg(LoggerSeverity::Info, "Process GPIO write command..");
+					m_state = GPIOState::Write;
+				}
+			}
+		}
 		break;
 	}
 
@@ -112,4 +142,16 @@ void RTC::m_writeDataRegister(uint8_t value)
 
 	}
 
+}
+
+uint8_t RTC::m_reverseBits(uint8_t a)
+{
+	uint8_t b = 0;
+	//slow...
+	for (int i = 0; i < 8; i++)
+	{
+		uint8_t bit = (a >> i) & 0b1;
+		b |= (bit << (7 - i));
+	}
+	return b;
 }
