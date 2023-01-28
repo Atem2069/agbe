@@ -61,9 +61,11 @@ void RTC::write32(uint32_t address, uint32_t value)
 void RTC::m_writeDataRegister(uint8_t value)
 {
 	//bit 0: SCK, bit 1: SIO, bit 2: CS
-
 	uint8_t oldData = data;
-	data = value & 0xF;
+
+	data &= ~directionMask;				//clear bits that are specified as 'out', preserve 'in' bits
+	data |= (value & directionMask);	//write bits in new value specified as 'out'
+
 	bool csRising = (~((oldData >> 2) & 0b1)) & ((data >> 2) & 0b1);	//CS low before, now high
 	bool csFalling = ((oldData >> 2) & 0b1) & (~((data >> 2) & 0b1));	//CS high before, now low
 	bool sckRising = (~(oldData & 0b1)) & (data & 0b1);					//SCK low before, now high
