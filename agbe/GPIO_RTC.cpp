@@ -98,13 +98,29 @@ void RTC::m_writeDataRegister(uint8_t value)
 				m_shiftCount = 0;
 				if ((m_command & 0xF0) != 0b01100000)	//bits 4-7 should be 0110, otherwise flip
 					m_command = m_reverseBits(m_command);
-				Logger::getInstance()->msg(LoggerSeverity::Info, std::format("GPIO command received: {:#x}", m_command));
-				
+
+				m_updateRTCRegisters();
+
 				//should decode bits 1-3 here, decide which register being read/written (important to determine byte size for r/w)...
+				uint8_t rtcRegisterIdx = (m_command >> 1) & 0b111;
+				Logger::getInstance()->msg(LoggerSeverity::Info, std::format("GPIO command received: {:#x} - access to {} RTC register.", m_command, registerNameLUT[rtcRegisterIdx]));
 
 				//bit 0 denotes whether read/write command. 0=write,1=read
 				if (m_command & 0b1)
 				{
+					switch (rtcRegisterIdx)
+					{
+					case 1:
+						m_dataLatch = controlReg;
+						break;
+					case 2:
+						m_dataLatch = ((uint64_t)timeReg << 32) | dateReg;
+						break;
+					case 3:
+						m_dataLatch = timeReg;
+						break;
+					}
+
 					Logger::getInstance()->msg(LoggerSeverity::Info, "Process GPIO read command..");
 					m_state = GPIOState::Read;
 				}
@@ -120,7 +136,13 @@ void RTC::m_writeDataRegister(uint8_t value)
 
 	case GPIOState::Read:
 	{
-		//todo
+		if (sckRising)
+		{
+			data &= ~0b010;
+			uint64_t outBit = (m_dataLatch >> m_shiftCount) & 0b1;
+			data |= (outBit << 1);
+			m_shiftCount++;
+		}
 
 		if (csFalling)
 		{
@@ -146,6 +168,28 @@ void RTC::m_writeDataRegister(uint8_t value)
 
 }
 
+void RTC::m_updateRTCRegisters()
+{
+	//update rtc registers to include current date/time in BCD.
+	std::time_t t = std::time(0);
+	std::tm* now = std::localtime(&t);
+
+	uint8_t years = m_convertToBCD(now->tm_year - 100);
+	uint8_t months = m_convertToBCD(now->tm_mon + 1);
+	uint8_t days = m_convertToBCD(now->tm_mday);
+	uint8_t dayOfWeek = m_convertToBCD(now->tm_wday);
+
+	dateReg = (dayOfWeek << 24) | (days << 16) | (months << 8) | years;
+
+	int m_hour = now->tm_hour;
+	if (!((controlReg >> 6) & 0b1))
+		m_hour = m_hour % 12;
+	uint8_t hours = m_convertToBCD(m_hour);
+	uint8_t minutes = m_convertToBCD(now->tm_min);
+	uint8_t seconds = m_convertToBCD(now->tm_sec);
+	timeReg = (seconds << 16) | (minutes << 8) | hours;
+}
+
 uint8_t RTC::m_reverseBits(uint8_t a)
 {
 	uint8_t b = 0;
@@ -156,4 +200,13 @@ uint8_t RTC::m_reverseBits(uint8_t a)
 		b |= (bit << (7 - i));
 	}
 	return b;
+}
+
+uint8_t RTC::m_convertToBCD(int val)
+{
+	int units = val % 10;
+	int tens = val / 10;
+
+	uint8_t res = (tens << 4) | units;
+	return res;
 }
