@@ -155,9 +155,26 @@ void RTC::m_writeDataRegister(uint8_t value)
 	case GPIOState::Write:
 	{
 		//todo
-
-		if (csFalling)
+		if (sckRising)
 		{
+			uint64_t inBit = (data >> 1) & 0b1;
+			m_dataLatch |= (inBit << m_shiftCount);
+			m_shiftCount++;
+		}
+
+		if (csFalling)											//actually handle write when GPIO transfer ends? might not be accurate
+		{
+			uint8_t rtcRegisterIndex = (m_command >> 1) & 0b111;
+			switch (rtcRegisterIndex)
+			{
+			case 1:
+				controlReg = m_dataLatch;
+				Logger::getInstance()->msg(LoggerSeverity::Info, std::format("RTC control write: {:#x}", m_dataLatch));
+				break;
+			default:
+				Logger::getInstance()->msg(LoggerSeverity::Error, "Unsupported write to RTC register..");
+				break;
+			}
 			m_state = GPIOState::Ready;
 			Logger::getInstance()->msg(LoggerSeverity::Info, "GPIO transfer ended!");
 		}
