@@ -40,10 +40,9 @@ private:
 
 	GPIOState m_state;
 
-	const int registerSizeLUT[8] = { 0,8,56,24,0,0,0,0 };	//amount of bytes to expect to be read/written for each RTC register
 	const std::string registerNameLUT[8] = { "Reset","Control","Date/Time","Time","Unknown","Unknown","IRQ","Unknown" };
 
-	uint8_t controlReg = 0b01000000;	//does rtc startup in 12hr or 24hr mode ?
-	uint32_t dateReg = 0x01010122;
-	uint32_t timeReg = 0x00010005;
+	uint8_t controlReg = 0x40;	//I think RTC starts in 24hr mode by default?
+	uint32_t dateReg = 0;
+	uint32_t timeReg = 0;
 };
