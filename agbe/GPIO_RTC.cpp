@@ -194,7 +194,9 @@ void RTC::m_updateRTCRegisters()
 	uint8_t years = m_convertToBCD(now->tm_year - 100);
 	uint8_t months = m_convertToBCD(now->tm_mon + 1);
 	uint8_t days = m_convertToBCD(now->tm_mday);
-	uint8_t dayOfWeek = m_convertToBCD(now->tm_wday);
+	uint8_t dayOfWeek = now->tm_wday;
+	if (dayOfWeek == 0)
+		dayOfWeek = 7;
 
 	dateReg = (dayOfWeek << 24) | (days << 16) | (months << 8) | years;
 
