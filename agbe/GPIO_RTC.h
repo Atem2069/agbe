@@ -21,6 +21,8 @@ public:
 	void write16(uint32_t address, uint16_t value);
 	void write32(uint32_t address, uint32_t value);
 
+	bool getRegistersReadable();
+
 private:
 
 	void m_writeDataRegister(uint8_t value);

@@ -58,6 +58,11 @@ void RTC::write32(uint32_t address, uint32_t value)
 	}
 }
 
+bool RTC::getRegistersReadable()
+{
+	return readWriteMask;
+}
+
 void RTC::m_writeDataRegister(uint8_t value)
 {
 	//bit 0: SCK, bit 1: SIO, bit 2: CS

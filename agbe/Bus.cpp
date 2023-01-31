@@ -121,7 +121,7 @@ uint8_t Bus::read8(uint32_t address, AccessType accessType)
 			m_scheduler->addCycles(1);
 		prefetchShouldDelay = false;
 		invalidatePrefetchBuffer();
-		if (address >= 0x080000C4 && address <= 0x080000C9)
+		if (address >= 0x080000C4 && address <= 0x080000C9 && m_rtc->getRegistersReadable())
 			return m_rtc->read(address);
 		if ((address & romAddressMask) >= romSize)
 			return std::rotr((address / 2) & 0xFFFF, 8 * (address & 0b11));
@@ -252,7 +252,7 @@ uint16_t Bus::read16(uint32_t address, AccessType accessType)
 			invalidatePrefetchBuffer();
 			m_scheduler->addCycles(cartCycles);
 		}
-		if (address >= 0x080000C4 && address <= 0x080000C9)
+		if (address >= 0x080000C4 && address <= 0x080000C9 && m_rtc->getRegistersReadable())
 			return m_rtc->read(address);
 		if (page==0xD)
 		{
@@ -407,7 +407,7 @@ uint32_t Bus::read32(uint32_t address, AccessType accessType)
 			prefetchShouldDelay = false;
 			invalidatePrefetchBuffer();
 		}
-		if (address >= 0x080000C4 && address <= 0x080000C9)
+		if (address >= 0x080000C4 && address <= 0x080000C9 && m_rtc->getRegistersReadable())
 			return m_rtc->read(address);
 		if ((address & romAddressMask) >= romSize)
 			return ((address / 2) & 0xFFFF) | (((address + 2) / 2) & 0xFFFF) << 16;
