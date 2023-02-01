@@ -166,9 +166,22 @@ void RTC::m_writeDataRegister(uint8_t value)
 			uint8_t rtcRegisterIndex = (m_command >> 1) & 0b111;
 			switch (rtcRegisterIndex)
 			{
+			case 0:
+				controlReg = 0;
+				Logger::getInstance()->msg(LoggerSeverity::Info, "Write to RTC reset register - preserving date/time.");
+				break;
 			case 1:
 				controlReg = m_dataLatch;
 				Logger::getInstance()->msg(LoggerSeverity::Info, std::format("RTC control write: {:#x}", m_dataLatch));
+				break;
+			case 2:
+				Logger::getInstance()->msg(LoggerSeverity::Warn, "Ignoring write to Date/Time RTC register...");
+				break;
+			case 3:
+				Logger::getInstance()->msg(LoggerSeverity::Warn, "Ignoring write to Time RTC register...");
+				break;
+			case 6:
+				Logger::getInstance()->msg(LoggerSeverity::Warn, "Write to IRQ RTC register ???");
 				break;
 			default:
 				Logger::getInstance()->msg(LoggerSeverity::Error, "Unsupported write to RTC register..");
