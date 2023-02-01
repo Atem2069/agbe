@@ -171,7 +171,7 @@ void RTC::m_writeDataRegister(uint8_t value)
 				Logger::getInstance()->msg(LoggerSeverity::Info, "Write to RTC reset register - preserving date/time.");
 				break;
 			case 1:
-				controlReg = m_dataLatch;
+				controlReg = m_dataLatch & 0b01101010;
 				Logger::getInstance()->msg(LoggerSeverity::Info, std::format("RTC control write: {:#x}", m_dataLatch));
 				break;
 			case 2:
