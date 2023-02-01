@@ -199,10 +199,8 @@ void RTC::m_updateRTCRegisters()
 
 	dateReg = (dayOfWeek << 24) | (days << 16) | (months << 8) | years;
 
-	int m_hour = now->tm_hour;
-	if (!((controlReg >> 6) & 0b1))
-		m_hour = m_hour % 12;
-	uint8_t hours = m_convertToBCD(m_hour);
+	int AMPMFlag = (now->tm_hour / 12)&0b1;			//does this flag even exist? lol
+	uint8_t hours = m_convertToBCD(now->tm_hour % (((controlReg >> 6) & 0b1) ? 24 : 12)) | (AMPMFlag << 7);
 	uint8_t minutes = m_convertToBCD(now->tm_min);
 	uint8_t seconds = m_convertToBCD(now->tm_sec);
 	timeReg = (seconds << 16) | (minutes << 8) | hours;
