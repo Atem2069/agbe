@@ -1170,26 +1170,20 @@ void PPU::latchBackgroundEnableBits()
 
 void PPU::setVBlankFlag(bool value)
 {
-	if (value)
-		DISPSTAT |= 0b1;
-	else
-		DISPSTAT &= ~0b1;
+	DISPSTAT &= ~0b1;
+	DISPSTAT |= value;
 }
 
 void PPU::setHBlankFlag(bool value)
 {
-	if (value)
-		DISPSTAT |= 0b10;
-	else
-		DISPSTAT &= ~0b10;
+	DISPSTAT &= ~0b10;
+	DISPSTAT |= (value << 1);
 }
 
 void PPU::setVCounterFlag(bool value)
 {
-	if (value)
-		DISPSTAT |= 0b100;
-	else
-		DISPSTAT &= ~0b100;
+	DISPSTAT &= ~0b100;
+	DISPSTAT |= (value << 2);
 }
 
 uint8_t PPU::readIO(uint32_t address)
