@@ -1,14 +1,14 @@
 # agbe
-Highly WIP Game Boy Advance Emulator.
+WIP Game Boy Advance Emulator.
 
 ## 
 
-AGS Aging
+AGS Aging Cartridge
 
-https://user-images.githubusercontent.com/23128103/178126626-4ac29ea5-08e7-440c-94cc-546c625561a8.mp4
+https://user-images.githubusercontent.com/23128103/216373206-a8d9cd9e-9d08-4f15-b832-1ff42dd57cca.mp4
 
-Pokemon Ruby
+Pokémon Emerald
 
+https://user-images.githubusercontent.com/23128103/216371368-fbb99156-d5d5-49dc-90a0-bb50b0988226.mp4
 
-https://user-images.githubusercontent.com/23128103/178126645-1c59d025-0c97-4215-bd1b-1d0f0f70f9b1.mp4
 
