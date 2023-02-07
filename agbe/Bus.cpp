@@ -31,8 +31,17 @@ Bus::Bus(std::vector<uint8_t> BIOS, std::vector<uint8_t> cartData, std::shared_p
 	romSize = cartData.size();
 	for (int i = 0; i < 4; i++)	//clear dma channel registers
 		m_dmaChannels[i] = {};
+
+	//ugh.. todo: handle classic NES here maybe? (i.e. just mirror cart across ROM space)
+	for (int i = 0; i < (32 * 1024 * 1024); i += 2)
+	{
+		uint32_t oobVal = ((i + 0x08000000) >> 1) & 0xFFFF;
+		m_mem->ROM[i] = oobVal & 0xFF;
+		m_mem->ROM[i + 1] = (oobVal >> 8) & 0xFF;
+	}
+
 	memcpy(m_mem->BIOS, &BIOS[0], BIOS.size());
-	memcpy(m_mem->ROM, &cartData[0], cartData.size());	//ROM seems to be mirrored if size <= 16mb. should add later (classic nes might rely on it?)
+	memcpy(m_mem->ROM, &cartData[0], cartData.size());	
 
 
 	auto romAsString = std::string_view(reinterpret_cast<const char*>(m_mem->ROM), 32 * 1024 * 1024);
@@ -123,8 +132,6 @@ uint8_t Bus::read8(uint32_t address, AccessType accessType)
 		invalidatePrefetchBuffer();
 		if (address >= 0x080000C4 && address <= 0x080000C9 && m_rtc->getRegistersReadable())
 			return m_rtc->read(address);
-		if ((address & romAddressMask) >= romSize)
-			return std::rotr((address / 2) & 0xFFFF, 8 * (address & 0b11));
 		return m_mem->ROM[address & romAddressMask];
 	case 0xE: case 0xF:
 		m_scheduler->addCycles(SRAMCycles);	//hm.
@@ -259,8 +266,6 @@ uint16_t Bus::read16(uint32_t address, AccessType accessType)
 			if(m_backupType == BackupType::EEPROM4K || m_backupType == BackupType::EEPROM64K)
 				return m_backupMemory->read(address);
 		}
-		if ((address & romAddressMask) >= romSize)
-			return (address / 2) & 0xFFFF;
 		return getValue16(m_mem->ROM, address & romAddressMask,0xFFFFFFFF);
 	case 0xE: case 0xF:
 		m_scheduler->addCycles(SRAMCycles);
@@ -409,8 +414,6 @@ uint32_t Bus::read32(uint32_t address, AccessType accessType)
 		}
 		if (address >= 0x080000C4 && address <= 0x080000C9 && m_rtc->getRegistersReadable())
 			return m_rtc->read(address);
-		if ((address & romAddressMask) >= romSize)
-			return ((address / 2) & 0xFFFF) | (((address + 2) / 2) & 0xFFFF) << 16;
 		return getValue32(m_mem->ROM, address & romAddressMask, 0xFFFFFFFF);
 	case 0xE: case 0xF:
 		m_scheduler->addCycles(SRAMCycles);
