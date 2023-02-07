@@ -35,7 +35,7 @@ Bus::Bus(std::vector<uint8_t> BIOS, std::vector<uint8_t> cartData, std::shared_p
 	//ugh.. todo: handle classic NES here maybe? (i.e. just mirror cart across ROM space)
 	for (int i = 0; i < (32 * 1024 * 1024); i += 2)
 	{
-		uint32_t oobVal = ((i + 0x08000000) >> 1) & 0xFFFF;
+		uint32_t oobVal = (i >> 1) & 0xFFFF;
 		m_mem->ROM[i] = oobVal & 0xFF;
 		m_mem->ROM[i + 1] = (oobVal >> 8) & 0xFF;
 	}
