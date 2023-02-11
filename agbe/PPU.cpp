@@ -539,8 +539,6 @@ void PPU::drawBackground(int bg)
 {
 	uint16_t ctrlReg = 0;
 	uint32_t xScroll = 0, yScroll = 0;
-	bool isTarget1 = ((BLDCNT >> bg) & 0b1);
-	bool isTarget2 = ((BLDCNT >> (bg + 8)) & 0b1);
 	int mosaicHorizontal = (MOSAIC & 0xF) + 1;
 	int mosaicVertical = ((MOSAIC >> 4) & 0xF) + 1;
 	switch (bg)
@@ -567,9 +565,6 @@ void PPU::drawBackground(int bg)
 		break;
 	}
 
-	//xScroll &= 0x1FF;
-	//yScroll &= 0x1FF;
-
 	bool mosaicEnabled = ((ctrlReg >> 6) & 0b1);
 
 	uint8_t bgPriority = ctrlReg & 0b11;
@@ -577,8 +572,8 @@ void PPU::drawBackground(int bg)
 	bool hiColor = ((ctrlReg >> 7) & 0b1);
 	uint32_t bgMapBaseBlock = ((ctrlReg >> 8) & 0x1F);
 	int screenSize = ((ctrlReg >> 14) & 0b11);
-	int xSizeLut[4] = { 255,511,255,511 };
-	int ySizeLut[4] = { 255,255,511,511 };
+	static constexpr int xSizeLut[4] = { 255,511,255,511 };
+	static constexpr int ySizeLut[4] = { 255,255,511,511 };
 	int xWrap = xSizeLut[screenSize];
 	int yWrap = ySizeLut[screenSize];
 
@@ -587,7 +582,7 @@ void PPU::drawBackground(int bg)
 		y = (y / mosaicVertical) * mosaicVertical;
 
 	uint32_t fetcherY = ((y + yScroll) & yWrap);
-	if (screenSize && (fetcherY > 255))
+	if (screenSize && (fetcherY > 255))					//messy, fix!
 	{
 		fetcherY -= 256;
 		bgMapBaseBlock += 1;	
@@ -597,64 +592,89 @@ void PPU::drawBackground(int bg)
 
 	uint32_t bgMapYIdx = ((fetcherY / 8) * 32) * 2; //each row is 32 chars - each char is 2 bytes
 
-	uint16_t cachedTile = 0;
-	uint32_t cachedXOffs = 0xFFFFFFFF;
-	uint32_t cachedTileAddr = 0;
-
 	m_backgroundLayers[bg].priorityBits = bgPriority;
 
-	for (int x = 0; x < 240; x++)
+	int screenX = 0;
+	int tileFetchIdx = xScroll;
+	while (screenX < 240)
 	{
-		uint32_t plotAddr = (VCOUNT * 240) + x;
-		int tempX = x;
-		if (mosaicEnabled)
-			tempX = (x / mosaicHorizontal) * mosaicHorizontal;
-		int xCoord = (tempX + xScroll) & xWrap;
-		int baseBlockOffset = 0;				//x scrolling can cause new baseblock to bee selected
-		if (screenSize && (xCoord > 255))
+		int baseBlockOffset = 0;
+		int normalizedTileFetchIdx = tileFetchIdx&xWrap;
+		if (screenSize && normalizedTileFetchIdx>255)		//not sure how/why this works anymore, but i'll roll with it /shrug
 		{
-			xCoord -= 256;
-			baseBlockOffset += 1;
+			normalizedTileFetchIdx -= 256;
+			baseBlockOffset++;
 		}
-		uint16_t tile = cachedTile;
-		uint32_t xTileIdx = (xCoord >> 3);
-		uint32_t tileMapBaseAddress = cachedTileAddr;
-		if (cachedXOffs != xTileIdx)
-		{
-			uint32_t bgMapBaseAddress = ((bgMapBaseBlock + baseBlockOffset) * 2048) + bgMapYIdx;
-			uint32_t curBgAddr = bgMapBaseAddress + ((xTileIdx * 2));
-			uint8_t tileLower = m_mem->VRAM[curBgAddr];
-			uint8_t tileHigher = m_mem->VRAM[curBgAddr + 1];
-			tile = (((uint16_t)tileHigher << 8) | tileLower);
+		uint32_t bgMapBaseAddress = ((bgMapBaseBlock + baseBlockOffset) * 2048) + bgMapYIdx;
+		bgMapBaseAddress += ((normalizedTileFetchIdx>>3) * 2);
 
-			uint32_t tileNumber = tile & 0x3FF;
-			uint32_t paletteNumber = ((tile >> 12) & 0xF);
-			bool verticalFlip = ((tile >> 11) & 0b1);
-			uint32_t paletteMemoryAddr = 0;
+		uint8_t tileLower = m_mem->VRAM[bgMapBaseAddress];
+		uint8_t tileHigher = m_mem->VRAM[bgMapBaseAddress + 1];
+		uint16_t tile = ((uint16_t)tileHigher << 8) | tileLower;
 
-			int yMod8 = ((fetcherY & 7));
-			if (verticalFlip)
-				yMod8 = 7 - yMod8;
-
-			static constexpr uint32_t tileByteSizeLUT[2] = { 32,64 };
-			static constexpr uint32_t tileRowPitchLUT[2] = { 4,8 };
-
-			tileMapBaseAddress = (tileDataBaseBlock * 16384) + (tileNumber * tileByteSizeLUT[hiColor]); //find correct tile based on just the tile number
-			tileMapBaseAddress += (yMod8 * tileRowPitchLUT[hiColor]);									//then extract correct row of tile info, row pitch says how large each row is in bytes
-
-			cachedTileAddr = tileMapBaseAddress;
-			cachedTile = tile;
-		}
+		uint32_t tileNumber = tile & 0x3FF;
+		uint32_t paletteNumber = ((tile >> 12) & 0xF);
+		bool verticalFlip = ((tile >> 11) & 0b1);
 		bool horizontalFlip = ((tile >> 10) & 0b1);
-		int xmod8 = (xCoord & 7);
-		if (horizontalFlip)
-			xmod8 = 7 - xmod8;
 
-		uint16_t col = extractColorFromTile(tileMapBaseAddress, xmod8, hiColor, false, ((tile>>12)&0xF));
-		m_backgroundLayers[bg].lineBuffer[x] = col;
-		cachedXOffs = xTileIdx;
+		int yMod8 = ((fetcherY & 7));
+		if (verticalFlip)
+			yMod8 = 7 - yMod8;
+
+		static constexpr uint32_t tileByteSizeLUT[2] = { 32,64 };
+		static constexpr uint32_t tileRowPitchLUT[2] = { 4,8 };
+
+		uint32_t tileMapBaseAddress = (tileDataBaseBlock * 16384) + (tileNumber * tileByteSizeLUT[hiColor]); //find correct tile based on just the tile number
+		tileMapBaseAddress += (yMod8 * tileRowPitchLUT[hiColor]);									//then extract correct row of tile info, row pitch says how large each row is in bytes
+
+		//todo: clean this bit up
+		int initialTileIdx = ((tileFetchIdx >> 3) & 0xFF);
+		int renderTileIdx = initialTileIdx;
+		while(initialTileIdx==renderTileIdx)	//keep rendering pixels from this tile until next tile reached (i.e. we're done)
+		{
+			int pixelOffset = tileFetchIdx & 7;
+			if (horizontalFlip)
+				pixelOffset = 7 - pixelOffset;
+			uint16_t col = 0x8000;
+			if (hiColor)
+			{
+				int paletteEntry = m_mem->VRAM[tileMapBaseAddress + pixelOffset];
+				uint32_t paletteMemoryAddr = paletteEntry << 1;
+
+				if (paletteEntry)
+				{
+					uint8_t colLow = m_mem->paletteRAM[paletteMemoryAddr];
+					uint8_t colHigh = m_mem->paletteRAM[paletteMemoryAddr + 1];
+					col = ((colHigh << 8) | colLow) & 0x7FFF;
+				}
+			}
+			else
+			{
+				uint8_t tileData = m_mem->VRAM[tileMapBaseAddress + (pixelOffset >> 1)];
+				int stepTile = ((pixelOffset & 0b1)) << 2;
+				int colorId = ((tileData >> stepTile) & 0xf);
+				if (colorId)
+				{
+					uint32_t paletteMemoryAddr = paletteNumber * 32;
+					paletteMemoryAddr += (colorId * 2);
+					uint8_t colLow = m_mem->paletteRAM[paletteMemoryAddr];
+					uint8_t colHigh = m_mem->paletteRAM[paletteMemoryAddr + 1];
+					col = ((colHigh << 8) | colLow) & 0x7FFF;
+				}
+			}
+
+			if (screenX < 240)
+				m_backgroundLayers[bg].lineBuffer[screenX] = col;
+			screenX++;
+
+			if(!mosaicEnabled)
+				tileFetchIdx++;
+			else
+				tileFetchIdx = ((screenX / mosaicHorizontal) * mosaicHorizontal) + xScroll;		//if mosaic enabled, align to mosaic grid instead of just moving to next pixel
+
+			renderTileIdx = (tileFetchIdx >> 3) & 0xFF;
+		}
 	}
-
 }
 
 void PPU::drawRotationScalingBackground(int bg)
@@ -803,9 +823,9 @@ void PPU::drawSprites(bool bitmapMode)
 		int spritePriority = curSpriteEntry->priority;
 
 		int spriteBoundsLookupId = (curSpriteEntry->shape << 2) | curSpriteEntry->size;
-		int spriteXBoundsLUT[12] ={8,16,32,64,16,32,32,64,8,8,16,32};
-		int spriteYBoundsLUT[12] ={8,16,32,64,8,8,16,32,16,32,32,64};
-		int xPitchLUT[12] ={1,2,4,8,2,4,4,8,1,1,2,4};
+		static constexpr int spriteXBoundsLUT[12] ={8,16,32,64,16,32,32,64,8,8,16,32};
+		static constexpr int spriteYBoundsLUT[12] ={8,16,32,64,8,8,16,32,16,32,32,64};
+		static constexpr int xPitchLUT[12] ={1,2,4,8,2,4,4,8,1,1,2,4};
 
 		spriteRight = spriteLeft + spriteXBoundsLUT[spriteBoundsLookupId];
 		spriteBottom = spriteTop + spriteYBoundsLUT[spriteBoundsLookupId];
@@ -923,9 +943,9 @@ void PPU::drawAffineSprite(OAMEntry* curSpriteEntry)
 
 	//need to find out dimensions first to figure out whether to ignore this object
 	int spriteBoundsLookupId = (curSpriteEntry->shape << 2) | curSpriteEntry->size;
-	int spriteXBoundsLUT[12] = { 8,16,32,64,16,32,32,64,8,8,16,32 };
-	int spriteYBoundsLUT[12] = { 8,16,32,64,8,8,16,32,16,32,32,64 };
-	int xPitchLUT[12] = { 1,2,4,8,2,4,4,8,1,1,2,4 };
+	static constexpr int spriteXBoundsLUT[12] = { 8,16,32,64,16,32,32,64,8,8,16,32 };
+	static constexpr int spriteYBoundsLUT[12] = { 8,16,32,64,8,8,16,32,16,32,32,64 };
+	static constexpr int xPitchLUT[12] = { 1,2,4,8,2,4,4,8,1,1,2,4 };
 
 
 	spriteRight = spriteLeft + spriteXBoundsLUT[spriteBoundsLookupId];
