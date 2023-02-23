@@ -11,12 +11,12 @@ PPU::PPU(std::shared_ptr<InterruptManager> interruptManager, std::shared_ptr<Sch
 		m_windows[i] = {};
 		m_backgroundLayers[i] = {};
 	}
-
 }
 
 PPU::~PPU()
 {
-
+	if (renderThread.joinable())
+		renderThread.join();
 }
 
 void PPU::reset()
@@ -40,6 +40,7 @@ void PPU::registerMemory(std::shared_ptr<GBAMem> mem)
 {
 	registered = true;
 	m_mem = mem;
+	renderThread = std::thread(&PPU::drawScreen, this);
 }
 
 void PPU::eventHandler()
@@ -67,33 +68,6 @@ void PPU::triggerHBlankIRQ()
 
 void PPU::HDraw()
 {
-	uint8_t mode = DISPCNT & 0b111;
-	switch (mode)
-	{
-	case 0:
-		renderMode0();
-		break;
-	case 1:
-		renderMode1();
-		break;
-	case 2:
-		renderMode2();
-		break;
-	case 3:
-		renderMode3();
-		break;
-	case 4:
-		renderMode4();
-		break;
-	case 5:
-		renderMode5();
-		break;
-		}
-
-	composeLayers();
-	for (int i = 0; i < 4; i++)
-		m_backgroundLayers[i].masterEnable = false;
-	affineHorizontalMosaicCounter = 0;
 
 	if (((DISPSTAT >> 4) & 0b1))
 		m_scheduler->addEvent(Event::HBlankIRQ, &PPU::onHBlankIRQEvent, (void*)this, m_scheduler->getEventTime() + 4);
@@ -120,6 +94,7 @@ void PPU::HBlank()
 
 	if (VCOUNT == 160)
 	{
+		renderThread.join();
 		setVBlankFlag(true);
 		inVBlank = true;
 
@@ -194,6 +169,8 @@ void PPU::VBlank()
 		VCOUNT = 0;
 		checkVCOUNTInterrupt();
 		m_state = PPUState::HDraw;
+
+		renderThread = std::thread(&PPU::drawScreen, this);
 	}
 	else
 	{
@@ -223,6 +200,48 @@ void PPU::checkVCOUNTInterrupt()
 	if (vcountMatches && ((DISPSTAT >> 5) & 0b1) && !vcountIRQLine)
 		m_interruptManager->requestInterrupt(InterruptType::VCount);
 	vcountIRQLine = vcountMatches;
+}
+
+void PPU::drawScreen()
+{
+	//this is extremely hacky right now.
+	//TODO: capture PPU IO registers into buffer, use some sync primitive to wait until IO registers for current scanline are ready
+	//Need to remove dumb VCOUNT hack too :P (absolutely evil hack)
+	//Maybe, instead of force-joining each vblank, have some more complex loop that will block the thread until vblank ends (creating threads is expensive!!)
+	for (int i = 0; i < 160; i++)
+	{
+		//this is dumb
+		int lastVCOUNT = VCOUNT;
+		VCOUNT = i;
+		uint8_t mode = DISPCNT & 0b111;
+		switch (mode)
+		{
+		case 0:
+			renderMode0();
+			break;
+		case 1:
+			renderMode1();
+			break;
+		case 2:
+			renderMode2();
+			break;
+		case 3:
+			renderMode3();
+			break;
+		case 4:
+			renderMode4();
+			break;
+		case 5:
+			renderMode5();
+			break;
+		}
+
+		composeLayers();
+		for (int i = 0; i < 4; i++)
+			m_backgroundLayers[i].masterEnable = false;
+		affineHorizontalMosaicCounter = 0;
+		VCOUNT = lastVCOUNT;
+	}
 }
 
 void PPU::renderMode0()

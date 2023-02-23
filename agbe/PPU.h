@@ -8,6 +8,10 @@
 #include<array>
 #include<Windows.h>
 
+#include<thread>
+#include<mutex>
+#include<condition_variable>
+
 struct BG
 {
 	int priorityBits;
@@ -98,6 +102,10 @@ public:
 	int getVCOUNT();
 	static uint32_t m_safeDisplayBuffer[240 * 160];
 private:
+	std::thread renderThread;
+	std::mutex mtx;
+	std::condition_variable cv;
+
 	bool registered = false;
 	std::shared_ptr<GBAMem> m_mem;
 	std::shared_ptr<InterruptManager> m_interruptManager;
@@ -133,6 +141,8 @@ private:
 
 	void checkVCOUNTInterrupt();
 	bool vcountIRQLine = false;
+
+	void drawScreen();
 
 	void renderMode0();
 	void renderMode1();
