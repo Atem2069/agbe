@@ -69,6 +69,28 @@ void PPU::triggerHBlankIRQ()
 void PPU::HDraw()
 {
 
+	//update affine registers here at end of hdraw/start of hblank
+	//todo: encapsulate all ppu io registers per-scanline, pass to render thread
+	uint8_t mode = DISPCNT & 0b111;
+	switch (mode)
+	{
+	case 1: case 3: case 4: case 5:
+	{
+		if ((DISPCNT >> 10) & 0b1)
+			m_updateAffineRegisters(((BG2CNT >> 6) & 0b1), 2);
+		break;
+	}
+	case 2:
+	{
+		if ((DISPCNT >> 10) & 0b1)
+			m_updateAffineRegisters(((BG2CNT >> 6) & 0b1), 2);
+		if ((DISPCNT >> 11) & 0b1)
+			m_updateAffineRegisters(((BG3CNT >> 6) & 0b1), 2);
+		break;
+	}
+	}
+
+
 	if (((DISPSTAT >> 4) & 0b1))
 		m_scheduler->addEvent(Event::HBlankIRQ, &PPU::onHBlankIRQEvent, (void*)this, m_scheduler->getEventTime() + 4);
 	DMAHBlankCallback(callbackContext);
@@ -318,7 +340,6 @@ void PPU::renderMode3()
 			m_backgroundLayers[2].lineBuffer[i] = col & 0x7FFF;
 		}
 	}
-	m_updateAffineRegisters(mosaic,2);
 }
 
 void PPU::renderMode4()
@@ -362,7 +383,6 @@ void PPU::renderMode4()
 			m_backgroundLayers[2].lineBuffer[i] = paletteData & 0x7FFF;
 		}
 	}
-	m_updateAffineRegisters(mosaic,2);
 }
 
 void PPU::renderMode5()
@@ -405,7 +425,6 @@ void PPU::renderMode5()
 			m_backgroundLayers[2].lineBuffer[i] = col & 0x7FFF;
 		}
 	}
-	m_updateAffineRegisters(mosaic,2);
 }
 
 void PPU::composeLayers()
@@ -782,7 +801,6 @@ void PPU::drawRotationScalingBackground(int bg)
 		m_backgroundLayers[bg].lineBuffer[x] = col;
 	}
 
-	m_updateAffineRegisters(mosaicEnabled,bg);
 }
 
 void PPU::drawSprites(bool bitmapMode)
