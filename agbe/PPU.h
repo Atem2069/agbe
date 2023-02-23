@@ -81,6 +81,44 @@ enum class PPUState
 	VBlankHBlank
 };
 
+struct PPURegisters
+{
+	uint16_t DISPCNT = {};
+	uint16_t DISPSTAT = {};
+	uint16_t VCOUNT = {};
+	uint16_t BG0CNT = {};
+	uint16_t BG1CNT = {};
+	uint16_t BG2CNT = {};
+	uint16_t BG3CNT = {};
+	uint16_t BG0HOFS = {};
+	uint16_t BG0VOFS = {};
+	uint16_t BG1HOFS = {};
+	uint16_t BG1VOFS = {};
+	uint16_t BG2HOFS = {};
+	uint16_t BG2VOFS = {};
+	uint16_t BG3HOFS = {};
+	uint16_t BG3VOFS = {};
+	uint16_t WININ = {};
+	uint16_t WINOUT = {};
+	uint32_t BG2X = {}, BG2X_latch = {};
+	uint32_t BG2Y = {}, BG2Y_latch = {};
+	uint32_t BG3X = {}, BG3X_latch = {};
+	uint32_t BG3Y = {}, BG3Y_latch = {};
+	bool BG2X_dirty = false, BG2Y_dirty = false, BG3X_dirty = false, BG3Y_dirty = false;	//flags for whether we need to latch new values when new scanline starts
+	uint16_t BG2PA = 0x100;
+	uint16_t BG2PB = {};
+	uint16_t BG2PC = {};
+	uint16_t BG2PD = 0x100;
+	uint16_t BG3PA = 0x100;
+	uint16_t BG3PB = {};
+	uint16_t BG3PC = {};
+	uint16_t BG3PD = 0x100;
+	uint16_t BLDCNT = {};
+	uint16_t BLDALPHA = {};
+	uint8_t BLDY = {};
+	uint16_t MOSAIC = {};
+};
+
 class PPU
 {
 public:
@@ -173,11 +211,15 @@ private:
 
 	void latchBackgroundEnableBits();
 
+
+	PPURegisters m_registers = {};
+
+
 	inline void m_calcAffineCoords(bool doMosaic, int32_t& xRef, int32_t& yRef, int16_t dx, int16_t dy)	//<-- put into own function because mosaic can affect *when* these are updated
 	{
 		if (doMosaic)
 		{
-			int maxHorizontalMosaic = (MOSAIC & 0xF) + 1;
+			int maxHorizontalMosaic = (m_registers.MOSAIC & 0xF) + 1;
 			affineHorizontalMosaicCounter++;
 			if (affineHorizontalMosaicCounter == maxHorizontalMosaic)
 			{
@@ -198,7 +240,7 @@ private:
 		int multiplyAmount = 1;
 		if (doMosaic)
 		{
-			int maxVerticalMosaic = ((MOSAIC >> 4) & 0xF) + 1;
+			int maxVerticalMosaic = ((m_registers.MOSAIC >> 4) & 0xF) + 1;
 			affineVerticalMosaicCounter++;
 			if (affineVerticalMosaicCounter == maxVerticalMosaic)
 			{
@@ -210,67 +252,33 @@ private:
 		}
 		if (bg == 2)
 		{
-			int16_t dmx = BG2PB;
-			int16_t dmy = BG2PD;
+			int16_t dmx = m_registers.BG2PB;
+			int16_t dmy = m_registers.BG2PD;
 
-			if ((BG2X_latch >> 27) & 0b1)
-				BG2X_latch |= 0xF0000000;
-			if ((BG2Y_latch >> 27) & 0b1)
-				BG2Y_latch |= 0xF0000000;
+			if ((m_registers.BG2X_latch >> 27) & 0b1)
+				m_registers.BG2X_latch |= 0xF0000000;
+			if ((m_registers.BG2Y_latch >> 27) & 0b1)
+				m_registers.BG2Y_latch |= 0xF0000000;
 
-			BG2X_latch = (BG2X_latch + (dmx*multiplyAmount)) & 0xFFFFFFF;
-			BG2Y_latch = (BG2Y_latch + (dmy*multiplyAmount)) & 0xFFFFFFF;
+			m_registers.BG2X_latch = (m_registers.BG2X_latch + (dmx*multiplyAmount)) & 0xFFFFFFF;
+			m_registers.BG2Y_latch = (m_registers.BG2Y_latch + (dmy*multiplyAmount)) & 0xFFFFFFF;
 		}
 		if (bg == 3)
 		{
-			int16_t dmx = BG3PB;
-			int16_t dmy = BG3PD;
+			int16_t dmx = m_registers.BG3PB;
+			int16_t dmy = m_registers.BG3PD;
 
-			if ((BG3X_latch >> 27) & 0b1)
-				BG3X_latch |= 0xF0000000;
-			if ((BG3Y_latch >> 27) & 0b1)
-				BG3Y_latch |= 0xF0000000;
+			if ((m_registers.BG3X_latch >> 27) & 0b1)
+				m_registers.BG3X_latch |= 0xF0000000;
+			if ((m_registers.BG3Y_latch >> 27) & 0b1)
+				m_registers.BG3Y_latch |= 0xF0000000;
 
-			BG3X_latch = (BG3X_latch + (dmx*multiplyAmount)) & 0xFFFFFFF;
-			BG3Y_latch = (BG3Y_latch + (dmy*multiplyAmount)) & 0xFFFFFFF;
+			m_registers.BG3X_latch = (m_registers.BG3X_latch + (dmx*multiplyAmount)) & 0xFFFFFFF;
+			m_registers.BG3Y_latch = (m_registers.BG3Y_latch + (dmy*multiplyAmount)) & 0xFFFFFFF;
 		}
 	}
 
 	int affineHorizontalMosaicCounter = 0;
 	int affineVerticalMosaicCounter = 0;
-
-	uint16_t DISPCNT = {};
-	uint16_t DISPSTAT = {};
-	uint16_t VCOUNT = {};
-	uint16_t BG0CNT = {};
-	uint16_t BG1CNT = {};
-	uint16_t BG2CNT = {};
-	uint16_t BG3CNT = {};
-	uint16_t BG0HOFS = {};
-	uint16_t BG0VOFS = {};
-	uint16_t BG1HOFS = {};
-	uint16_t BG1VOFS = {};
-	uint16_t BG2HOFS = {};
-	uint16_t BG2VOFS = {};
-	uint16_t BG3HOFS = {};
-	uint16_t BG3VOFS = {};
-	uint16_t WININ = {};
-	uint16_t WINOUT = {};
-	uint32_t BG2X = {}, BG2X_latch = {};
-	uint32_t BG2Y = {}, BG2Y_latch = {};
-	uint32_t BG3X = {}, BG3X_latch = {};
-	uint32_t BG3Y = {}, BG3Y_latch = {};
 	bool BG2X_dirty = false, BG2Y_dirty = false, BG3X_dirty = false, BG3Y_dirty = false;	//flags for whether we need to latch new values when new scanline starts
-	uint16_t BG2PA = 0x100;
-	uint16_t BG2PB = {};
-	uint16_t BG2PC = {};
-	uint16_t BG2PD = 0x100;
-	uint16_t BG3PA = 0x100;
-	uint16_t BG3PB = {};
-	uint16_t BG3PC = {};
-	uint16_t BG3PD = 0x100;
-	uint16_t BLDCNT = {};
-	uint16_t BLDALPHA = {};
-	uint8_t BLDY = {};
-	uint16_t MOSAIC = {};
 };

@@ -24,7 +24,7 @@ void PPU::reset()
 	//reset ppu state, reschedule hdraw vcount=0
 	m_scheduler->removeEvent(Event::PPU);
 	m_scheduler->addEvent(Event::PPU, &PPU::onSchedulerEvent, (void*)this, m_scheduler->getCurrentTimestamp() + 1006);
-	VCOUNT = 0;
+	m_registers.VCOUNT = 0;
 	inVBlank = false;
 	m_state = PPUState::HDraw;
 	memset(m_renderBuffer, 0, 240 * 160 * 8);
@@ -71,32 +71,32 @@ void PPU::HDraw()
 
 	//update affine registers here at end of hdraw/start of hblank
 	//todo: encapsulate all ppu io registers per-scanline, pass to render thread
-	uint8_t mode = DISPCNT & 0b111;
+	uint8_t mode = m_registers.DISPCNT & 0b111;
 	switch (mode)
 	{
 	case 1: case 3: case 4: case 5:
 	{
-		if ((DISPCNT >> 10) & 0b1)
-			m_updateAffineRegisters(((BG2CNT >> 6) & 0b1), 2);
+		if ((m_registers.DISPCNT >> 10) & 0b1)
+			m_updateAffineRegisters(((m_registers.BG2CNT >> 6) & 0b1), 2);
 		break;
 	}
 	case 2:
 	{
-		if ((DISPCNT >> 10) & 0b1)
-			m_updateAffineRegisters(((BG2CNT >> 6) & 0b1), 2);
-		if ((DISPCNT >> 11) & 0b1)
-			m_updateAffineRegisters(((BG3CNT >> 6) & 0b1), 2);
+		if ((m_registers.DISPCNT >> 10) & 0b1)
+			m_updateAffineRegisters(((m_registers.BG2CNT >> 6) & 0b1), 2);
+		if ((m_registers.DISPCNT >> 11) & 0b1)
+			m_updateAffineRegisters(((m_registers.BG3CNT >> 6) & 0b1), 2);
 		break;
 	}
 	}
 
 
-	if (((DISPSTAT >> 4) & 0b1))
+	if (((m_registers.DISPSTAT >> 4) & 0b1))
 		m_scheduler->addEvent(Event::HBlankIRQ, &PPU::onHBlankIRQEvent, (void*)this, m_scheduler->getEventTime() + 4);
 	DMAHBlankCallback(callbackContext);
 
 	//timing for video capture is wrong! should fix!
-	if (VCOUNT >= 2)
+	if (m_registers.VCOUNT >= 2)
 		DMAVideoCaptureCallback(callbackContext);
 
 	setHBlankFlag(true);
@@ -110,17 +110,17 @@ void PPU::HBlank()
 	setHBlankFlag(false);
 	m_lineCycles = 0;
 
-	VCOUNT++;
+	m_registers.VCOUNT++;
 
 	checkVCOUNTInterrupt();
 
-	if (VCOUNT == 160)
+	if (m_registers.VCOUNT == 160)
 	{
 		renderThread.join();
 		setVBlankFlag(true);
 		inVBlank = true;
 
-		if (((DISPSTAT >> 3) & 0b1))
+		if (((m_registers.DISPSTAT >> 3) & 0b1))
 			m_interruptManager->requestInterrupt(InterruptType::VBlank);
 
 		pageIdx = !pageIdx;
@@ -137,13 +137,13 @@ void PPU::HBlank()
 
 	//see if we need to latch new vals into affine regs (e.g. if they were modified outside of vblank)
 	if (BG2X_dirty)
-		BG2X_latch = BG2X;
+		m_registers.BG2X_latch = m_registers.BG2X;
 	if (BG2Y_dirty)
-		BG2Y_latch = BG2Y;
+		m_registers.BG2Y_latch = m_registers.BG2Y;
 	if (BG3X_dirty)
-		BG3X_latch = BG3X;
+		m_registers.BG3X_latch = m_registers.BG3X;
 	if (BG3Y_dirty)
-		BG3Y_latch = BG3Y;
+		m_registers.BG3Y_latch = m_registers.BG3Y;
 	BG2X_dirty = false; BG2Y_dirty = false; BG3X_dirty = false; BG3Y_dirty = false;
 
 	//attempt to latch in new enable bits for bg
@@ -162,33 +162,33 @@ void PPU::VBlank()
 	{
 		setHBlankFlag(true);
 
-		if (((DISPSTAT >> 4) & 0b1))
+		if (((m_registers.DISPSTAT >> 4) & 0b1))
 			m_scheduler->addEvent(Event::HBlankIRQ, &PPU::onHBlankIRQEvent, (void*)this, schedTimestamp + 4);
 
 		vblank_setHblankBit = true;
 		m_scheduler->addEvent(Event::PPU, &PPU::onSchedulerEvent, (void*)this, schedTimestamp+225);
-		if (VCOUNT < 162)
+		if (m_registers.VCOUNT < 162)
 			DMAVideoCaptureCallback(callbackContext);
 		return;
 	}
 
 	vblank_setHblankBit = false;	//end of vblank for current line
 	setHBlankFlag(false);
-	VCOUNT++;
-	if (VCOUNT == 228)		//go back to drawing
+	m_registers.VCOUNT++;
+	if (m_registers.VCOUNT == 228)		//go back to drawing
 	{
 		//copy over new values to affine regs
-		BG2X_latch = BG2X;
-		BG2Y_latch = BG2Y;
-		BG3X_latch = BG3X;
-		BG3Y_latch = BG3Y;
+		m_registers.BG2X_latch = m_registers.BG2X;
+		m_registers.BG2Y_latch = m_registers.BG2Y;
+		m_registers.BG3X_latch = m_registers.BG3X;
+		m_registers.BG3Y_latch = m_registers.BG3Y;
 		BG2X_dirty = false; BG2Y_dirty = false; BG3X_dirty = false; BG3Y_dirty = false;
 
 		affineVerticalMosaicCounter = 0;
 
 		setVBlankFlag(false);
 		inVBlank = false;
-		VCOUNT = 0;
+		m_registers.VCOUNT = 0;
 		checkVCOUNTInterrupt();
 		m_state = PPUState::HDraw;
 
@@ -196,7 +196,7 @@ void PPU::VBlank()
 	}
 	else
 	{
-		if (VCOUNT == 227)			//set vblank flag false on last line of vblank (if applicable)
+		if (m_registers.VCOUNT == 227)			//set vblank flag false on last line of vblank (if applicable)
 			setVBlankFlag(false);
 		checkVCOUNTInterrupt();
 	}
@@ -216,10 +216,10 @@ void PPU::VBlank()
 
 void PPU::checkVCOUNTInterrupt()
 {
-	uint16_t vcountCompare = ((DISPSTAT >> 8) & 0xFF);
-	bool vcountMatches = (vcountCompare == VCOUNT);
+	uint16_t vcountCompare = ((m_registers.DISPSTAT >> 8) & 0xFF);
+	bool vcountMatches = (vcountCompare == m_registers.VCOUNT);
 	setVCounterFlag(vcountMatches);
-	if (vcountMatches && ((DISPSTAT >> 5) & 0b1) && !vcountIRQLine)
+	if (vcountMatches && ((m_registers.DISPSTAT >> 5) & 0b1) && !vcountIRQLine)
 		m_interruptManager->requestInterrupt(InterruptType::VCount);
 	vcountIRQLine = vcountMatches;
 }
@@ -233,9 +233,9 @@ void PPU::drawScreen()
 	for (int i = 0; i < 160; i++)
 	{
 		//this is dumb
-		int lastVCOUNT = VCOUNT;
-		VCOUNT = i;
-		uint8_t mode = DISPCNT & 0b111;
+		int lastVCOUNT = m_registers.VCOUNT;
+		m_registers.VCOUNT = i;
+		uint8_t mode = m_registers.DISPCNT & 0b111;
 		switch (mode)
 		{
 		case 0:
@@ -262,7 +262,7 @@ void PPU::drawScreen()
 		for (int i = 0; i < 4; i++)
 			m_backgroundLayers[i].masterEnable = false;
 		affineHorizontalMosaicCounter = 0;
-		VCOUNT = lastVCOUNT;
+		m_registers.VCOUNT = lastVCOUNT;
 	}
 }
 
@@ -310,20 +310,20 @@ void PPU::renderMode3()
 	m_backgroundLayers[2].masterEnable = true;
 
 	drawSprites(true);
-	bool mosaic = ((BG2CNT >> 6) & 0b1);
-	if ((DISPCNT >> 10) & 0b1)
+	bool mosaic = ((m_registers.BG2CNT >> 6) & 0b1);
+	if ((m_registers.DISPCNT >> 10) & 0b1)
 	{
-		int32_t xRef = BG2X_latch & 0xFFFFFFF;
+		int32_t xRef = m_registers.BG2X_latch & 0xFFFFFFF;
 		if ((xRef >> 27) & 0b1)
 			xRef |= 0xF0000000;
-		int32_t yRef = BG2Y_latch & 0xFFFFFFF;
+		int32_t yRef = m_registers.BG2Y_latch & 0xFFFFFFF;
 		if ((yRef >> 27) & 0b1)
 			yRef |= 0xF000000;
 
-		int16_t pA = (int16_t)BG2PA;
-		int16_t pC = (int16_t)BG2PC;
+		int16_t pA = (int16_t)m_registers.BG2PA;
+		int16_t pC = (int16_t)m_registers.BG2PC;
 
-		m_backgroundLayers[2].priorityBits = BG2CNT & 0b11;
+		m_backgroundLayers[2].priorityBits = m_registers.BG2CNT & 0b11;
 		for (int i = 0; i < 240; i++, m_calcAffineCoords(mosaic,xRef,yRef,pA,pC))
 		{
 			uint32_t xCoord = (xRef >> 8) & 0xFFFFF;
@@ -348,22 +348,22 @@ void PPU::renderMode4()
 
 	drawSprites(true);
 	uint32_t base = 0;
-	bool pageFlip = ((DISPCNT >> 4) & 0b1);
+	bool pageFlip = ((m_registers.DISPCNT >> 4) & 0b1);
 	if (pageFlip)
 		base = 0xA000;
-	bool mosaic = ((BG2CNT >> 6) & 0b1);
-	if ((DISPCNT >> 10) & 0b1)
+	bool mosaic = ((m_registers.BG2CNT >> 6) & 0b1);
+	if ((m_registers.DISPCNT >> 10) & 0b1)
 	{
-		int32_t xRef = BG2X_latch & 0xFFFFFFF;
+		int32_t xRef = m_registers.BG2X_latch & 0xFFFFFFF;
 		if ((xRef >> 27) & 0b1)
 			xRef |= 0xF0000000;
-		int32_t yRef = BG2Y_latch & 0xFFFFFFF;
+		int32_t yRef = m_registers.BG2Y_latch & 0xFFFFFFF;
 		if ((yRef >> 27) & 0b1)
 			yRef |= 0xF000000;
 
-		int16_t pA = (int16_t)BG2PA;
-		int16_t pC = (int16_t)BG2PC;
-		m_backgroundLayers[2].priorityBits = BG2CNT & 0b11;
+		int16_t pA = (int16_t)m_registers.BG2PA;
+		int16_t pC = (int16_t)m_registers.BG2PC;
+		m_backgroundLayers[2].priorityBits = m_registers.BG2CNT & 0b11;
 		for (int i = 0; i < 240; i++, m_calcAffineCoords(mosaic,xRef,yRef,pA,pC))
 		{
 			uint32_t xCoord = (xRef >> 8) & 0xFFFFF;
@@ -391,23 +391,23 @@ void PPU::renderMode5()
 
 	drawSprites(true);
 	uint32_t baseAddr = 0;
-	bool pageFlip = ((DISPCNT >> 4) & 0b1);
+	bool pageFlip = ((m_registers.DISPCNT >> 4) & 0b1);
 	if (pageFlip)
 		baseAddr = 0xA000;
-	bool mosaic = ((BG2CNT >> 6) & 0b1);
-	if ((DISPCNT >> 10) & 0b1)
+	bool mosaic = ((m_registers.BG2CNT >> 6) & 0b1);
+	if ((m_registers.DISPCNT >> 10) & 0b1)
 	{
-		int32_t xRef = BG2X_latch & 0xFFFFFFF;
+		int32_t xRef = m_registers.BG2X_latch & 0xFFFFFFF;
 		if ((xRef >> 27) & 0b1)
 			xRef |= 0xF0000000;
-		int32_t yRef = BG2Y_latch & 0xFFFFFFF;
+		int32_t yRef = m_registers.BG2Y_latch & 0xFFFFFFF;
 		if ((yRef >> 27) & 0b1)
 			yRef |= 0xF000000;
 
-		int16_t pA = (int16_t)BG2PA;
-		int16_t pC = (int16_t)BG2PC;
+		int16_t pA = (int16_t)m_registers.BG2PA;
+		int16_t pC = (int16_t)m_registers.BG2PC;
 
-		m_backgroundLayers[2].priorityBits = BG2CNT & 0b11;
+		m_backgroundLayers[2].priorityBits = m_registers.BG2CNT & 0b11;
 		for (int i = 0; i < 240; i++, m_calcAffineCoords(mosaic,xRef,yRef,pA,pC))
 		{
 			uint32_t xCoord = (xRef >> 8) & 0xFFFFF;
@@ -430,27 +430,27 @@ void PPU::renderMode5()
 void PPU::composeLayers()
 {
 	uint16_t backDrop = *(uint16_t*)m_mem->paletteRAM & 0x7FFF;
-	int spriteMosaicHorizontal = ((MOSAIC >> 8) & 0xF) + 1;
+	int spriteMosaicHorizontal = ((m_registers.MOSAIC >> 8) & 0xF) + 1;
 	int spriteHorizontalMosaicCounter = 0;
 	int spriteMosaicX = 0;
 	bool mosaicInProcess = false;
 	for (int x = 0; x < 240; x++)
 	{	
-		if (((DISPCNT >> 7) & 0b1))				//forced blank -> white screen
+		if (((m_registers.DISPCNT >> 7) & 0b1))				//forced blank -> white screen
 		{
-			m_renderBuffer[pageIdx][(240 * VCOUNT) + x] = 0xFFFFFFFF;
+			m_renderBuffer[pageIdx][(240 * m_registers.VCOUNT) + x] = 0xFFFFFFFF;
 			continue;
 		}
 
-		Window pointInfo = getWindowAttributes(x, VCOUNT);
+		Window pointInfo = getWindowAttributes(x, m_registers.VCOUNT);
 
 		uint16_t finalCol = backDrop;
 		bool transparentSpriteTop = false;
 		uint16_t blendPixelB = 0x8000;
-		if (((BLDCNT >> 13) & 0b1))
+		if (((m_registers.BLDCNT >> 13) & 0b1))
 			blendPixelB = backDrop;
 		uint16_t blendPixelA = 0x8000;
-		if (((BLDCNT >> 5) & 0b1))
+		if (((m_registers.BLDCNT >> 5) & 0b1))
 			blendPixelA = backDrop;
 
 		int highestBlendBPrio = 255, blendALayer = 255;
@@ -463,14 +463,14 @@ void PPU::composeLayers()
 				uint16_t colAtLayer = m_backgroundLayers[layer].lineBuffer[x];
 				if (!((colAtLayer >> 15) & 0b1))
 				{
-					bool isBlendTargetA = ((BLDCNT >> layer) & 0b1);
+					bool isBlendTargetA = ((m_registers.BLDCNT >> layer) & 0b1);
 					if ((m_backgroundLayers[layer].priorityBits <= highestPriority))
 					{
 						highestPriority = m_backgroundLayers[layer].priorityBits;
 						finalCol = colAtLayer;
 						blendPixelA = 0x8000;					//blend target A must be top visible layer, so if this isn't a blend target it gets disabled
 						blendALayer = 255;
-						if ((BLDCNT >> layer) & 0b1)
+						if ((m_registers.BLDCNT >> layer) & 0b1)
 						{
 							blendPixelA = finalCol;
 							blendALayer = layer;
@@ -482,7 +482,7 @@ void PPU::composeLayers()
 					if ((m_backgroundLayers[layer].priorityBits <= highestBlendBPrio) && (blendALayer!=layer))
 					{
 						blendPixelB = 0x8000;
-						if ((BLDCNT >> (layer + 8)) & 0b1)
+						if ((m_registers.BLDCNT >> (layer + 8)) & 0b1)
 						{
 							highestBlendBPrio = m_backgroundLayers[layer].priorityBits;
 							blendPixelB = colAtLayer;
@@ -493,7 +493,7 @@ void PPU::composeLayers()
 			}
 		}
 		
-		if (((DISPCNT >> 12) & 0b1) && pointInfo.objDrawable)
+		if (((m_registers.DISPCNT >> 12) & 0b1) && pointInfo.objDrawable)
 		{
 			//sprite mosaic seems to be a post process thing? idk
 			int spriteX = x;
@@ -505,14 +505,14 @@ void PPU::composeLayers()
 			uint16_t spritePixel = m_spriteLineBuffer[spriteX];
 			if (!((spritePixel >> 15) & 0b1) && m_spriteAttrBuffer[spriteX].priority != 0x1F)
 			{
-				bool isBlendTargetA = (((BLDCNT >> 4) & 0b1) || m_spriteAttrBuffer[spriteX].transparent);
+				bool isBlendTargetA = (((m_registers.BLDCNT >> 4) & 0b1) || m_spriteAttrBuffer[spriteX].transparent);
 				if (m_spriteAttrBuffer[spriteX].priority <= highestPriority)
 				{
 					finalCol = spritePixel;
 					if (isBlendTargetA)
 					{
 						//weird!! blend target b might not have been selected if the topmost layer before was A+B, so make sure we set it now
-						if (blendALayer <= 3 && ((BLDCNT >> (8 + blendALayer)) & 0b1))
+						if (blendALayer <= 3 && ((m_registers.BLDCNT >> (8 + blendALayer)) & 0b1))
 							blendPixelB = blendPixelA;
 
 						transparentSpriteTop = m_spriteAttrBuffer[spriteX].transparent;
@@ -526,7 +526,7 @@ void PPU::composeLayers()
 				if (m_spriteAttrBuffer[x].priority > highestPriority && m_spriteAttrBuffer[x].priority <= highestBlendBPrio)
 				{
 					blendPixelB = 0x8000;
-					if (((BLDCNT >> 12) & 0b1))
+					if (((m_registers.BLDCNT >> 12) & 0b1))
 						blendPixelB = spritePixel;
 				}
 			}
@@ -535,12 +535,12 @@ void PPU::composeLayers()
 		//not sure about this. pokemon ruby depends on semi-transparent sprites bypassing the blend enable check. todo: confirm on hardware!
 		if (pointInfo.blendable || transparentSpriteTop)
 		{
-			uint8_t blendMode = ((BLDCNT >> 6) & 0b11);
+			uint8_t blendMode = ((m_registers.BLDCNT >> 6) & 0b11);
 			if (transparentSpriteTop)	
 			{
 				if (!(blendPixelB >> 15))									//i think blend mode only gets overridden if there's a second target pixel?
 					blendMode = 1;
-				else if (!((BLDCNT >> 4) & 0b1) && (blendPixelB >> 15))		//hmm, if it's only 'semi-transparent' but there's no target B (and sprite not target A), then don't blend??
+				else if (!((m_registers.BLDCNT >> 4) & 0b1) && (blendPixelB >> 15))		//hmm, if it's only 'semi-transparent' but there's no target B (and sprite not target A), then don't blend??
 					blendMode = 0;
 			}
 			switch (blendMode)
@@ -560,7 +560,7 @@ void PPU::composeLayers()
 			}
 		}
 
-		m_renderBuffer[pageIdx][(240 * VCOUNT) + x] = col16to32(finalCol);
+		m_renderBuffer[pageIdx][(240 * m_registers.VCOUNT) + x] = col16to32(finalCol);
 
 		spriteHorizontalMosaicCounter++;
 		if (spriteHorizontalMosaicCounter == spriteMosaicHorizontal)
@@ -577,29 +577,29 @@ void PPU::drawBackground(int bg)
 {
 	uint16_t ctrlReg = 0;
 	uint32_t xScroll = 0, yScroll = 0;
-	int mosaicHorizontal = (MOSAIC & 0xF) + 1;
-	int mosaicVertical = ((MOSAIC >> 4) & 0xF) + 1;
+	int mosaicHorizontal = (m_registers.MOSAIC & 0xF) + 1;
+	int mosaicVertical = ((m_registers.MOSAIC >> 4) & 0xF) + 1;
 	switch (bg)
 	{
 	case 0:
-		ctrlReg = BG0CNT;
-		xScroll = BG0HOFS;
-		yScroll = BG0VOFS;
+		ctrlReg = m_registers.BG0CNT;
+		xScroll = m_registers.BG0HOFS;
+		yScroll = m_registers.BG0VOFS;
 		break;
 	case 1:
-		ctrlReg = BG1CNT;
-		xScroll = BG1HOFS;
-		yScroll = BG1VOFS;
+		ctrlReg = m_registers.BG1CNT;
+		xScroll = m_registers.BG1HOFS;
+		yScroll = m_registers.BG1VOFS;
 		break;
 	case 2:
-		ctrlReg = BG2CNT;
-		xScroll = BG2HOFS;
-		yScroll = BG2VOFS;
+		ctrlReg = m_registers.BG2CNT;
+		xScroll = m_registers.BG2HOFS;
+		yScroll = m_registers.BG2VOFS;
 		break;
 	case 3:
-		ctrlReg = BG3CNT;
-		xScroll = BG3HOFS;
-		yScroll = BG3VOFS;
+		ctrlReg = m_registers.BG3CNT;
+		xScroll = m_registers.BG3HOFS;
+		yScroll = m_registers.BG3VOFS;
 		break;
 	}
 
@@ -615,7 +615,7 @@ void PPU::drawBackground(int bg)
 	int xWrap = xSizeLut[screenSize];
 	int yWrap = ySizeLut[screenSize];
 
-	int y = VCOUNT;
+	int y = m_registers.VCOUNT;
 	if (mosaicEnabled)
 		y = (y / mosaicVertical) * mosaicVertical;
 
@@ -720,28 +720,28 @@ void PPU::drawRotationScalingBackground(int bg)
 	uint16_t ctrlReg = 0;
 	int32_t xRef = 0, yRef = 0;
 	int16_t pA = 0, pB = 0, pC = 0, pD = 0;
-	bool isTarget1 = ((BLDCNT >> bg) & 0b1);
-	bool isTarget2 = ((BLDCNT >> (bg + 8)) & 0b1);
+	bool isTarget1 = ((m_registers.BLDCNT >> bg) & 0b1);
+	bool isTarget2 = ((m_registers.BLDCNT >> (bg + 8)) & 0b1);
 	switch (bg)
 	{
 	case 2:
-		ctrlReg = BG2CNT;
-		xRef = BG2X_latch&0xFFFFFFF;
-		yRef = BG2Y_latch&0xFFFFFFF;
-		pA = BG2PA; pB = BG2PB; pC = BG2PC; pD = BG2PD;
-		if ((BG2X_latch >> 27) & 0b1)
+		ctrlReg = m_registers.BG2CNT;
+		xRef = m_registers.BG2X_latch&0xFFFFFFF;
+		yRef = m_registers.BG2Y_latch&0xFFFFFFF;
+		pA = m_registers.BG2PA; pB = m_registers.BG2PB; pC = m_registers.BG2PC; pD = m_registers.BG2PD;
+		if ((m_registers.BG2X_latch >> 27) & 0b1)
 			xRef |= 0xF0000000;
-		if ((BG2Y_latch >> 27) & 0b1)
+		if ((m_registers.BG2Y_latch >> 27) & 0b1)
 			yRef |= 0xF0000000;
 		break;
 	case 3:
-		ctrlReg = BG3CNT;
-		xRef = BG3X_latch&0xFFFFFFF;
-		yRef = BG3Y_latch&0xFFFFFFF;
-		pA = BG3PA; pB = BG3PB; pC = BG3PC; pD = BG3PD;
-		if ((BG3X_latch >> 27) & 0b1)
+		ctrlReg = m_registers.BG3CNT;
+		xRef = m_registers.BG3X_latch&0xFFFFFFF;
+		yRef = m_registers.BG3Y_latch&0xFFFFFFF;
+		pA = m_registers.BG3PA; pB = m_registers.BG3PB; pC = m_registers.BG3PC; pD = m_registers.BG3PD;
+		if ((m_registers.BG3X_latch >> 27) & 0b1)
 			xRef |= 0xF0000000;
-		if ((BG3Y_latch >> 27) & 0b1)
+		if ((m_registers.BG3Y_latch >> 27) & 0b1)
 			yRef |= 0xF0000000;
 		break;
 	}
@@ -765,7 +765,7 @@ void PPU::drawRotationScalingBackground(int bg)
 
 	for (int x = 0; x < 240; x++, m_calcAffineCoords(mosaicEnabled,xRef,yRef,pA,pC))
 	{
-		uint32_t plotAddr = (VCOUNT * 240) + x;
+		uint32_t plotAddr = (m_registers.VCOUNT * 240) + x;
 		uint32_t fetcherY = (uint32_t)((int32_t)yRef >> 8);
 		if ((fetcherY >= yWrap) && !overflowWrap)
 		{
@@ -808,17 +808,17 @@ void PPU::drawSprites(bool bitmapMode)
 	memset(m_spriteAttrBuffer, 0b00011111, 240);
 	memset(m_spriteLineBuffer, 0x80, 480);
 	m_spriteCyclesElapsed = 0;
-	if (!((DISPCNT >> 12) & 0b1))
+	if (!((m_registers.DISPCNT >> 12) & 0b1))
 		return;
-	bool oneDimensionalMapping = ((DISPCNT >> 6) & 0b1);
-	bool isBlendTarget1 = ((BLDCNT >> 4) & 0b1);
-	bool isBlendTarget2 = ((BLDCNT >> 12) & 0b1);
-	uint8_t blendMode = ((BLDCNT >> 6) & 0b11);
+	bool oneDimensionalMapping = ((m_registers.DISPCNT >> 6) & 0b1);
+	bool isBlendTarget1 = ((m_registers.BLDCNT >> 4) & 0b1);
+	bool isBlendTarget2 = ((m_registers.BLDCNT >> 12) & 0b1);
+	uint8_t blendMode = ((m_registers.BLDCNT >> 6) & 0b11);
 
-	int mosaicHorizontal = ((MOSAIC >> 8) & 0xF) + 1;
-	int mosaicVertical = ((MOSAIC >> 12) & 0xF) + 1;
+	int mosaicHorizontal = ((m_registers.MOSAIC >> 8) & 0xF) + 1;
+	int mosaicVertical = ((m_registers.MOSAIC >> 12) & 0xF) + 1;
 
-	bool limitSpriteCycles = ((DISPCNT >> 5) & 0b1);
+	bool limitSpriteCycles = ((m_registers.DISPCNT >> 5) & 0b1);
 	int maxAllowedSpriteCycles = (limitSpriteCycles) ? 954 : 1210;	//with h-blank interval free set, then less cycles can be spent rendering sprites
 
 	for (int i = 0; i < 128; i++)
@@ -842,7 +842,7 @@ void PPU::drawSprites(bool bitmapMode)
 		bool isObjWindow = curSpriteEntry->objMode == 2;
 		//bool mosaic = (curSpriteEntry->attr0 >> 12) & 0b1;
 
-		int renderY = VCOUNT;
+		int renderY = m_registers.VCOUNT;
 		if (curSpriteEntry->mosaic)
 			renderY = (renderY / mosaicVertical) * mosaicVertical;
 
@@ -867,7 +867,7 @@ void PPU::drawSprites(bool bitmapMode)
 		spriteRight = spriteLeft + spriteXBoundsLUT[spriteBoundsLookupId];
 		spriteBottom = spriteTop + spriteYBoundsLUT[spriteBoundsLookupId];
 		rowPitch = xPitchLUT[spriteBoundsLookupId];	
-		if (VCOUNT >= spriteBottom)	//nope, we're past it.
+		if (m_registers.VCOUNT >= spriteBottom)	//nope, we're past it.
 			continue;
 
 		bool flipHorizontal = curSpriteEntry->xFlip;
@@ -957,10 +957,10 @@ void PPU::drawSprites(bool bitmapMode)
 
 void PPU::drawAffineSprite(OAMEntry* curSpriteEntry)
 {
-	bool oneDimensionalMapping = ((DISPCNT >> 6) & 0b1);
-	bool isBlendTarget1 = ((BLDCNT >> 4) & 0b1);
-	bool isBlendTarget2 = ((BLDCNT >> 12) & 0b1);
-	uint8_t blendMode = ((BLDCNT >> 6) & 0b11);
+	bool oneDimensionalMapping = ((m_registers.DISPCNT >> 6) & 0b1);
+	bool isBlendTarget1 = ((m_registers.BLDCNT >> 4) & 0b1);
+	bool isBlendTarget2 = ((m_registers.BLDCNT >> 12) & 0b1);
+	uint8_t blendMode = ((m_registers.BLDCNT >> 6) & 0b11);
 
 	bool isObjWindow = (curSpriteEntry->objMode == 2);
 	bool doubleSize = curSpriteEntry->disableObj;	//odd: bit 9 is 'double-size' flag with affine sprites
@@ -972,7 +972,7 @@ void PPU::drawAffineSprite(OAMEntry* curSpriteEntry)
 	if (spriteLeft >= 240)
 		spriteLeft -= 512;
 
-	if (spriteTop > VCOUNT)
+	if (spriteTop > m_registers.VCOUNT)
 		return;
 
 	int spriteBottom = 0, spriteRight = 0;
@@ -989,14 +989,14 @@ void PPU::drawAffineSprite(OAMEntry* curSpriteEntry)
 	spriteBottom = spriteTop + spriteYBoundsLUT[spriteBoundsLookupId];
 	rowPitch = xPitchLUT[spriteBoundsLookupId];
 	int doubleSizeOffset = ((spriteBottom - spriteTop)) * doubleSize;
-	if (VCOUNT >= (spriteBottom+doubleSizeOffset))	//nope, we're past it.
+	if (m_registers.VCOUNT >= (spriteBottom+doubleSizeOffset))	//nope, we're past it.
 		return;
 
 	uint32_t tileId = curSpriteEntry->charName;
 	bool hiColor = curSpriteEntry->bitDepth;
 	if (hiColor)
 		rowPitch *= 2;
-	int yOffsetIntoSprite = VCOUNT - spriteTop;
+	int yOffsetIntoSprite = m_registers.VCOUNT - spriteTop;
 	int xBase = 0;
 
 	int halfWidth = (spriteRight - spriteLeft) / 2;
@@ -1121,7 +1121,7 @@ uint16_t PPU::blendBrightness(uint16_t col, bool increase)
 	uint8_t green = (col >> 5) & 0x1F;
 	uint8_t blue = (col >> 10) & 0x1F;
 
-	uint8_t bldCoefficient = min(16,BLDY & 0x1F);
+	uint8_t bldCoefficient = min(16, m_registers.BLDY & 0x1F);
 
 	if (increase)
 	{
@@ -1146,7 +1146,7 @@ uint16_t PPU::blendAlpha(uint16_t colA, uint16_t colB)
 	uint8_t redA = (colA & 0x1F);
 	uint8_t greenA = (colA >> 5) & 0x1F;
 	uint8_t blueA = (colA >> 10) & 0x1F;
-	uint8_t bldCoeffA = min(16,BLDALPHA & 0x1F);
+	uint8_t bldCoeffA = min(16, m_registers.BLDALPHA & 0x1F);
 	redA = (redA * bldCoeffA) / 16;
 	greenA = (greenA * bldCoeffA) / 16;
 	blueA = (blueA * bldCoeffA) / 16;
@@ -1154,7 +1154,7 @@ uint16_t PPU::blendAlpha(uint16_t colA, uint16_t colB)
 	uint8_t redB = (colB & 0x1F);
 	uint8_t greenB = (colB >> 5) & 0x1F;
 	uint8_t blueB = (colB >> 10) & 0x1F;
-	uint8_t bldCoeffB = min(16,((BLDALPHA >> 8) & 0x1F));
+	uint8_t bldCoeffB = min(16,((m_registers.BLDALPHA >> 8) & 0x1F));
 	redB = (redB * bldCoeffB) / 16;
 	greenB = (greenB * bldCoeffB) / 16;
 	blueB = (blueB * bldCoeffB) / 16;
@@ -1181,9 +1181,9 @@ uint32_t PPU::col16to32(uint16_t col)
 Window PPU::getWindowAttributes(int x, int y)
 {
 	Window activeWindow = {};
-	bool window0Enabled = ((DISPCNT >> 13) & 0b1);
-	bool window1Enabled = ((DISPCNT >> 14) & 0b1);
-	bool objWindowEnabled = ((DISPCNT >> 15) & 0b1) && ((DISPCNT >> 12) & 0b1);
+	bool window0Enabled = ((m_registers.DISPCNT >> 13) & 0b1);
+	bool window1Enabled = ((m_registers.DISPCNT >> 14) & 0b1);
+	bool objWindowEnabled = ((m_registers.DISPCNT >> 15) & 0b1) && ((m_registers.DISPCNT >> 12) & 0b1);
 	if (!(window0Enabled || window1Enabled || objWindowEnabled))		//drawable if neither window enabled
 	{
 		activeWindow.blendable = true;
@@ -1196,7 +1196,7 @@ Window PPU::getWindowAttributes(int x, int y)
 	//todo: handling garbage window y coords isn't completely correct. should fix !!
 	for (int i = 0; i < 2; i++)
 	{
-		if (((DISPCNT >> (13 + i)) & 0b1) && (x >= m_windows[i].x1 && (x < m_windows[i].x2 || m_windows[i].x1 > m_windows[i].x2)) && (y >= m_windows[i].y1 && (y < m_windows[i].y2 || m_windows[i].y1 > m_windows[i].y2)))
+		if (((m_registers.DISPCNT >> (13 + i)) & 0b1) && (x >= m_windows[i].x1 && (x < m_windows[i].x2 || m_windows[i].x1 > m_windows[i].x2)) && (y >= m_windows[i].y1 && (y < m_windows[i].y2 || m_windows[i].y1 > m_windows[i].y2)))
 			return m_windows[i];
 	}
 	if (objWindowEnabled && m_spriteAttrBuffer[x].objWindow)
@@ -1227,20 +1227,20 @@ void PPU::latchBackgroundEnableBits()
 
 void PPU::setVBlankFlag(bool value)
 {
-	DISPSTAT &= ~0b1;
-	DISPSTAT |= value;
+	m_registers.DISPSTAT &= ~0b1;
+	m_registers.DISPSTAT |= value;
 }
 
 void PPU::setHBlankFlag(bool value)
 {
-	DISPSTAT &= ~0b10;
-	DISPSTAT |= (value << 1);
+	m_registers.DISPSTAT &= ~0b10;
+	m_registers.DISPSTAT |= (value << 1);
 }
 
 void PPU::setVCounterFlag(bool value)
 {
-	DISPSTAT &= ~0b100;
-	DISPSTAT |= (value << 2);
+	m_registers.DISPSTAT &= ~0b100;
+	m_registers.DISPSTAT |= (value << 2);
 }
 
 uint8_t PPU::readIO(uint32_t address)
@@ -1248,49 +1248,49 @@ uint8_t PPU::readIO(uint32_t address)
 	switch (address)
 	{
 	case 0x04000000:
-		return DISPCNT & 0xFF;
+		return m_registers.DISPCNT & 0xFF;
 	case 0x04000001:
-		return ((DISPCNT >> 8) & 0xFF);
+		return ((m_registers.DISPCNT >> 8) & 0xFF);
 	case 0x04000004:
-		return DISPSTAT & 0xFF;
+		return m_registers.DISPSTAT & 0xFF;
 	case 0x04000005:
-		return ((DISPSTAT >> 8) & 0xFF);
+		return ((m_registers.DISPSTAT >> 8) & 0xFF);
 	case 0x04000006:
-		return VCOUNT & 0xFF;
+		return m_registers.VCOUNT & 0xFF;
 	case 0x04000007:
-		return ((VCOUNT >> 8) & 0xFF);
+		return ((m_registers.VCOUNT >> 8) & 0xFF);
 	case 0x04000008:
-		return BG0CNT & 0xFF;
+		return m_registers.BG0CNT & 0xFF;
 	case 0x04000009:
-		return ((BG0CNT >> 8) & 0xDF);
+		return ((m_registers.BG0CNT >> 8) & 0xDF);
 	case 0x0400000A:
-		return BG1CNT & 0xFF;
+		return m_registers.BG1CNT & 0xFF;
 	case 0x0400000B:
-		return ((BG1CNT >> 8) & 0xDF);
+		return ((m_registers.BG1CNT >> 8) & 0xDF);
 	case 0x0400000C:
-		return BG2CNT & 0xFF;
+		return m_registers.BG2CNT & 0xFF;
 	case 0x0400000D:
-		return ((BG2CNT >> 8) & 0xFF);
+		return ((m_registers.BG2CNT >> 8) & 0xFF);
 	case 0x0400000E:
-		return BG3CNT & 0xFF;
+		return m_registers.BG3CNT & 0xFF;
 	case 0x0400000F:
-		return ((BG3CNT >> 8) & 0xFF);
+		return ((m_registers.BG3CNT >> 8) & 0xFF);
 	case 0x04000048:
-		return WININ & 0x3F;
+		return m_registers.WININ & 0x3F;
 	case 0x04000049:
-		return ((WININ >> 8) & 0x3F);
+		return ((m_registers.WININ >> 8) & 0x3F);
 	case 0x0400004A:
-		return WINOUT & 0x3F;
+		return m_registers.WINOUT & 0x3F;
 	case 0x0400004B:
-		return ((WINOUT >> 8) & 0x3F);
+		return ((m_registers.WINOUT >> 8) & 0x3F);
 	case 0x04000050:
-		return BLDCNT & 0xFF;
+		return m_registers.BLDCNT & 0xFF;
 	case 0x04000051:
-		return ((BLDCNT >> 8) & 0x3F);
+		return ((m_registers.BLDCNT >> 8) & 0x3F);
 	case 0x04000052:
-		return BLDALPHA & 0x1F;
+		return m_registers.BLDALPHA & 0x1F;
 	case 0x04000053:
-		return ((BLDALPHA >> 8) & 0x1F);
+		return ((m_registers.BLDALPHA >> 8) & 0x1F);
 	}
 
 	Logger::getInstance()->msg(LoggerSeverity::Error, std::format("Unknown PPU IO register read {:#x}", address));
@@ -1302,14 +1302,14 @@ void PPU::writeIO(uint32_t address, uint8_t value)
 	switch (address)
 	{
 	case 0x04000000:
-		DISPCNT &= 0xFF00; DISPCNT |= value;
+		m_registers.DISPCNT &= 0xFF00; m_registers.DISPCNT |= value;
 		break;
 	case 0x04000001:
-		DISPCNT &= 0x00FF; DISPCNT |= (value << 8);
+		m_registers.DISPCNT &= 0x00FF; m_registers.DISPCNT |= (value << 8);
 
 		for (int i = 8; i < 12; i++)
 		{
-			if (((DISPCNT >> i) & 0b1))
+			if (((m_registers.DISPCNT >> i) & 0b1))
 			{
 				m_backgroundLayers[i - 8].pendingEnable = true;
 				if (inVBlank)
@@ -1326,84 +1326,84 @@ void PPU::writeIO(uint32_t address, uint8_t value)
 		}
 		break;
 	case 0x04000004:
-		DISPSTAT &= 0b1111111100000111; value &= 0b11111000;
-		DISPSTAT |= value;
+		m_registers.DISPSTAT &= 0b1111111100000111; value &= 0b11111000;
+		m_registers.DISPSTAT |= value;
 		break;
 	case 0x04000005:
-		DISPSTAT &= 0x00FF; DISPSTAT |= (value << 8);
+		m_registers.DISPSTAT &= 0x00FF; m_registers.DISPSTAT |= (value << 8);
 		checkVCOUNTInterrupt();
 		break;
 	case 0x04000008:
-		BG0CNT &= 0xFF00; BG0CNT |= value;
+		m_registers.BG0CNT &= 0xFF00; m_registers.BG0CNT |= value;
 		break;
 	case 0x04000009:
-		BG0CNT &= 0xFF; BG0CNT |= (value << 8);
+		m_registers.BG0CNT &= 0xFF; m_registers.BG0CNT |= (value << 8);
 		break;
 	case 0x0400000A:
-		BG1CNT &= 0xFF00; BG1CNT |= value;
+		m_registers.BG1CNT &= 0xFF00; m_registers.BG1CNT |= value;
 		break;
 	case 0x0400000B:
-		BG1CNT &= 0xFF; BG1CNT |= (value << 8);
+		m_registers.BG1CNT &= 0xFF; m_registers.BG1CNT |= (value << 8);
 		break;
 	case 0x0400000C:
-		BG2CNT &= 0xFF00; BG2CNT |= value;
+		m_registers.BG2CNT &= 0xFF00; m_registers.BG2CNT |= value;
 		break;
 	case 0x0400000D:
-		BG2CNT &= 0xFF; BG2CNT |= (value << 8);
+		m_registers.BG2CNT &= 0xFF; m_registers.BG2CNT |= (value << 8);
 		break;
 	case 0x0400000E:
-		BG3CNT &= 0xFF00; BG3CNT |= value;
+		m_registers.BG3CNT &= 0xFF00; m_registers.BG3CNT |= value;
 		break;
 	case 0x0400000F:
-		BG3CNT &= 0xFF; BG3CNT |= (value << 8);
+		m_registers.BG3CNT &= 0xFF; m_registers.BG3CNT |= (value << 8);
 		break;
 	case 0x04000010:
-		BG0HOFS &= 0xFF00; BG0HOFS |= value;
+		m_registers.BG0HOFS &= 0xFF00; m_registers.BG0HOFS |= value;
 		break;
 	case 0x04000011:
-		BG0HOFS &= 0xFF; BG0HOFS |= (((value&0b1) << 8));
+		m_registers.BG0HOFS &= 0xFF; m_registers.BG0HOFS |= (((value&0b1) << 8));
 		break;
 	case 0x04000012:
-		BG0VOFS &= 0xFF00; BG0VOFS |= value;
+		m_registers.BG0VOFS &= 0xFF00; m_registers.BG0VOFS |= value;
 		break;
 	case 0x04000013:
-		BG0VOFS &= 0xFF; BG0VOFS |= (((value&0b1) << 8));
+		m_registers.BG0VOFS &= 0xFF; m_registers.BG0VOFS |= (((value&0b1) << 8));
 		break;
 	case 0x04000014:
-		BG1HOFS &= 0xFF00; BG1HOFS |= value;
+		m_registers.BG1HOFS &= 0xFF00; m_registers.BG1HOFS |= value;
 		break;
 	case 0x04000015:
-		BG1HOFS &= 0xFF; BG1HOFS |= (((value&0b1) << 8));
+		m_registers.BG1HOFS &= 0xFF; m_registers.BG1HOFS |= (((value&0b1) << 8));
 		break;
 	case 0x04000016:
-		BG1VOFS &= 0xFF00; BG1VOFS |= value;
+		m_registers.BG1VOFS &= 0xFF00; m_registers.BG1VOFS |= value;
 		break;
 	case 0x04000017:
-		BG1VOFS &= 0xFF; BG1VOFS |= (((value&0b1) << 8));
+		m_registers.BG1VOFS &= 0xFF; m_registers.BG1VOFS |= (((value&0b1) << 8));
 		break;
 	case 0x04000018:
-		BG2HOFS &= 0xFF00; BG2HOFS |= value;
+		m_registers.BG2HOFS &= 0xFF00; m_registers.BG2HOFS |= value;
 		break;
 	case 0x04000019:
-		BG2HOFS &= 0xFF; BG2HOFS |= (((value&0b1) << 8));
+		m_registers.BG2HOFS &= 0xFF; m_registers.BG2HOFS |= (((value&0b1) << 8));
 		break;
 	case 0x0400001A:
-		BG2VOFS &= 0xFF00; BG2VOFS |= value;
+		m_registers.BG2VOFS &= 0xFF00; m_registers.BG2VOFS |= value;
 		break;
 	case 0x0400001B:
-		BG2VOFS &= 0xFF; BG2VOFS |= (((value&0b1) << 8));
+		m_registers.BG2VOFS &= 0xFF; m_registers.BG2VOFS |= (((value&0b1) << 8));
 		break;
 	case 0x0400001C:
-		BG3HOFS &= 0xFF00; BG3HOFS |= value;
+		m_registers.BG3HOFS &= 0xFF00; m_registers.BG3HOFS |= value;
 		break;
 	case 0x0400001D:
-		BG3HOFS &= 0xFF; BG3HOFS |= (((value&0b1) << 8));
+		m_registers.BG3HOFS &= 0xFF; m_registers.BG3HOFS |= (((value&0b1) << 8));
 		break;
 	case 0x0400001E:
-		BG3VOFS &= 0xFF00; BG3VOFS |= value;
+		m_registers.BG3VOFS &= 0xFF00; m_registers.BG3VOFS |= value;
 		break;
 	case 0x0400001F:
-		BG3VOFS &= 0xFF; BG3VOFS |= (((value&0b1) << 8));
+		m_registers.BG3VOFS &= 0xFF; m_registers.BG3VOFS |= (((value&0b1) << 8));
 		break;
 	case 0x04000040:
 		m_windows[0].x2 = min(240,value);
@@ -1430,185 +1430,185 @@ void PPU::writeIO(uint32_t address, uint8_t value)
 		m_windows[1].y1 = value;
 		break;
 	case 0x04000048:												//WININ/WINOUT code could be rewritten to avoid this duplication stuff..
-		WININ &= 0xFF00; WININ |= value;
+		m_registers.WININ &= 0xFF00; m_registers.WININ |= value;
 		for (int i = 0; i < 4; i++)
-			m_windows[0].layerDrawable[i] = (WININ >> i) & 0b1;
-		m_windows[0].objDrawable = (WININ >> 4) & 0b1;
-		m_windows[0].blendable = (WININ >> 5) & 0b1;
+			m_windows[0].layerDrawable[i] = (m_registers.WININ >> i) & 0b1;
+		m_windows[0].objDrawable = (m_registers.WININ >> 4) & 0b1;
+		m_windows[0].blendable = (m_registers.WININ >> 5) & 0b1;
 		break;
 	case 0x04000049:
-		WININ &= 0xFF; WININ |= (value << 8);
+		m_registers.WININ &= 0xFF; m_registers.WININ |= (value << 8);
 		for (int i = 0; i < 4; i++)
-			m_windows[1].layerDrawable[i] = (WININ >> (8 + i)) & 0b1;
-		m_windows[1].objDrawable = (WININ >> 12) & 0b1;
-		m_windows[1].blendable = (WININ >> 13) & 0b1;
+			m_windows[1].layerDrawable[i] = (m_registers.WININ >> (8 + i)) & 0b1;
+		m_windows[1].objDrawable = (m_registers.WININ >> 12) & 0b1;
+		m_windows[1].blendable = (m_registers.WININ >> 13) & 0b1;
 		break;
 	case 0x0400004A:
-		WINOUT &= 0xFF00; WINOUT |= value;
+		m_registers.WINOUT &= 0xFF00; m_registers.WINOUT |= value;
 		for (int i = 0; i < 4; i++)
-			m_windows[3].layerDrawable[i] = (WINOUT >> i) & 0b1;
-		m_windows[3].objDrawable = (WINOUT >> 4) & 0b1;
-		m_windows[3].blendable = (WINOUT >> 5) & 0b1;
+			m_windows[3].layerDrawable[i] = (m_registers.WINOUT >> i) & 0b1;
+		m_windows[3].objDrawable = (m_registers.WINOUT >> 4) & 0b1;
+		m_windows[3].blendable = (m_registers.WINOUT >> 5) & 0b1;
 		break;
 	case 0x0400004B:
-		WINOUT &= 0xFF; WINOUT |= (value << 8);
+		m_registers.WINOUT &= 0xFF; m_registers.WINOUT |= (value << 8);
 		for (int i = 0; i < 4; i++)
-			m_windows[2].layerDrawable[i] = (WINOUT >> (8 + i)) & 0b1;
-		m_windows[2].objDrawable = (WINOUT >> 12) & 0b1;
-		m_windows[2].blendable = (WINOUT >> 13) & 0b1;
+			m_windows[2].layerDrawable[i] = (m_registers.WINOUT >> (8 + i)) & 0b1;
+		m_windows[2].objDrawable = (m_registers.WINOUT >> 12) & 0b1;
+		m_windows[2].blendable = (m_registers.WINOUT >> 13) & 0b1;
 		break;
 	case 0x04000020:
-		BG2PA &= 0xFF00; BG2PA |= value;
+		m_registers.BG2PA &= 0xFF00; m_registers.BG2PA |= value;
 		break;
 	case 0x04000021:
-		BG2PA &= 0xFF; BG2PA |= (value << 8);
+		m_registers.BG2PA &= 0xFF; m_registers.BG2PA |= (value << 8);
 		break;
 	case 0x04000022:
-		BG2PB &= 0xFF00; BG2PB |= value;
+		m_registers.BG2PB &= 0xFF00; m_registers.BG2PB |= value;
 		break;
 	case 0x04000023:
-		BG2PB &= 0xFF; BG2PB |= (value << 8);
+		m_registers.BG2PB &= 0xFF; m_registers.BG2PB |= (value << 8);
 		break;
 	case 0x04000024:
-		BG2PC &= 0xFF00; BG2PC |= value;
+		m_registers.BG2PC &= 0xFF00; m_registers.BG2PC |= value;
 		break;
 	case 0x04000025:
-		BG2PC &= 0xFF; BG2PC |= (value << 8);
+		m_registers.BG2PC &= 0xFF; m_registers.BG2PC |= (value << 8);
 		break;
 	case 0x04000026:
-		BG2PD &= 0xFF00; BG2PD |= value;
+		m_registers.BG2PD &= 0xFF00; m_registers.BG2PD |= value;
 		break;
 	case 0x04000027:
-		BG2PD &= 0xFF; BG2PD |= (value << 8);
+		m_registers.BG2PD &= 0xFF; m_registers.BG2PD |= (value << 8);
 		break;
 	case 0x04000028:
-		BG2X &= 0xFFFFFF00; BG2X |= value;
+		m_registers.BG2X &= 0xFFFFFF00; m_registers.BG2X |= value;
 		BG2X_dirty = true;
 		break;
 	case 0x04000029:
-		BG2X &= 0xFFFF00FF; BG2X |= (value << 8);
+		m_registers.BG2X &= 0xFFFF00FF; m_registers.BG2X |= (value << 8);
 		BG2X_dirty = true;
 		break;
 	case 0x0400002A:
-		BG2X &= 0xFF00FFFF; BG2X |= (value << 16);
+		m_registers.BG2X &= 0xFF00FFFF; m_registers.BG2X |= (value << 16);
 		BG2X_dirty = true;
 		break;
 	case 0x0400002B:
-		BG2X &= 0x00FFFFFF; BG2X |= (value << 24);
+		m_registers.BG2X &= 0x00FFFFFF; m_registers.BG2X |= (value << 24);
 		BG2X_dirty = true;
 		if (inVBlank)
 		{
 			BG2X_dirty = false;
-			BG2X_latch = BG2X;
+			m_registers.BG2X_latch = m_registers.BG2X;
 		}
 		break;
 	case 0x0400002C:
-		BG2Y &= 0xFFFFFF00; BG2Y |= value;
+		m_registers.BG2Y &= 0xFFFFFF00; m_registers.BG2Y |= value;
 		BG2Y_dirty = true;
 		break;
 	case 0x0400002D:
-		BG2Y &= 0xFFFF00FF; BG2Y |= (value << 8);
+		m_registers.BG2Y &= 0xFFFF00FF; m_registers.BG2Y |= (value << 8);
 		BG2Y_dirty = true;
 		break;
 	case 0x0400002E:
-		BG2Y &= 0xFF00FFFF; BG2Y |= (value << 16);
+		m_registers.BG2Y &= 0xFF00FFFF; m_registers.BG2Y |= (value << 16);
 		BG2Y_dirty = true;
 		break;
 	case 0x0400002F:
-		BG2Y &= 0x00FFFFFF; BG2Y |= (value << 24);
+		m_registers.BG2Y &= 0x00FFFFFF; m_registers.BG2Y |= (value << 24);
 		BG2Y_dirty = true;
 		if (inVBlank)
 		{
 			BG2Y_dirty = false;
-			BG2Y_latch = BG2Y;
+			m_registers.BG2Y_latch = m_registers.BG2Y;
 		}
 		break;
 	case 0x04000030:
-		BG3PA &= 0xFF00; BG3PA |= value;
+		m_registers.BG3PA &= 0xFF00; m_registers.BG3PA |= value;
 		break;
 	case 0x04000031:
-		BG3PA &= 0xFF; BG3PA |= (value << 8);
+		m_registers.BG3PA &= 0xFF; m_registers.BG3PA |= (value << 8);
 		break;
 	case 0x04000032:
-		BG3PB &= 0xFF00; BG3PB |= value;
+		m_registers.BG3PB &= 0xFF00; m_registers.BG3PB |= value;
 		break;
 	case 0x04000033:
-		BG3PB &= 0xFF; BG3PB |= (value << 8);
+		m_registers.BG3PB &= 0xFF; m_registers.BG3PB |= (value << 8);
 		break;
 	case 0x04000034:
-		BG3PC &= 0xFF00; BG3PC |= value;
+		m_registers.BG3PC &= 0xFF00; m_registers.BG3PC |= value;
 		break;
 	case 0x04000035:
-		BG3PC &= 0xFF; BG3PC |= (value << 8);
+		m_registers.BG3PC &= 0xFF; m_registers.BG3PC |= (value << 8);
 		break;
 	case 0x04000036:
-		BG3PD &= 0xFF00; BG3PD |= value;
+		m_registers.BG3PD &= 0xFF00; m_registers.BG3PD |= value;
 		break;
 	case 0x04000037:
-		BG3PD &= 0xFF; BG3PD |= (value << 8);
+		m_registers.BG3PD &= 0xFF; m_registers.BG3PD |= (value << 8);
 		break;
 	case 0x04000038:
-		BG3X &= 0xFFFFFF00; BG3X |= value;
+		m_registers.BG3X &= 0xFFFFFF00; m_registers.BG3X |= value;
 		BG3X_dirty = true;
 		break;
 	case 0x04000039:
-		BG3X &= 0xFFFF00FF; BG3X |= (value << 8);
+		m_registers.BG3X &= 0xFFFF00FF; m_registers.BG3X |= (value << 8);
 		BG3X_dirty = true;
 		break;
 	case 0x0400003A:
-		BG3X &= 0xFF00FFFF; BG3X |= (value << 16);
+		m_registers.BG3X &= 0xFF00FFFF; m_registers.BG3X |= (value << 16);
 		BG3X_dirty = true;
 		break;
 	case 0x0400003B:
-		BG3X &= 0x00FFFFFF; BG3X |= (value << 24);
+		m_registers.BG3X &= 0x00FFFFFF; m_registers.BG3X |= (value << 24);
 		BG3X_dirty = true;
 		if (inVBlank)
 		{
 			BG3X_dirty = false;
-			BG3X_latch = BG3X;
+			m_registers.BG3X_latch = m_registers.BG3X;
 		}
 		break;
 	case 0x0400003C:
-		BG3Y &= 0xFFFFFF00; BG3Y |= value;
+		m_registers.BG3Y &= 0xFFFFFF00; m_registers.BG3Y |= value;
 		BG3Y_dirty = true;
 		break;
 	case 0x0400003D:
-		BG3Y &= 0xFFFF00FF; BG3Y |= (value << 8);
+		m_registers.BG3Y &= 0xFFFF00FF; m_registers.BG3Y |= (value << 8);
 		BG3Y_dirty = true;
 		break;
 	case 0x0400003E:
-		BG3Y &= 0xFF00FFFF; BG3Y |= (value << 16);
+		m_registers.BG3Y &= 0xFF00FFFF; m_registers.BG3Y |= (value << 16);
 		BG3Y_dirty = true;
 		break;
 	case 0x0400003F:
-		BG3Y &= 0x00FFFFFF; BG3Y |= (value << 24);
+		m_registers.BG3Y &= 0x00FFFFFF; m_registers.BG3Y |= (value << 24);
 		BG3Y_dirty = true;
 		if (inVBlank)
 		{
 			BG3Y_dirty = false;
-			BG3Y_latch = BG3Y;
+			m_registers.BG3Y_latch = m_registers.BG3Y;
 		}
 		break;
 	case 0x04000050:
-		BLDCNT &= 0xFF00; BLDCNT |= value;
+		m_registers.BLDCNT &= 0xFF00; m_registers.BLDCNT |= value;
 		break;
 	case 0x04000051:
-		BLDCNT &= 0xFF; BLDCNT |= (value << 8);
+		m_registers.BLDCNT &= 0xFF; m_registers.BLDCNT |= (value << 8);
 		break;
 	case 0x04000052:
-		BLDALPHA &= 0xFF00; BLDALPHA |= value;
+		m_registers.BLDALPHA &= 0xFF00; m_registers.BLDALPHA |= value;
 		break;
 	case 0x04000053:
-		BLDALPHA &= 0xFF; BLDALPHA |= (value << 8);
+		m_registers.BLDALPHA &= 0xFF; m_registers.BLDALPHA |= (value << 8);
 		break;
 	case 0x04000054:
-		BLDY = value;
+		m_registers.BLDY = value;
 		break;
 	case 0x0400004C:
-		MOSAIC &= 0xFF00; MOSAIC |= value;
+		m_registers.MOSAIC &= 0xFF00; m_registers.MOSAIC |= value;
 		break;
 	case 0x0400004D:
-		MOSAIC &= 0xFF; MOSAIC |= (value << 8);
+		m_registers.MOSAIC &= 0xFF; m_registers.MOSAIC |= (value << 8);
 		break;
 	default:
 		break;
@@ -1638,7 +1638,7 @@ void PPU::onHBlankIRQEvent(void* context)
 
 int PPU::getVCOUNT()
 {
-	return VCOUNT;
+	return m_registers.VCOUNT;
 }
 
 uint32_t PPU::m_safeDisplayBuffer[240 * 160] = {};
