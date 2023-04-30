@@ -96,6 +96,7 @@ public:
 	static void onHBlankIRQEvent(void* context);
 
 	int getVCOUNT();
+	bool getBitmapMode() { return ((DISPCNT & 0b111)) >= 3; }
 	static uint32_t m_safeDisplayBuffer[240 * 160];
 private:
 	bool registered = false;
