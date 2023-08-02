@@ -748,16 +748,8 @@ void ARM7TDMI::ARM_BlockDataTransfer()
 		swapBankedRegisters();
 	}
 
-	int transferCount = 0, baseIsFirst = false;
-	for (int i = 0; i < 16; i++)
-	{
-		if ((r_list >> i) & 0b1)
-		{
-			transferCount++;
-			if (transferCount==1 && i==baseReg)
-				baseIsFirst = true;
-		}
-	}
+	int transferCount = __popcnt16(r_list);
+	bool baseIsFirst = ((r_list >> baseReg) & 0b1) && !((r_list << (16 - baseReg)) & 0xFFFF);
 
 	uint32_t finalBase = base_addr;
 	if (!upDown)
