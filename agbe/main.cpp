@@ -32,14 +32,7 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _
 		}
 	}
 
-	char name[512];
-	GetModuleFileNameA(NULL, name, 512);
-	std::string pathStringified = name;
-	int cutIdx = pathStringified.find_last_of('\\');
-	pathStringified.resize(cutIdx);									//remove exename part and last backslash
-
 	Logger::getInstance()->msg(LoggerSeverity::Info, "Hello world!");
-	Config::GBA.exePath = pathStringified;
 	//have display in main thread here. then, spawn GBA instance on a separate thread running asynchronously.
 	//ppu can be polled whenever necessary pretty simply, by having some vfunc to return a framebuffer - uploaded to display
 	Display m_display(4);
