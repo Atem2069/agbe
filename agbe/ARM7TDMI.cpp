@@ -162,11 +162,13 @@ void ARM7TDMI::refillPipeline()
 	switch (m_inThumbMode)
 	{
 	case 0:		//refill ARM
+		R[15] &= ~0b11;
 		m_pipeline[0].opcode = m_bus->fetch32(R[15], AccessType::Nonsequential);
 		m_pipeline[1].opcode = m_bus->fetch32(R[15] + 4, AccessType::Sequential);
 		R[15] += 8;
 		break;
 	case 1:		//refill thumb
+		R[15] &= ~0b1;
 		m_pipeline[0].opcode = m_bus->fetch16(R[15], AccessType::Nonsequential);
 		m_pipeline[1].opcode = m_bus->fetch16(R[15] + 2, AccessType::Sequential);
 		R[15] += 4;
