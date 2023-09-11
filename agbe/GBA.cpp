@@ -90,7 +90,7 @@ void GBA::m_initialise()
 	Logger::getInstance()->msg(LoggerSeverity::Info, "ROM Path: " + romName);
 
 	std::vector<uint8_t> romData = readFile(romName.c_str());
-	std::string biosPath = "rom\\gba_bios.bin";						//should let this be user-changeable.
+	std::string biosPath = Config::GBA.exePath + (std::string)"\\rom\\gba_bios.bin";
 
 	std::vector<uint8_t> biosData = readFile(biosPath.c_str());
 
