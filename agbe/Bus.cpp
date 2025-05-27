@@ -181,7 +181,7 @@ void Bus::write8(uint32_t address, uint8_t value, AccessType accessType)
 		break;
 	case 6:
 		tickPrefetcher(1);
-		address = address & 0x1FFFF;
+		address = address & 0x1FFFE;
 		if (address >= 0x18000)
 			address -= 32768;
 		if ((m_ppu->getBitmapMode() && address>0x13FFF) || (!m_ppu->getBitmapMode() && address>0xFFFF))
